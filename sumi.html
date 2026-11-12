@@ -1,0 +1,3909 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>ECP一撃逃墨太郎</title>
+    <style>
+      :root {
+        --bg: #f4f5f7;
+        --panel: #ffffff;
+        --ink: #1c2330;
+        --sub: #5b6676;
+        --line: #c9d0da;
+        --accent: #0b6bcb;
+        --accent2: #d9480f;
+        --ok: #157347;
+        --grid: #99a3b0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #10151c;
+          --panel: #1a222d;
+          --ink: #e7ecf3;
+          --sub: #9aa6b4;
+          --line: #33404f;
+          --accent: #4aa3ff;
+          --accent2: #ff8a52;
+          --ok: #3ad17e;
+          --grid: #3a4656;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        overflow: hidden;
+      }
+      header {
+        padding: 10px 14px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      header h1 { font-size: 16px; margin: 0; font-weight: 700; }
+      header .hint { color: var(--sub); font-size: 12px; margin-left: auto; }
+      main { flex: 1; position: relative; overflow: hidden; }
+      svg { position: relative; width: 100%; height: 100%; display: block; touch-action: none; background: transparent; }
+      #cvBase { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; background: var(--bg); transform-origin: 0 0; pointer-events: none; }
+      .seg { stroke: var(--grid); stroke-width: 1.4; fill: none; vector-effect: non-scaling-stroke; }
+      .seg.pick { stroke: var(--accent); stroke-width: 3; }
+      .offset { stroke: var(--accent2); stroke-width: 2.4; fill: none; vector-effect: non-scaling-stroke; }
+      .pt { fill: var(--accent2); }
+      .pt.vx { fill: var(--ok); }
+      .sheet {
+        background: var(--panel);
+        border-top: 1px solid var(--line);
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px 12px;
+      }
+      .sheet .full { grid-column: 1 / -1; }
+      label { font-size: 12px; color: var(--sub); display: block; }
+      input, select, button {
+        font: inherit;
+        color: var(--ink);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+      .row { display: flex; gap: 8px; align-items: end; }
+      .row > div { flex: 1; }
+      button { background: var(--accent); color: #fff; border: none; font-weight: 600; }
+      button.ghost { background: var(--bg); color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+      button:disabled { opacity: 0.5; }
+      .status { grid-column: 1 / -1; font-size: 13px; color: var(--sub); min-height: 1.4em; }
+      .status.warn { color: var(--accent2); }
+      .note { grid-column: 1 / -1; font-size: 12px; color: var(--sub); line-height: 1.5; }
+      .note strong { color: var(--accent2); }
+      .seg-toggle { display: flex; gap: 0; }
+      .seg-toggle button { border-radius: 0; }
+      .seg-toggle button:first-child { border-radius: 8px 0 0 8px; }
+      .seg-toggle button:last-child { border-radius: 0 8px 8px 0; }
+      .seg-toggle button[aria-pressed="false"] { background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+      .filebtn { position: relative; overflow: hidden; }
+      .filebtn input[type=file] { position: absolute; inset: 0; opacity: 0; }
+      header .help-btn { margin-left: auto; width: auto; padding: 8px 14px; font-size: 15px; }
+      /* ===== あほでもわかる版: 大きく・手順式 ===== */
+      body { font-size: 17px; }
+      header { padding: 12px 16px; }
+      header h1 { font-size: 20px; }
+      .hintbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .hintbtns button { width: auto; padding: 6px 10px; font-size: 13px; }
+      .zoombar {
+        position: absolute; top: 10px; right: 10px;
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .tglbar { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; }
+      .tglbar button {
+        width: auto; height: 36px; padding: 0 12px; border-radius: 18px; font-size: 13px; font-weight: 700;
+        background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      }
+      .tglbar button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .zoombar button {
+        width: 42px; height: 42px; padding: 0; border-radius: 12px;
+        background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+        font-size: 20px; font-weight: 800; box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      }
+      .zoombar button#zFit, .zoombar button#zPick { font-size: 13px; }
+      .lbl { font: 600 12px system-ui, sans-serif; fill: var(--ink); stroke: var(--panel); stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+      .lbl.len { fill: var(--accent); }
+      .vxmark { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; }
+      table.info { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-bottom: 8px; }
+      table.info th, table.info td { border-bottom: 1px solid var(--line); padding: 4px; text-align: right; }
+      table.info th:first-child, table.info td:first-child { text-align: left; }
+      .legend {
+        position: absolute; left: 10px; bottom: 10px;
+        display: flex; gap: 14px; flex-wrap: wrap;
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 10px; padding: 7px 11px; font-size: 13px; color: var(--sub);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      }
+      .legend i { display: inline-block; width: 18px; height: 5px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+      .legend i.blue { background: var(--accent); }
+      .legend i.orange { background: var(--accent2); }
+      .legend i.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ok); }
+      main { flex: 1 1 auto; min-height: 34vh; }
+      .sheet { display: block; flex: 0 0 auto; max-height: 58vh; overflow-y: auto; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
+      .status {
+        font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.45;
+        background: var(--panel); border: 1px solid var(--line); border-left: 6px solid var(--accent);
+        border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; min-height: auto;
+      }
+      .status.warn { color: var(--accent2); border-left-color: var(--accent2); }
+      .step { border: 1px solid var(--line); border-radius: 12px; padding: 13px; margin-bottom: 12px; background: var(--panel); }
+      .step-head { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; margin-bottom: 11px; }
+      .step-head .num {
+        flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+        background: var(--accent); color: #fff; font-size: 17px; font-weight: 800;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .step-note { font-size: 13.5px; color: var(--sub); margin: 9px 0 0; line-height: 1.55; }
+      .step-note b { color: var(--ink); }
+      .big-label { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin: 12px 0 6px; }
+      .step .big-label:first-of-type { margin-top: 0; }
+      .adv-body .big-label:first-of-type { margin-top: 0; }
+      input, select { font-size: 18px; padding: 12px; border-radius: 10px; }
+      .field2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      button.big { width: 100%; min-height: 58px; font-size: 18px; font-weight: 800; border-radius: 12px; }
+      button.big.primary { background: var(--ok); }
+      button.big.primary:disabled { background: var(--accent); opacity: 0.4; }
+      .seg-toggle.big { margin-bottom: 2px; }
+      .seg-toggle.big button { min-height: 58px; font-size: 19px; font-weight: 800; }
+      .seg-toggle.big button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+      .adv { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); margin-bottom: 8px; }
+      .adv > summary { padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; list-style: none; color: var(--ink); }
+      .adv > summary::-webkit-details-marker { display: none; }
+      .adv > summary::before { content: "▸  "; color: var(--accent); }
+      .adv[open] > summary::before { content: "▾  "; }
+      .adv-body { padding: 0 14px 14px; }
+      .hbox { margin-top: 4px; }
+      .step .adv { margin: 0 0 10px; }
+      table.pts { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 10px; }
+      table.pts th, table.pts td { border-bottom: 1px solid var(--line); padding: 4px 4px; text-align: right; }
+      table.pts th:first-child, table.pts td:first-child { text-align: left; }
+      table.pts input { font-size: 15px; padding: 6px 8px; width: 7.5em; text-align: right; }
+      table.pts tr.ov input { border-color: var(--accent2); color: var(--accent2); font-weight: 700; }
+      table.pts tr.miss td { color: var(--accent2); }
+      .startmark { fill: var(--accent); }
+      .hp { fill: var(--sub); opacity: 0.7; }
+      #prof { width: 100%; height: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+      #prof .pl { stroke: var(--accent2); stroke-width: 2; fill: none; }
+      #prof .pd { fill: var(--accent2); }
+      #prof .pd.ov { fill: var(--accent); }
+      #prof .gl { stroke: var(--line); stroke-width: 1; }
+      #prof .gt { font: 11px system-ui, sans-serif; fill: var(--sub); }
+      #prof .nm { font: 600 11px system-ui, sans-serif; fill: var(--ink); }
+      #prof .gr { font: 700 12px system-ui, sans-serif; fill: var(--accent); stroke: var(--panel); stroke-width: 3px; paint-order: stroke; }
+      .dtext text { fill: var(--sub); font-family: system-ui, sans-serif; pointer-events: none; }
+      .pt.miss { fill: none; stroke: var(--accent2); stroke-width: 2; }
+      .help-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: none; z-index: 10; }
+      .help-overlay.open { display: flex; }
+      .help-card {
+        background: var(--panel); color: var(--ink); margin: auto;
+        max-width: 560px; width: calc(100% - 24px); max-height: calc(100dvh - 48px);
+        overflow: auto; border-radius: 12px; border: 1px solid var(--line);
+        padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+      }
+      .help-card h2 { margin: 0 0 8px; font-size: 17px; }
+      .help-card h3 { margin: 16px 0 4px; font-size: 14px; color: var(--accent); }
+      .help-card p { margin: 6px 0; font-size: 13.5px; color: var(--sub); }
+      .help-card ol, .help-card ul { margin: 4px 0; padding-left: 20px; }
+      .help-card li { margin: 3px 0; font-size: 13.5px; }
+      .help-card code { background: var(--bg); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
+      .help-card .warn { color: var(--accent2); }
+      .help-card .close { margin-top: 14px; }
+    </style>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="一発バーン" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0d3f8f" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <style>
+      body { padding-top: env(safe-area-inset-top); }
+      header .menuback { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px;
+        border-radius: 8px; border: 1px solid var(--line, #ccd); color: inherit; text-decoration: none; font-size: 18px; margin-right: 2px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">☰</a>
+      <h1>ECP一撃逃墨太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.1.9 11/12</small></h1>
+      <button class="help-btn ghost" id="helpBtn" type="button">使い方</button>
+    </header>
+    <main>
+      <canvas id="cvBase"></canvas>
+      <svg id="cv" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="zoombar">
+        <button type="button" id="zIn" aria-label="拡大">＋</button>
+        <button type="button" id="zOut" aria-label="縮小">−</button>
+        <button type="button" id="zFit" aria-label="図面の全体を表示">全体</button>
+        <button type="button" id="zPick" aria-label="選んだ線に寄る" disabled>線</button>
+      </div>
+      <div class="tglbar">
+        <button type="button" id="tDims" class="tgl" aria-pressed="false" aria-label="選んだ線の寸法を図に出す">寸法</button>
+        <button type="button" id="tCoords" class="tgl" aria-pressed="false" aria-label="選んだ線の座標を図に出す">座標</button>
+        <button type="button" id="tTexts" class="tgl" aria-pressed="true" aria-label="図面の文字を出す・消す">文字</button>
+      </div>
+      <div class="legend">
+        <span><i class="blue"></i>えらんだ線</span>
+        <span><i class="orange"></i>逃げ線</span>
+        <span><i class="dot"></i>杭(くい)</span>
+      </div>
+    </main>
+    <div class="sheet">
+      <div class="full status" id="status">① 下の「図面をひらく」を押してください。</div>
+
+      <section class="step">
+        <div class="step-head"><span class="num">1</span>図面をひらく</div>
+        <div class="filebtn">
+          <button class="big" type="button">📂　図面(DXF・図脳RAPID)か 点(CSV・SIMA)をひらく</button>
+          <!-- accept で絞らない(Android は .dxf の種類を知らず、絞ると DXF が選べない)。中身は読んでから確かめる -->
+          <input id="file" type="file" />
+        </div>
+        <p class="step-note" id="fileInfo" hidden></p>
+        <p class="step-note" id="zunouNote" hidden></p>
+        <div class="hbox" id="ptOpenBox" hidden>
+          <p class="step-note" id="ptOpenNote"></p>
+          <label class="big-label"><input id="closeAll" type="checkbox" /> 全部の点を結んだ線を閉じる(最後の点 → 最初の点)</label>
+        </div>
+        <div class="field2" id="dUnitRow">
+          <div>
+            <label class="big-label" for="dUnit">図面の単位</label>
+            <select id="dUnit">
+              <option value="mm">mm</option>
+              <option value="cm">cm</option>
+              <option value="m">m</option>
+            </select>
+          </div>
+          <div>
+            <label class="big-label" for="dScale">縮尺</label>
+            <select id="dScale">
+              <option value="1">1:1(実寸)</option>
+              <option value="50">1:50</option>
+              <option value="100">1:100</option>
+              <option value="200">1:200</option>
+              <option value="250">1:250</option>
+              <option value="300">1:300</option>
+              <option value="500">1:500</option>
+              <option value="1000">1:1000</option>
+              <option value="custom">任意…</option>
+            </select>
+          </div>
+        </div>
+        <div id="dCustomWrap" hidden>
+          <label class="big-label" for="dCustom">縮尺の分母(1:□)</label>
+          <input id="dCustom" type="number" min="0" step="any" inputmode="decimal" placeholder="例 150" />
+        </div>
+        <p class="step-note" id="dHint">図面が実寸の mm(1:1)で描かれていなければ、図面の単位と縮尺を合わせてください(実寸 = 図面の値 × 単位 × 縮尺)。線を選ぶと<b>実長</b>が出るので、知っている寸法と比べて確かめられます。</p>
+        <details class="adv" id="calBox">
+          <summary>長さの分かっている線で縮尺を合わせる</summary>
+          <div class="adv-body">
+            <p class="step-note" id="calNote">②で長さの分かっている線を選んでから、どの長さかを選び、本当の長さを入れて押してください。</p>
+            <label class="big-label" for="calEdge">合わせる長さ</label>
+            <select id="calEdge" disabled><option value="">(線を選ぶと出ます)</option></select>
+            <label class="big-label" for="calLen" id="calLenLabel">本当の長さ(m)</label>
+            <input id="calLen" type="number" min="0" step="any" inputmode="decimal" placeholder="例 6.000" />
+            <button class="ghost" id="calBtn" type="button" disabled>この長さで縮尺を合わせる</button>
+          </div>
+        </details>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="num">2</span>打つ線を指でタップ</div>
+        <p class="step-note">上の図で、逃げ墨を打ちたい線を指でさわってください。<b>えらぶと青く太く</b>なります。図が小さいときは<b>二本指でひろげて拡大</b>、一本指で動かせます(右上の ＋ − でも。「全体」で元に戻る、「線」で選んだ線に寄る)。</p>
+        <details class="adv" id="infoBox">
+          <summary id="infoSum">選んだ線の寸法と座標(線を選ぶと出ます)</summary>
+          <div class="adv-body" id="infoBody"></div>
+        </details>
+        <p class="step-note">左上の「寸法」「座標」を押すと、図の上にも辺の長さ・頂点の座標を出します(もう一度押すと消えます)。座標は書き出しと同じ向き・単位です。</p>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="num">3</span>向き・寸法・間かく</div>
+        <div id="byWrap" hidden>
+          <label class="big-label" for="by">円・円弧の逃げの決め方</label>
+          <div class="seg-toggle big" id="by">
+            <button type="button" data-by="line" aria-pressed="true">線から</button>
+            <button type="button" data-by="center" aria-pressed="false">中心から</button>
+          </div>
+          <p class="step-note" id="byNote"></p>
+        </div>
+        <div id="sideWrap">
+        <label class="big-label" for="side">どっち側へ逃がす?</label>
+        <div class="seg-toggle big" id="side">
+          <button type="button" data-side="left" aria-pressed="true">◀　左</button>
+          <button type="button" data-side="right" aria-pressed="false">右　▶</button>
+        </div>
+        </div>
+        <label class="big-label" for="mode">配点のしかた</label>
+        <select id="mode">
+          <option value="corner">折れ点(角)だけ</option>
+          <option value="pitch">ピッチで割る(直線・R区間とも)</option>
+        </select>
+        <div class="field2">
+          <div>
+            <label class="big-label" for="offset">逃げ寸法 (mm)</label>
+            <input id="offset" type="number" value="1000" min="0" step="50" inputmode="numeric" />
+          </div>
+          <div id="radWrap" hidden>
+            <label class="big-label" for="cdist">中心からの離れ (mm)</label>
+            <input id="cdist" type="number" value="" min="0" step="50" inputmode="numeric" placeholder="例 5000" />
+          </div>
+          <div id="pitchWrap" hidden>
+            <label class="big-label" for="pitch">杭の間かく (mm)</label>
+            <input id="pitch" type="number" value="1000" min="0" step="500" inputmode="numeric" />
+          </div>
+        </div>
+        <p class="step-note">「折れ点だけ」は角(かど)と円弧の端だけに打ちます。「ピッチで割る」は直線も <b>R(円弧)</b> も、同じ間かくで割って打ちます。</p>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="num">4</span>高さをきめる</div>
+        <label class="big-label" for="hRule">杭の高さ H の決め方</label>
+        <select id="hRule">
+          <option value="">— えらんでください —</option>
+          <option value="zAbs">図面の高さ(Z)は標高(T.P.)→ そのまま使う</option>
+          <option value="zRel">図面の高さ(Z)は相対(FL±0 など)→ 基準の標高を足す</option>
+          <option value="slope">線の始点・終点の高さ(勾配)で決める</option>
+          <option value="points">点の座標ファイル(CSV・SIMA)の高さから</option>
+          <option value="const">一定の値</option>
+        </select>
+        <div class="hbox" id="hb-zRel" hidden>
+          <label class="big-label" for="zBase">基準の標高(Z=0 の標高)</label>
+          <input id="zBase" type="number" value="" placeholder="例 58.211" step="0.001" inputmode="decimal" />
+        </div>
+        <div class="hbox" id="hb-slope" hidden>
+          <div class="field2">
+            <div>
+              <label class="big-label" for="h0">始点の高さ</label>
+              <input id="h0" type="number" value="0" step="0.001" inputmode="decimal" />
+            </div>
+            <div>
+              <label class="big-label" for="slopeBy">終わりの決め方</label>
+              <select id="slopeBy">
+                <option value="h1">終点の高さ</option>
+                <option value="grade">勾配 %</option>
+              </select>
+            </div>
+          </div>
+          <label class="big-label" for="h1" id="h1Label">終点の高さ</label>
+          <input id="h1" type="number" value="0" step="0.001" inputmode="decimal" />
+          <p class="step-note">始点は線を描いた向きの始め(図で <b>▲</b>)。高さは元の線の上の距離(追加距離)で割り振ります。勾配は上りが +。</p>
+        </div>
+        <div class="hbox" id="hb-points" hidden>
+          <div class="filebtn">
+            <button class="ghost" type="button">📄　点ファイル(CSV・SIMA)をひらく</button>
+            <input id="ptFile" type="file" />
+          </div>
+          <label class="big-label" for="ptAxis">CSV の座標の向き(SIMA は X=北・Y=東で決まり)</label>
+          <select id="ptAxis">
+            <option value="same">書き出しと同じ(くわしい設定の「座標の向き」)</option>
+            <option value="asDrawn">X=横・Y=縦</option>
+            <option value="northEast">X=北・Y=東</option>
+          </select>
+          <p class="step-note" id="ptInfo">点名,X,Y,H の CSV か SIMA(.sim。X=北・Y=東・m)。点どうしを三角形で結んで、杭の位置の高さを補間します。</p>
+          <p class="step-note"><span class="warn">点ファイルは地盤なりの点で使ってください。</span>法肩・法尻をまたぐと法の上下を直線で結んでしまいます。点の外周より外の杭・点が 3 つ未満のときは高さが決まりません(手で入れる)。</p>
+        </div>
+        <div class="hbox" id="hb-const" hidden>
+          <label class="big-label" for="hConst">H の値</label>
+          <input id="hConst" type="number" value="0" step="0.001" inputmode="decimal" />
+        </div>
+        <p class="step-note">高さはすべて「くわしい設定」の<b>単位</b>(m か mm)で入れます。⑤の一覧で杭ごとに手で直せます。</p>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="num">5</span>点を確かめて書き出す</div>
+        <details class="adv" id="profBox">
+          <summary id="profSum">横から見た高さと勾配(縦断)</summary>
+          <div class="adv-body">
+            <svg id="prof" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet"></svg>
+            <p class="step-note" id="profNote">線を選んで高さを決めると、杭を追加距離の順に横から見た図が出ます。区間の数字は勾配(%・上り +)。</p>
+          </div>
+        </details>
+        <details class="adv" id="ptsBox">
+          <summary id="ptsSum">点の一覧と高さ(杭ごとに手で直せる)</summary>
+          <div class="adv-body">
+            <table class="pts" id="ptsTable"></table>
+            <button class="ghost" id="clearOv" type="button">手で直した高さを全部もどす</button>
+          </div>
+        </details>
+        <div class="field2">
+          <button class="big primary" id="export" type="button" disabled>⬇　CSV</button>
+          <button class="big primary" id="exportSima" type="button" disabled>⬇　SIMA</button>
+        </div>
+        <p class="step-note" id="note">書き出したファイルを、杭ナビ(TopLayout)の「入力」でえらびます。同じ点名をもう一度入れると上書きされず<strong>追加</strong>されるので、やり直すときは現場を作り直してください。</p>
+      </section>
+
+      <details class="adv">
+        <summary>くわしい設定(点名・座標の向き・単位)</summary>
+        <div class="adv-body">
+          <label class="big-label" for="prefix">点名の頭文字</label>
+          <input id="prefix" type="text" value="N" maxlength="12" />
+          <div class="field2">
+            <div>
+              <label class="big-label" for="start">開始番号</label>
+              <input id="start" type="number" value="1" min="0" step="1" inputmode="numeric" />
+            </div>
+            <div>
+              <label class="big-label" for="pad">0 詰め桁</label>
+              <input id="pad" type="number" value="3" min="0" max="6" step="1" inputmode="numeric" />
+            </div>
+          </div>
+          <label class="big-label" for="axis">座標の向き(CSV の X,Y)</label>
+          <select id="axis">
+            <option value="asDrawn">図面のまま (X=横, Y=縦)</option>
+            <option value="northEast">公共座標 (X=北, Y=東)</option>
+          </select>
+          <label class="big-label" for="unit">単位(書き出す座標と高さ。図面は mm)</label>
+          <select id="unit">
+            <option value="m">m</option>
+            <option value="mm">mm</option>
+          </select>
+        </div>
+      </details>
+    </div>
+
+    <div class="help-overlay" id="help">
+      <div class="help-card">
+        <h2>ECP一撃逃墨太郎 ― 使い方</h2>
+        <p>図面(DXF)の通り芯・壁芯から逃げ墨の点を作り、杭ナビ(TopLayout)に取り込む CSV を出します。スマホのブラウザだけで動きます(オフライン可)。</p>
+        <h3>この画面でやること</h3>
+        <ol>
+          <li><b>DXF を開く</b> … 通り芯や壁芯の線が入った DXF を選ぶ。<b>図面の単位(mm・cm・m)と縮尺(1:1・1:100 など)</b>を合わせる(実寸 = 図面の値 × 単位 × 縮尺)。ヘッダの単位や寸法から候補が出るので、ボタンで当てはめられる。線を選ぶと出る<b>実長</b>を、知っている寸法と比べて確かめる。分からなければ「<b>長さの分かっている線で縮尺を合わせる</b>」で、線を選んで本当の長さを入れると縮尺が合う。</li>
+          <li><b>線を選ぶ</b> … 逃げの元にする線を画面でタップ(青く太くなる)。図が小さいときは<b>二本指でひろげて拡大</b>・一本指で動かす(パソコンはホイールとドラッグ)。右上の <b>＋ −</b>、<b>全体</b>(元に戻す)、<b>線</b>(選んだ線に寄る)。左上の <b>寸法</b>・<b>座標</b> で、選んだ線の辺の長さと頂点の座標を図に出す・消す(②の一覧にも出る)。</li>
+          <li><b>逃がす側</b> … 「左」「右」で向きを決める(逃げ線がオレンジで出る)。</li>
+          <li><b>逃げ寸法</b> … 線からの距離(mm)。例 <code>1000</code>。</li>
+          <li><b>円・円弧</b> … 「中心から」を押すと、<b>中心からの離れ</b>(mm)で逃げ線を作れます(半径より小さいと内側、大きいと外側)。</li>
+          <li><b>図脳RAPID</b> … ①で <b>.zrd・.zsdx・.zsdxz</b> をそのまま開けます(実寸 mm として読むので、単位 mm・縮尺 1:1 に自動で合わせます)。図面に<b>公共座標(座標の原点)が設定されていれば公共座標で</b>読み、書き出しの座標の向きを「公共座標(X=北, Y=東)」にします。設定が無ければ図面の座標のまま(墨太郎エンジンの対応点で公共座標に直せます)。</li>
+          <li><b>点のファイル</b> … ①で DXF の代わりに <b>CSV・SIMA</b> も開けます。SIMA は画地ごとの線、CSV は点を順に結んだ線になります。</li>
+          <li><b>文字</b> … 右上の「文字」で、図面の文字を出す・消すを切り替えます(回転した文字も水平に出ます)。</li>
+          <li><b>横から見る</b> … ⑤の「横から見た高さと勾配」を開くと、杭の高さを横から見た図と区間ごとの勾配(%)が出ます。</li>
+          <li><b>配点のしかた</b> … 「折れ点だけ」=角と円弧の端だけ。「ピッチで割る」=直線も <b>R(円弧)</b> も同じ間かくで割る(杭の間かくを入力)。</li>
+          <li><b>点名</b> … 頭文字・開始番号・0詰め桁数。例 N・1・3 → <code>N001</code>…(半角16文字まで)。</li>
+          <li><b>軸</b> … 図面のまま(X=横,Y=縦)か、公共座標(X=北,Y=東)。<span class="warn">現場の杭ナビの据え方に合わせる。迷ったら監督に確認。</span></li>
+          <li><b>高さをきめる(④)</b> … 図面の Z が<b>標高</b>か<b>相対</b>(+基準の標高)か、線の<b>始点・終点の高さ(勾配)</b>、<b>点ファイル(CSV・SIMA)</b>の高さ、<b>一定の値</b>から選ぶ。<span class="warn">図面に高さ(Z)がある線は、標高か相対かを選ばないと書き出せません。</span>高さは「単位」(m か mm)で入れる。</li>
+          <li><b>書き出す(⑤)</b> … 一覧で杭ごとの高さを確かめ、必要なら手で直してから <b>CSV</b> か <b>SIMA</b>(X=北・Y=東・m)を書き出す。Download に保存される。</li>
+        </ol>
+        <h3>杭ナビ(TopLayout)に入れる</h3>
+        <ol>
+          <li>TopLayout を開く → 「入力」 → 保存した CSV を選ぶ。</li>
+          <li>点が図面に出れば OK。</li>
+        </ol>
+        <h3>注意</h3>
+        <ul>
+          <li class="warn">同じ点名をもう一度取り込むと上書きされず<b>追加</b>される。入れ直すときは現場を作り直す。</li>
+          <li>点が 500 を超えると描画が重くなる。</li>
+          <li>これは<b>テスト版</b>。おかしな点が出たら、どの図面・どの線・どの設定かを控えて開発へ。</li>
+        </ul>
+        <button class="ghost close" id="helpClose" type="button">閉じる</button>
+      </div>
+    </div>
+
+    <script>
+      // 動かないときに理由を画面に出す（スマホでは開発者画面が見られないため）
+      (() => {
+        const show = (m) => {
+          let b = document.getElementById("errBanner");
+          if (!b) { b = document.createElement("div"); b.id = "errBanner"; b.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;background:#b00020;color:#fff;padding:10px 12px;border-radius:10px;font:13px/1.5 system-ui,sans-serif;white-space:pre-wrap;word-break:break-all"; b.onclick = () => b.remove(); (document.body || document.documentElement).appendChild(b); }
+          b.textContent = "⚠ 墨太郎でエラー（この画面を写真に撮って送ってください。押すと消えます）\n" + m + "\n" + navigator.userAgent;
+        };
+        window.addEventListener("error", (e) => show((e.message || "") + " @" + (e.lineno || "") + ":" + (e.colno || "")));
+        window.addEventListener("unhandledrejection", (e) => show(String(e.reason && (e.reason.message || e.reason))));
+      })();
+    </script>
+    <script>
+      (() => {
+        const help = document.getElementById("help");
+        const open = () => help.classList.add("open");
+        const close = () => help.classList.remove("open");
+        document.getElementById("helpBtn").addEventListener("click", open);
+        document.getElementById("helpClose").addEventListener("click", close);
+        help.addEventListener("click", (e) => { if (e.target === help) close(); });
+      })();
+    </script>
+    <script>"use strict";
+(() => {
+  // packages/io/src/dxfRaw.ts
+  var EXTRUSION_TOL = 1e-6;
+  function dxfExtrusionOf(nx, ny, nz) {
+    if (Math.abs(nx) < EXTRUSION_TOL && Math.abs(ny) < EXTRUSION_TOL) {
+      if (Math.abs(nz - 1) < EXTRUSION_TOL) return "plan";
+      if (Math.abs(nz + 1) < EXTRUSION_TOL) return "flipped";
+    }
+    return "tilted";
+  }
+  var norm360 = (a) => (a % 360 + 360) % 360;
+  function dxfFlipArc(a0, a1) {
+    const s = norm360(180 - a1);
+    return [s, Math.abs(a1 - a0 - 360) < 1e-9 ? s + 360 : norm360(180 - a0)];
+  }
+  function dxfTiltedNote(items) {
+    const n = items.filter((e) => e.tilted).length;
+    if (n === 0) return void 0;
+    return `押出方向が (0,0,±1) でない図形が ${n} 個あります(傾いた面)。平面の座標に直せないので、書かれた座標のまま読みました。位置を図面で確かめてください`;
+  }
+  function stripMText(raw) {
+    return raw.replace(/\\P/g, " ").replace(/\\[A-Za-z][^;\\]*;/g, "").replace(/[{}]/g, "").replace(/\\\\/g, "\\").replace(/\s+/g, " ").trim();
+  }
+
+  // packages/io/src/dxf.ts
+  var DxfError = class extends Error {
+  };
+  var neg = (v) => 0 - v;
+  function decode(buf) {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+    } catch {
+      return new TextDecoder("shift_jis").decode(buf);
+    }
+  }
+  function parseDxfTexts(data) {
+    const src = typeof data === "string" ? data : decode(data);
+    if (src.startsWith("AutoCAD Binary DXF")) {
+      throw new DxfError("バイナリ形式の DXF は未対応です。ASCII DXF で保存し直してください。");
+    }
+    const lines = src.split(/\r\n|\r|\n/);
+    const out = [];
+    let kind = "";
+    let x = 0;
+    let y = 0;
+    let layer = "";
+    let height = 0;
+    let text = "";
+    let frags = [];
+    let hasPoint = false;
+    let nx = 0;
+    let ny = 0;
+    let nz = 1;
+    let embedded = false;
+    let xIsWcs = false;
+    let backward = false;
+    let dirX;
+    const flush = () => {
+      if (kind === "TEXT" || kind === "MTEXT" || kind === "ATTRIB") {
+        const body = kind === "MTEXT" ? stripMText(frags.join("") + text) : text.trim();
+        if (hasPoint && body) {
+          const raw = dxfExtrusionOf(nx, ny, nz);
+          const ext = kind === "MTEXT" ? "plan" : raw;
+          const t = { x: ext === "flipped" && !xIsWcs ? neg(x) : x, y, text: body, layer, height };
+          if (ext === "tilted") t.tilted = true;
+          const wcsForm = kind === "MTEXT" || xIsWcs;
+          if (wcsForm ? raw === "flipped" && !((dirX ?? -1) > 0) : ext === "flipped" !== backward)
+            t.mirrored = true;
+          out.push(t);
+        }
+      }
+      kind = "";
+      x = 0;
+      y = 0;
+      layer = "";
+      height = 0;
+      text = "";
+      frags = [];
+      hasPoint = false;
+      nx = 0;
+      ny = 0;
+      nz = 1;
+      embedded = false;
+      xIsWcs = false;
+      backward = false;
+      dirX = void 0;
+    };
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      const code = Number.parseInt((lines[i] ?? "").trim(), 10);
+      const value = lines[i + 1] ?? "";
+      if (Number.isNaN(code)) continue;
+      if (code === 0) {
+        flush();
+        kind = value.trim().toUpperCase();
+        continue;
+      }
+      if (!kind) continue;
+      switch (code) {
+        case 101:
+          embedded = true;
+          break;
+        case 11:
+          if (kind === "MTEXT" || embedded) dirX = Number(value.trim());
+          break;
+        case 71:
+          if ((kind === "TEXT" || kind === "ATTRIB") && !embedded) backward = (Number(value.trim()) & 2) === 2;
+          break;
+        case 10:
+          x = Number(value.trim());
+          hasPoint = Number.isFinite(x);
+          xIsWcs = embedded;
+          break;
+        case 20:
+          y = Number(value.trim());
+          if (!Number.isFinite(y)) hasPoint = false;
+          break;
+        case 40:
+          height = Number(value.trim()) || 0;
+          break;
+        case 8:
+          layer = value.trim();
+          break;
+        case 3:
+          frags.push(value);
+          break;
+        case 1:
+          text = value;
+          break;
+        case 210:
+          if (!embedded) nx = Number(value.trim());
+          break;
+        case 220:
+          if (!embedded) ny = Number(value.trim());
+          break;
+        case 230:
+          if (!embedded) nz = Number(value.trim());
+          break;
+        default:
+          break;
+      }
+    }
+    flush();
+    return out;
+  }
+  function parseDxfEntities(data) {
+    const src = typeof data === "string" ? data : decode(data);
+    if (src.startsWith("AutoCAD Binary DXF")) {
+      throw new DxfError("バイナリ形式の DXF は未対応です。ASCII DXF で保存し直してください。");
+    }
+    const lines = src.split(/\r\n|\r|\n/);
+    const out = [];
+    let kind = "";
+    let layer = "";
+    let closed = false;
+    let flags70 = 0;
+    let openPoly = null;
+    let radius = 0;
+    let a0;
+    let a1;
+    let lt = "";
+    let col = 256;
+    let xs = [];
+    let ys = [];
+    let nx = 0;
+    let ny = 0;
+    let nz = 1;
+    const layerLt = /* @__PURE__ */ new Map();
+    let tableName = "";
+    let tableLt = "";
+    let tableCol = 0;
+    const layerCol = /* @__PURE__ */ new Map();
+    const pendingCol = [];
+    const pending = [];
+    const closePoly = () => {
+      if (!openPoly) return;
+      const p = openPoly;
+      openPoly = null;
+      if (!p.mesh && p.pts.length > 0) p.e.points = p.pts;
+      if (p.e.points.length === 0) {
+        const k = out.lastIndexOf(p.e);
+        if (k >= 0) out.splice(k, 1);
+      }
+    };
+    const flush = () => {
+      if (openPoly) {
+        if (kind === "VERTEX") {
+          if ((flags70 & 16) === 0 && xs.length > 0 && ys.length > 0) {
+            const vx = xs[0];
+            openPoly.pts.push([openPoly.flip ? neg(vx) : vx, ys[0]]);
+          }
+        } else closePoly();
+      }
+      if (kind === "LINE" || kind === "LWPOLYLINE" || kind === "POLYLINE" || kind === "CIRCLE" || kind === "ARC") {
+        const ocs = kind !== "LINE" && (kind !== "POLYLINE" || (flags70 & (8 | 16 | 64)) === 0);
+        const ext = ocs ? dxfExtrusionOf(nx, ny, nz) : "plan";
+        const flip = ext === "flipped";
+        const points = [];
+        for (let i = 0; i < Math.min(xs.length, ys.length); i++)
+          points.push([flip ? neg(xs[i]) : xs[i], ys[i]]);
+        if (points.length > 0 || kind === "POLYLINE") {
+          const e = { kind, layer, points, closed, radius };
+          if (kind === "ARC" && a0 !== void 0 && a1 !== void 0) {
+            [e.startAngle, e.endAngle] = flip ? dxfFlipArc(a0, a1) : [a0, a1];
+          }
+          if (ext === "tilted") e.tilted = true;
+          if (lt && lt !== "BYLAYER") {
+            if (lt !== "CONTINUOUS" && lt !== "BYBLOCK") e.linetype = lt;
+          } else pending.push(e);
+          if (col >= 1 && col <= 255) e.color = col;
+          else if (col === 256) pendingCol.push(e);
+          out.push(e);
+          if (kind === "POLYLINE") openPoly = { e, mesh: (flags70 & (16 | 64)) !== 0, flip, pts: [] };
+        }
+      }
+      if (kind === "LAYER" && tableName && tableLt) layerLt.set(tableName.toUpperCase(), tableLt.toUpperCase());
+      if (kind === "LAYER" && tableName && tableCol) layerCol.set(tableName.toUpperCase(), Math.abs(tableCol));
+      kind = "";
+      layer = "";
+      closed = false;
+      flags70 = 0;
+      radius = 0;
+      a0 = void 0;
+      a1 = void 0;
+      lt = "";
+      col = 256;
+      tableName = "";
+      tableLt = "";
+      tableCol = 0;
+      xs = [];
+      ys = [];
+      nx = 0;
+      ny = 0;
+      nz = 1;
+    };
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      const code = Number.parseInt((lines[i] ?? "").trim(), 10);
+      const value = (lines[i + 1] ?? "").trim();
+      if (Number.isNaN(code)) continue;
+      if (code === 0) {
+        flush();
+        kind = value.toUpperCase();
+        continue;
+      }
+      if (kind === "ARC" && code === 50) a0 = Number.parseFloat(value);
+      if (kind === "ARC" && code === 51) a1 = Number.parseFloat(value);
+      if (!kind) continue;
+      if (kind === "LAYER") {
+        if (code === 2) tableName = value;
+        else if (code === 6) tableLt = value;
+        else if (code === 62) tableCol = Number.parseInt(value, 10) || 0;
+        continue;
+      }
+      switch (code) {
+        case 6:
+          lt = value.toUpperCase();
+          break;
+        case 8:
+          layer = value;
+          break;
+        case 62: {
+          const v = Number.parseInt(value, 10);
+          if (Number.isFinite(v)) col = v;
+          break;
+        }
+        case 10:
+        case 11: {
+          const v = Number(value);
+          if (Number.isFinite(v)) xs.push(v);
+          break;
+        }
+        case 20:
+        case 21: {
+          const v = Number(value);
+          if (Number.isFinite(v)) ys.push(v);
+          break;
+        }
+        case 40:
+          radius = Number(value) || 0;
+          break;
+        case 70:
+          closed = (Number(value) & 1) === 1;
+          flags70 = Number.parseInt(value, 10) || 0;
+          break;
+        case 210:
+          nx = Number(value);
+          break;
+        case 220:
+          ny = Number(value);
+          break;
+        case 230:
+          nz = Number(value);
+          break;
+        default:
+          break;
+      }
+    }
+    flush();
+    closePoly();
+    for (const e of pending) {
+      const l = layerLt.get(e.layer.toUpperCase());
+      if (l && l !== "CONTINUOUS") e.linetype = l;
+    }
+    for (const e of pendingCol) {
+      const c = layerCol.get(e.layer.toUpperCase());
+      if (c && c >= 1 && c <= 255) e.color = c;
+    }
+    return out;
+  }
+  function parseDxfDims(data) {
+    const src = typeof data === "string" ? data : decode(data);
+    if (src.startsWith("AutoCAD Binary DXF")) {
+      throw new DxfError("バイナリ形式の DXF は未対応です。ASCII DXF で保存し直してください。");
+    }
+    const lines = src.split(/\r\n|\r|\n/);
+    const out = [];
+    let kind = "";
+    let layer = "";
+    let flags = Number.NaN;
+    let text = "";
+    let measured = Number.NaN;
+    let rotation = 0;
+    const pt = {};
+    let nx = 0;
+    let ny = 0;
+    let nz = 1;
+    const flush = () => {
+      if (kind === "DIMENSION" && Number.isFinite(flags)) {
+        const dimKind = flags & 7;
+        const def = pt[10];
+        const mid11 = pt[11];
+        const dimExt = dxfExtrusionOf(nx, ny, nz);
+        const mid2 = mid11 && dimExt === "flipped" ? [neg(mid11[0]), mid11[1]] : mid11;
+        const rotDeg = dimExt === "flipped" ? 180 - rotation : rotation;
+        const a = pt[13];
+        const b = pt[14];
+        const dim = {
+          layer,
+          kind: dimKind,
+          x: (mid2 ?? def)?.[0] ?? 0,
+          y: (mid2 ?? def)?.[1] ?? 0,
+          text,
+          ...Number.isFinite(measured) ? { measured } : {}
+        };
+        if (dimExt === "tilted") dim.tilted = true;
+        if (a && b && (dimKind === 0 || dimKind === 1)) {
+          dim.from = a;
+          dim.to = b;
+          const dx = b[0] - a[0];
+          const dy = b[1] - a[1];
+          const len2 = dimKind === 0 ? Math.abs(dx * Math.cos(rotDeg * Math.PI / 180) + dy * Math.sin(rotDeg * Math.PI / 180)) : Math.hypot(dx, dy);
+          dim.length = len2;
+          if (Number.isFinite(measured) && len2 > 0) dim.factor = measured / len2;
+        }
+        out.push(dim);
+      }
+      kind = "";
+      layer = "";
+      flags = Number.NaN;
+      text = "";
+      measured = Number.NaN;
+      rotation = 0;
+      for (const k of Object.keys(pt)) delete pt[Number(k)];
+      nx = 0;
+      ny = 0;
+      nz = 1;
+    };
+    let pendingX = {};
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      const code = Number.parseInt((lines[i] ?? "").trim(), 10);
+      const raw = lines[i + 1] ?? "";
+      const value = raw.trim();
+      if (Number.isNaN(code)) continue;
+      if (code === 0) {
+        flush();
+        pendingX = {};
+        kind = value.toUpperCase();
+        continue;
+      }
+      if (kind !== "DIMENSION") continue;
+      if (code === 10 || code === 11 || code === 13 || code === 14) {
+        const v = Number(value);
+        if (Number.isFinite(v)) pendingX[code] = v;
+        continue;
+      }
+      if (code === 20 || code === 21 || code === 23 || code === 24) {
+        const base = code - 10;
+        const x = pendingX[base];
+        const v = Number(value);
+        if (x !== void 0 && Number.isFinite(v)) pt[base] = [x, v];
+        continue;
+      }
+      switch (code) {
+        case 8:
+          layer = value;
+          break;
+        case 210:
+          nx = Number(value);
+          break;
+        case 220:
+          ny = Number(value);
+          break;
+        case 230:
+          nz = Number(value);
+          break;
+        case 70:
+          flags = Number.parseInt(value, 10);
+          break;
+        case 42:
+          measured = Number(value);
+          break;
+        case 50:
+          rotation = Number(value) || 0;
+          break;
+        case 1:
+          text = raw.trim();
+          break;
+        default:
+          break;
+      }
+    }
+    flush();
+    return out;
+  }
+  function dxfDimScale(dims, digits = 4) {
+    const counts = /* @__PURE__ */ new Map();
+    let total = 0;
+    for (const d of dims) {
+      if (d.factor === void 0 || !Number.isFinite(d.factor)) continue;
+      const key = Math.round(d.factor * 10 ** digits) / 10 ** digits;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      total++;
+    }
+    if (total === 0) return void 0;
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    const [factor, agreed] = sorted[0];
+    return {
+      factor,
+      agreed,
+      total,
+      others: sorted.slice(1).map(([f, c]) => ({ factor: f, count: c }))
+    };
+  }
+  function parseDxfLines3d(data) {
+    const src = typeof data === "string" ? data : decode(data);
+    if (src.startsWith("AutoCAD Binary DXF")) {
+      throw new DxfError("バイナリ形式の DXF は未対応です。ASCII DXF で保存し直してください。");
+    }
+    const lines = src.split(/\r\n|\r|\n/);
+    const out = [];
+    let kind = "";
+    let layer = "";
+    let flags = 0;
+    let radius = 0;
+    let a0;
+    let a1;
+    let elev = 0;
+    let x0 = Number.NaN;
+    let y0 = Number.NaN;
+    let z0 = 0;
+    let x1 = Number.NaN;
+    let y1 = Number.NaN;
+    let z1 = 0;
+    let bulge = 0;
+    let nx = 0;
+    let ny = 0;
+    let nz = 1;
+    let lx = [];
+    let ly = [];
+    let lb = [];
+    let poly = null;
+    let section = "";
+    let sawSection = false;
+    let expectSectionName = false;
+    const inEntities = () => section === "ENTITIES" || !sawSection;
+    const emit = (e) => {
+      out.push({ ...e, hasZ: e.zs.some((z) => z !== 0) });
+    };
+    const finish = () => {
+      if (!inEntities()) return;
+      const ext = dxfExtrusionOf(nx, ny, nz);
+      const flip = ext === "flipped";
+      const tag = ext === "tilted" ? { tilted: true } : {};
+      switch (kind) {
+        case "LINE":
+          if ([x0, y0, x1, y1].every(Number.isFinite)) {
+            emit({
+              kind: "LINE",
+              layer,
+              points: [
+                [x0, y0],
+                [x1, y1]
+              ],
+              zs: [z0, z1],
+              bulges: [0, 0],
+              closed: false,
+              radius: 0
+            });
+          }
+          break;
+        case "LWPOLYLINE": {
+          const n = Math.min(lx.length, ly.length);
+          if (n >= 2) {
+            const points = [];
+            for (let i = 0; i < n; i++)
+              points.push([flip ? neg(lx[i]) : lx[i], ly[i]]);
+            emit({
+              kind: "LWPOLYLINE",
+              layer,
+              points,
+              zs: points.map(() => flip ? neg(elev) : elev),
+              bulges: points.map((_, i) => flip ? neg(lb[i] ?? 0) : lb[i] ?? 0),
+              closed: (flags & 1) === 1,
+              radius: 0,
+              ...tag
+            });
+          }
+          break;
+        }
+        case "POLYLINE": {
+          const pe = (flags & 8) === 8 ? "plan" : ext;
+          const h = Number.isFinite(z0) ? z0 : 0;
+          poly = (flags & 64) === 0 && (flags & 16) === 0 ? { layer, flags, elev: pe === "flipped" ? neg(h) : h, ext: pe, xs: [], ys: [], zs: [], bs: [] } : null;
+          break;
+        }
+        case "VERTEX":
+          if (poly && (flags & 16) === 0 && Number.isFinite(x0) && Number.isFinite(y0)) {
+            const pf = poly.ext === "flipped";
+            poly.xs.push(pf ? neg(x0) : x0);
+            poly.ys.push(y0);
+            poly.zs.push((poly.flags & 8) === 8 ? z0 : poly.elev);
+            poly.bs.push((poly.flags & 8) === 8 ? 0 : pf ? neg(bulge) : bulge);
+          }
+          break;
+        case "SEQEND":
+          if (poly && poly.xs.length >= 2) {
+            const p = poly;
+            emit({
+              kind: "POLYLINE",
+              layer: p.layer,
+              points: p.xs.map((x, i) => [x, p.ys[i]]),
+              zs: p.zs,
+              bulges: p.bs,
+              closed: (p.flags & 1) === 1,
+              radius: 0,
+              ...p.ext === "tilted" ? { tilted: true } : {}
+            });
+          }
+          poly = null;
+          break;
+        case "ARC":
+        case "CIRCLE":
+          if (Number.isFinite(x0) && Number.isFinite(y0) && radius > 0) {
+            const e = {
+              kind,
+              layer,
+              points: [[flip ? neg(x0) : x0, y0]],
+              zs: [flip ? neg(z0) : z0],
+              bulges: [0],
+              closed: kind === "CIRCLE",
+              radius,
+              ...tag
+            };
+            if (kind === "ARC") {
+              if (a0 === void 0 || a1 === void 0) break;
+              [e.startAngle, e.endAngle] = flip ? dxfFlipArc(a0, a1) : [a0, a1];
+            }
+            emit(e);
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      const code = Number.parseInt((lines[i] ?? "").trim(), 10);
+      const value = (lines[i + 1] ?? "").trim();
+      if (Number.isNaN(code)) continue;
+      if (code === 0) {
+        finish();
+        kind = value.toUpperCase();
+        if (kind === "SECTION") {
+          sawSection = true;
+          expectSectionName = true;
+        } else if (kind === "ENDSEC") {
+          section = "";
+          poly = null;
+        }
+        if (kind !== "VERTEX" && kind !== "SEQEND") poly = null;
+        layer = "";
+        flags = 0;
+        radius = 0;
+        a0 = void 0;
+        a1 = void 0;
+        elev = 0;
+        x0 = Number.NaN;
+        y0 = Number.NaN;
+        z0 = 0;
+        x1 = Number.NaN;
+        y1 = Number.NaN;
+        z1 = 0;
+        bulge = 0;
+        nx = 0;
+        ny = 0;
+        nz = 1;
+        lx = [];
+        ly = [];
+        lb = [];
+        continue;
+      }
+      if (expectSectionName && code === 2) {
+        section = value.toUpperCase();
+        expectSectionName = false;
+        continue;
+      }
+      const v = Number(value);
+      switch (code) {
+        case 8:
+          layer = value;
+          break;
+        case 10:
+          if (kind === "LWPOLYLINE") {
+            lx.push(v);
+            lb.push(0);
+          } else x0 = v;
+          break;
+        case 20:
+          if (kind === "LWPOLYLINE") ly.push(v);
+          else y0 = v;
+          break;
+        case 30:
+          if (Number.isFinite(v)) z0 = v;
+          break;
+        case 11:
+          x1 = v;
+          break;
+        case 21:
+          y1 = v;
+          break;
+        case 31:
+          if (Number.isFinite(v)) z1 = v;
+          break;
+        case 38:
+          if (Number.isFinite(v)) elev = v;
+          break;
+        case 40:
+          radius = Number.isFinite(v) ? v : 0;
+          break;
+        case 42:
+          if (!Number.isFinite(v)) break;
+          if (kind === "LWPOLYLINE") {
+            if (lb.length > 0) lb[lb.length - 1] = v;
+          } else bulge = v;
+          break;
+        case 50:
+          if (Number.isFinite(v)) a0 = v;
+          break;
+        case 51:
+          if (Number.isFinite(v)) a1 = v;
+          break;
+        case 70:
+          flags = Number.parseInt(value, 10) || 0;
+          break;
+        case 210:
+          nx = v;
+          break;
+        case 220:
+          ny = v;
+          break;
+        case 230:
+          nz = v;
+          break;
+        default:
+          break;
+      }
+    }
+    finish();
+    return out;
+  }
+
+  // packages/modules-toplayout/src/naming.ts
+  function makeName(index, opt) {
+    const prefix = opt?.prefix ?? "";
+    const start = opt?.start ?? 1;
+    const pad = opt?.pad ?? 0;
+    const num2 = String(start + index).padStart(pad, "0");
+    const name = `${prefix}${num2}`;
+    if (name.length > 16) throw new Error(`点名が 16 文字を超えます: ${name}`);
+    return name;
+  }
+
+  // packages/modules-toplayout/src/arc.ts
+  var EPS = 1e-6;
+  var rad = (deg) => deg * Math.PI / 180;
+  function sweepDeg(arc, closed) {
+    if (closed) return 360;
+    let s = (arc.endAngle - arc.startAngle) % 360;
+    if (s <= EPS) s += 360;
+    return s;
+  }
+  function ptAt(arc, aDeg) {
+    const t = rad(arc.startAngle + aDeg);
+    return [arc.center[0] + arc.radius * Math.cos(t), arc.center[1] + arc.radius * Math.sin(t)];
+  }
+  function offsetArc(arc, offset, side) {
+    const r = side === "left" ? arc.radius - offset : arc.radius + offset;
+    if (r <= EPS) throw new Error("逃げ寸法が半径以上です(中心側へは逃がせません)");
+    return { center: arc.center, radius: r, startAngle: arc.startAngle, endAngle: arc.endAngle };
+  }
+  function tessellateArc(arc, closed = false) {
+    const sw = sweepDeg(arc, closed);
+    const n = Math.max(8, Math.ceil(sw / 5));
+    const out = [];
+    for (let i = 0; i <= n; i++) out.push(ptAt(arc, sw * i / n));
+    return out;
+  }
+  function pointsAlongArc(arc, pitch, closed, naming) {
+    const sw = sweepDeg(arc, closed);
+    const L = arc.radius * rad(sw);
+    const raw = [];
+    raw.push({ p: ptAt(arc, 0), kind: "vertex" });
+    if (pitch > 0) {
+      for (let t = pitch; t < L - EPS; t += pitch) {
+        raw.push({ p: ptAt(arc, t / arc.radius * (180 / Math.PI)), kind: "pitch" });
+      }
+    }
+    if (!closed) raw.push({ p: ptAt(arc, sw), kind: "vertex" });
+    return raw.map((r, i) => ({ name: makeName(i, naming), x: r.p[0], y: r.p[1], kind: r.kind }));
+  }
+  function centerDistanceToOffset(arc, R) {
+    if (!(R > EPS)) throw new Error("中心からの離れは 0 より大きく入れてください");
+    const d = R - arc.radius;
+    return { offset: Math.abs(d), side: d < 0 ? "left" : "right" };
+  }
+
+  // packages/modules-toplayout/src/csv.ts
+  function formatCoord(v, decimals) {
+    const r = Number(v.toFixed(decimals));
+    return (Object.is(r, -0) ? 0 : r).toFixed(decimals);
+  }
+  function outputH(p, opt, scale) {
+    if (p.h !== void 0) return p.h;
+    const h = opt.h ?? 0;
+    const hFrom = opt.hFrom ?? "z";
+    if (hFrom === "const" || p.z === void 0) return h;
+    return hFrom === "zPlus" ? p.z * scale + h : p.z * scale;
+  }
+  function toTopLayoutCsv(points, opt = {}) {
+    const axis = opt.axis ?? "asDrawn";
+    const scale = (opt.unit ?? "m") === "m" ? 1e-3 : 1;
+    const decimals = opt.decimals ?? 3;
+    const eol = opt.eol ?? "\r\n";
+    const rows = points.map((p) => {
+      const east = p.x * scale;
+      const north = p.y * scale;
+      const [X, Y] = axis === "northEast" ? [north, east] : [east, north];
+      const H = outputH(p, opt, scale);
+      return `${p.name},${formatCoord(X, decimals)},${formatCoord(Y, decimals)},${formatCoord(H, decimals)}`;
+    });
+    return rows.length ? `${rows.join(eol)}${eol}` : "";
+  }
+
+  // packages/modules-toplayout/src/drawingScale.ts
+  var UNIT_MM = { mm: 1, cm: 10, m: 1e3 };
+  function drawingFactor(unit, scaleDenominator) {
+    if (!(scaleDenominator > 0) || !Number.isFinite(scaleDenominator)) {
+      throw new Error(`縮尺の分母が正しくありません: ${scaleDenominator}`);
+    }
+    return UNIT_MM[unit] * scaleDenominator;
+  }
+  function scaleLine(line, k) {
+    if (!(k > 0) || !Number.isFinite(k)) throw new Error(`倍率が正しくありません: ${k}`);
+    const sp = (p) => [p[0] * k, p[1] * k];
+    const out = { ...line, points: line.points.map(sp), draw: line.draw.map(sp) };
+    if (line.zs) out.zs = line.zs.map((z) => z * k);
+    if (line.arc) out.arc = { ...line.arc, center: sp(line.arc.center), radius: line.arc.radius * k };
+    return out;
+  }
+  function insunitsOf(text) {
+    const ln = text.split(/\r\n|\r|\n/);
+    for (let i = 0; i + 3 < ln.length; i++) {
+      if ((ln[i] ?? "").trim() === "9" && (ln[i + 1] ?? "").trim().toUpperCase() === "$INSUNITS") {
+        const v = Number.parseInt((ln[i + 3] ?? "").trim(), 10);
+        return v === 4 ? "mm" : v === 5 ? "cm" : v === 6 ? "m" : void 0;
+      }
+      if ((ln[i] ?? "").trim() === "2" && (ln[i + 1] ?? "").trim().toUpperCase() === "ENTITIES") break;
+    }
+    return void 0;
+  }
+  var COMMON_SCALES = [1, 50, 100, 200, 250, 300, 500, 1e3];
+  function candidatesFromDimFactor(factor) {
+    if (!(factor > 0) || !Number.isFinite(factor)) return [];
+    const out = [];
+    for (const dimUnit of ["mm", "m"]) {
+      const real = factor * UNIT_MM[dimUnit];
+      for (const scale of COMMON_SCALES) {
+        for (const unit of ["mm", "cm", "m"]) {
+          const f = UNIT_MM[unit] * scale;
+          if (Math.abs(real - f) / f >= 5e-3) continue;
+          if (out.some((c) => c.unit === unit && c.scale === scale)) continue;
+          out.push({ unit, scale, dimUnit });
+        }
+      }
+    }
+    return out;
+  }
+  function dimFactorAgrees(factor, k) {
+    if (!(factor > 0) || !(k > 0)) return true;
+    return ["mm", "m"].some((u) => Math.abs(factor * UNIT_MM[u] - k) / k < 5e-3);
+  }
+  function calibrateScale(unit, currentDen, measuredMm, trueMm, preferUnit) {
+    for (const [name, v] of [
+      ["いまの縮尺の分母", currentDen],
+      ["測った長さ", measuredMm],
+      ["本当の長さ", trueMm]
+    ]) {
+      if (!(v > 0) || !Number.isFinite(v)) throw new Error(`${name}が正しくありません: ${v}`);
+    }
+    const TOL = 5e-4;
+    const ratio = trueMm / measuredMm;
+    const k = UNIT_MM[unit] * currentDen * ratio;
+    const at11 = (u2) => Math.abs(k - UNIT_MM[u2]) / UNIT_MM[u2] < TOL;
+    let u = unit;
+    const headerFits = !!preferUnit && k / UNIT_MM[preferUnit] >= 1 - TOL;
+    if (currentDen === 1) {
+      if (preferUnit && at11(preferUnit)) return { unit: preferUnit, den: 1, snapped: true, ratio };
+      if (headerFits && preferUnit) {
+        u = preferUnit;
+      } else {
+        for (const c of ["mm", "m", "cm"]) {
+          if (at11(c)) return { unit: c, den: 1, snapped: true, ratio };
+        }
+      }
+    }
+    let den = k / UNIT_MM[u];
+    if (den < 1 - TOL && u !== "mm") {
+      u = headerFits && preferUnit ? preferUnit : "mm";
+      den = k / UNIT_MM[u];
+    }
+    for (const s of COMMON_SCALES) {
+      if (Math.abs(den - s) / s < TOL) return { unit: u, den: s, snapped: true, ratio };
+    }
+    const near = COMMON_SCALES.find((s) => Math.abs(den - s) / s < 5e-3);
+    const out = {
+      unit: u,
+      den: Number(den.toPrecision(9)),
+      snapped: false,
+      ratio
+    };
+    if (near !== void 0) out.near = near;
+    return out;
+  }
+
+  // packages/modules-toplayout/src/tin.ts
+  var EPS2 = 1e-6;
+  function buildTin(input) {
+    const pts = [];
+    for (const p of input) {
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.h)) continue;
+      if (!pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < EPS2)) pts.push(p);
+    }
+    if (pts.length < 3) return { pts, tris: [] };
+    const n = pts.length;
+    const cx = pts.reduce((a, p) => a + p.x, 0) / n;
+    const cy = pts.reduce((a, p) => a + p.y, 0) / n;
+    const P = pts.map((p) => [p.x - cx, p.y - cy]);
+    let span = 0;
+    for (const [x, y] of P) span = Math.max(span, Math.abs(x), Math.abs(y));
+    span = span || 1;
+    P.push([-30 * span, -30 * span], [30 * span, -30 * span], [0, 30 * span]);
+    const circum = (a, b, c) => {
+      const [ax, ay] = P[a];
+      const [bx, by] = P[b];
+      const [qx, qy] = P[c];
+      const d = 2 * (ax * (by - qy) + bx * (qy - ay) + qx * (ay - by));
+      if (Math.abs(d) < 1e-300) return { v: [a, b, c], cx: 0, cy: 0, r2: Number.POSITIVE_INFINITY };
+      const a2 = ax * ax + ay * ay;
+      const b2 = bx * bx + by * by;
+      const c2 = qx * qx + qy * qy;
+      const ux = (a2 * (by - qy) + b2 * (qy - ay) + c2 * (ay - by)) / d;
+      const uy = (a2 * (qx - bx) + b2 * (ax - qx) + c2 * (bx - ax)) / d;
+      return { v: [a, b, c], cx: ux, cy: uy, r2: (ax - ux) ** 2 + (ay - uy) ** 2 };
+    };
+    let tris = [circum(n, n + 1, n + 2)];
+    for (let i = 0; i < n; i++) {
+      const [px, py] = P[i];
+      const bad = [];
+      const keep = [];
+      for (const t of tris) {
+        if ((px - t.cx) ** 2 + (py - t.cy) ** 2 < t.r2 * (1 + 1e-12)) bad.push(t);
+        else keep.push(t);
+      }
+      const count = /* @__PURE__ */ new Map();
+      const key = (a, b) => a < b ? `${a},${b}` : `${b},${a}`;
+      const edges = [];
+      for (const t of bad) {
+        const [a, b, c] = t.v;
+        for (const e of [
+          [a, b],
+          [b, c],
+          [c, a]
+        ]) {
+          const k = key(e[0], e[1]);
+          if (count.has(k)) count.delete(k);
+          else count.set(k, e);
+        }
+      }
+      for (const e of count.values()) edges.push(e);
+      tris = keep;
+      for (const [a, b] of edges) tris.push(circum(a, b, i));
+    }
+    const out = [];
+    for (const t of tris) {
+      if (t.v.some((k) => k >= n)) continue;
+      const [a, b, c] = t.v;
+      const [ax, ay] = P[a];
+      const [bx, by] = P[b];
+      const [qx, qy] = P[c];
+      if (Math.abs((bx - ax) * (qy - ay) - (by - ay) * (qx - ax)) < 1e-12 * span * span) continue;
+      out.push([a, b, c]);
+    }
+    return { pts, tris: out };
+  }
+  function tinHeight(tin, x, y) {
+    if (tin.tris.length === 0) return void 0;
+    for (const [a, b, c] of tin.tris) {
+      const A = tin.pts[a];
+      const B = tin.pts[b];
+      const C = tin.pts[c];
+      const d = (B.y - C.y) * (A.x - C.x) + (C.x - B.x) * (A.y - C.y);
+      const w0 = ((B.y - C.y) * (x - C.x) + (C.x - B.x) * (y - C.y)) / d;
+      const w1 = ((C.y - A.y) * (x - C.x) + (A.x - C.x) * (y - C.y)) / d;
+      const w2 = 1 - w0 - w1;
+      const tol = -1e-9;
+      if (w0 >= tol && w1 >= tol && w2 >= tol) return w0 * A.h + w1 * B.h + w2 * C.h;
+    }
+    return void 0;
+  }
+
+  // packages/modules-toplayout/src/heights.ts
+  function applyHeights(points, rule, scale, overrides) {
+    const missing = [];
+    const out = points.map((p) => {
+      let h;
+      switch (rule.kind) {
+        case "zAbs":
+          h = p.z === void 0 ? void 0 : p.z * scale;
+          break;
+        case "zRel":
+          h = p.z === void 0 ? void 0 : p.z * scale + rule.base;
+          break;
+        case "slope":
+          if (p.sta === void 0) h = void 0;
+          else if (rule.h1 !== void 0 && rule.length)
+            h = rule.h0 + (rule.h1 - rule.h0) * p.sta / rule.length;
+          else h = rule.h0 + (rule.grade ?? 0) / 100 * p.sta * scale;
+          break;
+        case "points":
+          h = tinHeight(rule.tin, p.x, p.y);
+          break;
+        case "const":
+          h = rule.h;
+          break;
+      }
+      const o = overrides?.[p.name];
+      if (o !== void 0 && Number.isFinite(o)) h = o;
+      const q = { ...p };
+      if (h === void 0 || !Number.isFinite(h)) {
+        missing.push(p.name);
+        delete q.h;
+      } else q.h = h;
+      return q;
+    });
+    return { points: out, missing };
+  }
+
+  // packages/modules-toplayout/src/path.ts
+  var EPS3 = 1e-6;
+  var TWO_PI = Math.PI * 2;
+  var dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  var mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  function segStart(s) {
+    if (s.kind === "line") return s.a;
+    return s.p0 ?? [s.c[0] + s.r * Math.cos(s.a0), s.c[1] + s.r * Math.sin(s.a0)];
+  }
+  function segEnd(s) {
+    if (s.kind === "line") return s.b;
+    if (s.p1) return s.p1;
+    const t = s.a0 + s.sw;
+    return [s.c[0] + s.r * Math.cos(t), s.c[1] + s.r * Math.sin(t)];
+  }
+  var FLAT = 1e-6;
+  var isFlatArc = (s) => s.kind === "arc" && Math.abs(s.sw) < FLAT && !!s.p0 && !!s.p1;
+  function segLength(s) {
+    if (s.kind === "line") return dist(s.a, s.b);
+    if (isFlatArc(s)) return dist(s.p0, s.p1) * (1 + s.sw * s.sw / 24);
+    return s.r * Math.abs(s.sw);
+  }
+  function segPointAt(s, f) {
+    if (s.kind === "line") return [s.a[0] + (s.b[0] - s.a[0]) * f, s.a[1] + (s.b[1] - s.a[1]) * f];
+    if (f === 0) return segStart(s);
+    if (f === 1) return segEnd(s);
+    if (isFlatArc(s)) {
+      const c = dist(s.p0, s.p1);
+      const sag = c / 2 * Math.tan(Math.abs(s.sw) / 4) * 4 * f * (1 - f) * Math.sign(s.sw);
+      const rx = (s.p1[1] - s.p0[1]) / c;
+      const ry = -(s.p1[0] - s.p0[0]) / c;
+      return [s.p0[0] + (s.p1[0] - s.p0[0]) * f + rx * sag, s.p0[1] + (s.p1[1] - s.p0[1]) * f + ry * sag];
+    }
+    const t = s.a0 + s.sw * f;
+    return [s.c[0] + s.r * Math.cos(t), s.c[1] + s.r * Math.sin(t)];
+  }
+  function bulgeToSeg(p1, p2, bulge, za = 0, zb = 0) {
+    const c = dist(p1, p2);
+    if (c < EPS3 || Math.abs(bulge) * c / 2 < EPS3) return { kind: "line", a: p1, b: p2, za, zb };
+    const th = 4 * Math.atan(bulge);
+    const m = mid(p1, p2);
+    const nx = -(p2[1] - p1[1]) / c;
+    const ny = (p2[0] - p1[0]) / c;
+    const h = c / 2 / Math.tan(th / 2);
+    const center = [m[0] + nx * h, m[1] + ny * h];
+    const r = c / 2 / Math.abs(Math.sin(th / 2));
+    const a0 = Math.atan2(p1[1] - center[1], p1[0] - center[0]);
+    return { kind: "arc", c: center, r, a0, sw: th, za, zb, p0: p1, p1: p2 };
+  }
+  function segmentsFromBulges(points, bulges, closed, zs) {
+    const n = points.length;
+    const segCount = closed ? n : n - 1;
+    const out = [];
+    for (let i = 0; i < segCount; i++) {
+      const a = points[i];
+      const j = (i + 1) % n;
+      const b = points[j];
+      if (dist(a, b) < EPS3) continue;
+      out.push(bulgeToSeg(a, b, bulges?.[i] ?? 0, zs?.[i] ?? 0, zs?.[j] ?? 0));
+    }
+    if (out.length === 0) throw new Error("線には長さのある辺が 1 つ以上必要です");
+    return out;
+  }
+  function offsetSeg(s, d, side) {
+    const sgn = side === "left" ? 1 : -1;
+    if (s.kind === "line") {
+      const L = dist(s.a, s.b);
+      if (L < EPS3) throw new Error("長さ 0 の線分には法線が定義できません");
+      const nx = -(s.b[1] - s.a[1]) / L * sgn;
+      const ny = (s.b[0] - s.a[0]) / L * sgn;
+      return {
+        kind: "line",
+        a: [s.a[0] + nx * d, s.a[1] + ny * d],
+        b: [s.b[0] + nx * d, s.b[1] + ny * d],
+        za: s.za,
+        zb: s.zb
+      };
+    }
+    const dr = -sgn * Math.sign(s.sw) * d;
+    const r = s.r + dr;
+    if (r <= EPS3) throw new Error("逃げ寸法が円弧の半径以上です(中心側へは逃がせません)");
+    const move = (p) => {
+      const ux = (p[0] - s.c[0]) / s.r;
+      const uy = (p[1] - s.c[1]) / s.r;
+      return [p[0] + ux * dr, p[1] + uy * dr];
+    };
+    return { ...s, r, p0: move(segStart(s)), p1: move(segEnd(s)) };
+  }
+  function lineCircle(a, b, c, r) {
+    const L = dist(a, b);
+    const dx = (b[0] - a[0]) / L;
+    const dy = (b[1] - a[1]) / L;
+    const fx = a[0] - c[0];
+    const fy = a[1] - c[1];
+    const t0 = -(fx * dx + fy * dy);
+    const perp = Math.abs(fx * dy - fy * dx);
+    const gap = r - perp;
+    if (gap < 0) return [];
+    const h = Math.sqrt(gap * (r + perp));
+    const footX = a[0] + dx * t0;
+    const footY = a[1] + dy * t0;
+    return [
+      [footX - dx * h, footY - dy * h],
+      [footX + dx * h, footY + dy * h]
+    ];
+  }
+  function circleCircle(c1, r1, c2, r2) {
+    const d = dist(c1, c2);
+    if (d < EPS3 || d > r1 + r2 || d < Math.abs(r1 - r2)) return [];
+    const a = ((r1 - r2) * (r1 + r2) + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, (r1 - a) * (r1 + a)));
+    const ux = (c2[0] - c1[0]) / d;
+    const uy = (c2[1] - c1[1]) / d;
+    const px = c1[0] + ux * a;
+    const py = c1[1] + uy * a;
+    return [
+      [px - uy * h, py + ux * h],
+      [px + uy * h, py - ux * h]
+    ];
+  }
+  function lineLine(a1, b1, a2, b2) {
+    const d1x = b1[0] - a1[0];
+    const d1y = b1[1] - a1[1];
+    const d2x = b2[0] - a2[0];
+    const d2y = b2[1] - a2[1];
+    const den = d1x * d2y - d1y * d2x;
+    const scale = Math.hypot(d1x, d1y) * Math.hypot(d2x, d2y);
+    if (Math.abs(den) < 1e-12 * scale) return [];
+    const t = ((a2[0] - a1[0]) * d2y - (a2[1] - a1[1]) * d2x) / den;
+    return [[a1[0] + d1x * t, a1[1] + d1y * t]];
+  }
+  function intersectSegs(p0, q0) {
+    const chord = (s) => isFlatArc(s) ? { kind: "line", a: s.p0, b: s.p1, za: s.za, zb: s.zb } : s;
+    const p = chord(p0);
+    const q = chord(q0);
+    if (p.kind === "line" && q.kind === "line") return lineLine(p.a, p.b, q.a, q.b);
+    if (p.kind === "line" && q.kind === "arc") return lineCircle(p.a, p.b, q.c, q.r);
+    if (p.kind === "arc" && q.kind === "line") return lineCircle(q.a, q.b, p.c, p.r);
+    if (p.kind === "arc" && q.kind === "arc") return circleCircle(p.c, p.r, q.c, q.r);
+    return [];
+  }
+  function retrim(s, start, end) {
+    if (s.kind === "line") return { ...s, a: start, b: end };
+    const a0 = Math.atan2(start[1] - s.c[1], start[0] - s.c[0]);
+    const a1 = Math.atan2(end[1] - s.c[1], end[0] - s.c[0]);
+    let sw = a1 - a0;
+    sw -= TWO_PI * Math.round((sw - s.sw) / TWO_PI);
+    return { ...s, a0, sw, p0: start, p1: end };
+  }
+  function joinTol(segs) {
+    let m = 1;
+    for (const s of segs) {
+      for (const p of [segStart(s), segEnd(s)]) m = Math.max(m, Math.abs(p[0]), Math.abs(p[1]));
+    }
+    return EPS3 + 1e-10 * m;
+  }
+  function hasArcBulge(points, bulges, closed) {
+    if (!bulges) return false;
+    const n = points.length;
+    const segCount = closed ? n : n - 1;
+    for (let i = 0; i < segCount; i++) {
+      const c = dist(points[i], points[(i + 1) % n]);
+      if (Math.abs(bulges[i] ?? 0) * c / 2 >= EPS3) return true;
+    }
+    return false;
+  }
+  function offsetPath(segs, d, side, closed) {
+    const off = segs.map((s) => offsetSeg(s, d, side));
+    const n = off.length;
+    const tol = joinTol(off);
+    const starts = off.map(segStart);
+    const ends = off.map(segEnd);
+    const joins = closed ? n : n - 1;
+    for (let k = 0; k < joins; k++) {
+      const i = k;
+      const j = (k + 1) % n;
+      const pe = segEnd(off[i]);
+      const ns = segStart(off[j]);
+      if (dist(pe, ns) <= tol) {
+        const x = mid(pe, ns);
+        ends[i] = x;
+        starts[j] = x;
+        continue;
+      }
+      const ref = mid(pe, ns);
+      let best;
+      for (const x of intersectSegs(off[i], off[j])) {
+        if (!best || dist(x, ref) < dist(best, ref)) best = x;
+      }
+      if (best) {
+        ends[i] = best;
+        starts[j] = best;
+      }
+    }
+    return off.map((s, i) => retrim(s, starts[i], ends[i]));
+  }
+  function cumLengths(segs) {
+    const out = [0];
+    for (const s of segs) out.push(out[out.length - 1] + segLength(s));
+    return out;
+  }
+  function footFraction(orig, p) {
+    if (orig.kind === "line") {
+      const dx = orig.b[0] - orig.a[0];
+      const dy = orig.b[1] - orig.a[1];
+      const L2 = dx * dx + dy * dy;
+      if (L2 === 0) return 0;
+      const t = ((p[0] - orig.a[0]) * dx + (p[1] - orig.a[1]) * dy) / L2;
+      return Math.min(1, Math.max(0, t));
+    }
+    if (Math.abs(orig.sw) < 1e-6 && orig.p0 && orig.p1) {
+      return footFraction({ kind: "line", a: orig.p0, b: orig.p1, za: orig.za, zb: orig.zb }, p);
+    }
+    const ang = Math.atan2(p[1] - orig.c[1], p[0] - orig.c[0]);
+    const sw = Math.abs(orig.sw);
+    let d = orig.sw >= 0 ? ang - orig.a0 : orig.a0 - ang;
+    d = (d % TWO_PI + TWO_PI) % TWO_PI;
+    if (d <= sw) return sw > 0 ? d / sw : 0;
+    return d - sw < TWO_PI - d ? 1 : 0;
+  }
+  function staZ(orig, cum, i, f) {
+    const s = orig[i];
+    return { sta: cum[i] + f * segLength(s), z: s.za + (s.zb - s.za) * f };
+  }
+  function pointsAlongPath(segs, pitch, closed, naming, withZ = false, orig) {
+    const tol = joinTol(segs);
+    const cum = orig ? cumLengths(orig) : void 0;
+    const raw = [];
+    const n = segs.length;
+    const at = (i, f, p, kind) => {
+      const s = segs[i];
+      if (orig && cum) {
+        const { sta, z } = staZ(orig, cum, i, f);
+        raw.push({ p, z, sta, kind });
+      } else raw.push({ p, z: s.za + (s.zb - s.za) * f, kind });
+    };
+    for (let i = 0; i < n; i++) {
+      const s = segs[i];
+      at(i, 0, segStart(s), "vertex");
+      if (pitch > 0) {
+        const L = segLength(s);
+        for (let t = pitch; t < L - EPS3; t += pitch) {
+          const p = segPointAt(s, t / L);
+          at(i, orig ? footFraction(orig[i], p) : t / L, p, "pitch");
+        }
+      }
+      const last = i === n - 1;
+      if (last && !closed) {
+        at(i, 1, segEnd(s), "vertex");
+      } else {
+        const next = segs[(i + 1) % n];
+        if (dist(segEnd(s), segStart(next)) > tol) at(i, 1, segEnd(s), "vertex");
+      }
+    }
+    return raw.map((r, i) => {
+      const lp = { name: makeName(i, naming), x: r.p[0], y: r.p[1], kind: r.kind };
+      if (withZ) lp.z = r.z;
+      if (r.sta !== void 0) lp.sta = r.sta;
+      return lp;
+    });
+  }
+  function annotateStations(points, orig) {
+    const cum = cumLengths(orig);
+    let i = -1;
+    for (const p of points) {
+      if (p.kind === "vertex") {
+        if (i + 1 < orig.length) {
+          i++;
+          p.sta = cum[i];
+        } else p.sta = cum[orig.length];
+      } else {
+        const k = Math.max(0, i);
+        p.sta = staZ(orig, cum, k, footFraction(orig[k], [p.x, p.y])).sta;
+      }
+    }
+  }
+  function tessellatePath(segs, closed) {
+    const out = [];
+    const tol = joinTol(segs);
+    segs.forEach((s, i) => {
+      const st = segStart(s);
+      const prev = out[out.length - 1];
+      if (!prev || dist(prev, st) > tol) out.push(st);
+      if (s.kind === "arc") {
+        const n = Math.max(2, Math.ceil(Math.abs(s.sw * 180 / Math.PI) / 5));
+        for (let k = 1; k <= n; k++) out.push(segPointAt(s, k / n));
+      } else out.push(s.b);
+      if (closed && i === segs.length - 1 && out.length > 1 && dist(out[out.length - 1], out[0]) <= tol) {
+        out.pop();
+      }
+    });
+    return out;
+  }
+
+  // packages/modules-toplayout/src/lineInfo.ts
+  function lineInfo(line) {
+    const closed = line.closed ?? false;
+    if (line.arc) {
+      const a = line.arc;
+      const sw = sweepDeg(a, closed);
+      const at = (deg) => {
+        const t = (a.startAngle + deg) * Math.PI / 180;
+        return [a.center[0] + a.radius * Math.cos(t), a.center[1] + a.radius * Math.sin(t)];
+      };
+      const length = a.radius * sw * Math.PI / 180;
+      const vertices = closed ? [at(0)] : [at(0), at(sw)];
+      const info2 = {
+        vertices,
+        center: a.center,
+        edges: [{ from: 0, to: closed ? 0 : 1, length, radius: a.radius, mid: at(sw / 2) }],
+        total: length
+      };
+      if (line.zs?.length) info2.zs = vertices.map(() => line.zs?.[0]);
+      return info2;
+    }
+    const pts = line.points;
+    const n = pts.length;
+    const segCount = closed ? n : n - 1;
+    const edges = [];
+    let total = 0;
+    for (let i = 0; i < segCount; i++) {
+      const j = (i + 1) % n;
+      const a = pts[i];
+      const b = pts[j];
+      const s = bulgeToSeg(a, b, line.bulges?.[i] ?? 0);
+      const length = segLength(s);
+      if (length < 1e-9) continue;
+      const e = { from: i, to: j, length, mid: segPointAt(s, 0.5) };
+      if (s.kind === "arc") e.radius = s.r;
+      edges.push(e);
+      total += length;
+    }
+    const info = { vertices: pts.slice(), edges, total };
+    if (line.zs?.length) info.zs = line.zs.slice();
+    return info;
+  }
+  function toDisplay(p, axis, unit) {
+    const k = unit === "m" ? 1e-3 : 1;
+    return axis === "northEast" ? [p[1] * k, p[0] * k] : [p[0] * k, p[1] * k];
+  }
+
+  // packages/modules-toplayout/src/nigezumi.ts
+  var EPS4 = 1e-6;
+  var sub = (a, b) => ({ x: a[0] - b[0], y: a[1] - b[1] });
+  var len = (v) => Math.hypot(v.x, v.y);
+  function normal(a, b, side) {
+    const d = sub(b, a);
+    const L = len(d);
+    if (L < EPS4) throw new Error("長さ 0 の線分には法線が定義できません");
+    const nx = -d.y / L;
+    const ny = d.x / L;
+    return side === "left" ? { x: nx, y: ny } : { x: -nx, y: -ny };
+  }
+  function shift(p, n, dist2) {
+    return [p[0] + n.x * dist2, p[1] + n.y * dist2];
+  }
+  function intersect(p1, d1, p2, d2) {
+    const denom = d1.x * d2.y - d1.y * d2.x;
+    if (Math.abs(denom) < 1e-12) return void 0;
+    const t = ((p2[0] - p1[0]) * d2.y - (p2[1] - p1[1]) * d2.x) / denom;
+    return [p1[0] + d1.x * t, p1[1] + d1.y * t];
+  }
+  function dedupe(points, closed) {
+    const out = [];
+    for (const p of points) {
+      const last = out[out.length - 1];
+      if (!last || len(sub(p, last)) >= EPS4) out.push(p);
+    }
+    if (closed && out.length >= 2) {
+      const first = out[0];
+      const last = out[out.length - 1];
+      if (len(sub(first, last)) < EPS4) out.pop();
+    }
+    return out;
+  }
+  function offsetPolyline(input, offset, side, closed = false) {
+    const pts = dedupe(input, closed);
+    if (pts.length < 2) throw new Error("線には 2 点以上が必要です");
+    const segCount = closed ? pts.length : pts.length - 1;
+    const seg = [];
+    for (let i = 0; i < segCount; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      const n = normal(a, b, side);
+      seg.push({ p: shift(a, n, offset), d: sub(b, a) });
+    }
+    const out = [];
+    if (!closed) {
+      out.push(seg[0].p);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const prev = seg[i - 1];
+        const cur = seg[i];
+        const x = intersect(prev.p, prev.d, cur.p, cur.d);
+        out.push(x ?? shift(pts[i], normal(pts[i - 1], pts[i], side), offset));
+      }
+      const lastSeg = seg[seg.length - 1];
+      const lastA = pts[pts.length - 2];
+      const lastB = pts[pts.length - 1];
+      out.push(shift(lastB, normal(lastA, lastB, side), offset));
+      return out;
+    }
+    for (let i = 0; i < pts.length; i++) {
+      const prev = seg[(i - 1 + segCount) % segCount];
+      const cur = seg[i];
+      const x = intersect(prev.p, prev.d, cur.p, cur.d);
+      out.push(x ?? cur.p);
+    }
+    return out;
+  }
+  function pointsAlong(vertices, pitch, closed, naming) {
+    const raw = [];
+    const segCount = closed ? vertices.length : vertices.length - 1;
+    for (let i = 0; i < segCount; i++) {
+      const a = vertices[i];
+      const b = vertices[(i + 1) % vertices.length];
+      raw.push({ p: a, kind: "vertex" });
+      if (pitch > 0) {
+        const L = len(sub(b, a));
+        const d = { x: (b[0] - a[0]) / L, y: (b[1] - a[1]) / L };
+        for (let t = pitch; t < L - EPS4; t += pitch) {
+          raw.push({ p: [a[0] + d.x * t, a[1] + d.y * t], kind: "pitch" });
+        }
+      }
+    }
+    if (!closed) raw.push({ p: vertices[vertices.length - 1], kind: "vertex" });
+    return raw.map((r, i) => ({
+      name: makeName(i, naming),
+      x: r.p[0],
+      y: r.p[1],
+      kind: r.kind
+    }));
+  }
+  function offsetOutline(line, offset, side) {
+    const closed = line.closed ?? false;
+    if (line.arc) return tessellateArc(offsetArc(line.arc, offset, side), closed);
+    if (hasArcBulge(line.points, line.bulges, closed)) {
+      const segs = segmentsFromBulges(line.points, line.bulges, closed);
+      return tessellatePath(offsetPath(segs, offset, side, closed), closed);
+    }
+    return offsetPolyline(line.points, offset, side, closed);
+  }
+  function arcToSeg(arc, closed) {
+    const a0 = arc.startAngle * Math.PI / 180;
+    const sw = sweepDeg(arc, closed) * Math.PI / 180;
+    return { kind: "arc", c: arc.center, r: arc.radius, a0, sw, za: 0, zb: 0 };
+  }
+  function nigezumi(input) {
+    const closed = input.closed ?? false;
+    const pitch = input.pitch ?? 0;
+    if (input.arc) {
+      const oa = offsetArc(input.arc, input.offset, input.side);
+      const pts2 = pointsAlongArc(oa, pitch, closed, input.naming);
+      annotateStations(pts2, [arcToSeg(input.arc, closed)]);
+      const z = input.zs?.[0];
+      if (z !== void 0) for (const p of pts2) p.z = z;
+      return pts2;
+    }
+    if (hasArcBulge(input.points, input.bulges, closed) || input.zs) {
+      const segs = segmentsFromBulges(input.points, input.bulges, closed, input.zs);
+      const off = offsetPath(segs, input.offset, input.side, closed);
+      return pointsAlongPath(off, pitch, closed, input.naming, input.zs !== void 0, segs);
+    }
+    const vertices = offsetPolyline(input.points, input.offset, input.side, closed);
+    const pts = pointsAlong(vertices, pitch, closed, input.naming);
+    annotateStations(pts, segmentsFromBulges(input.points, void 0, closed));
+    return pts;
+  }
+
+  // packages/modules-toplayout/src/pointLines.ts
+  var toPt = (r, o) => {
+    const k = o.unit === "m" ? 1e3 : 1;
+    return o.axis === "northEast" ? [r.Y * k, r.X * k] : [r.X * k, r.Y * k];
+  };
+  var EPS5 = 1e-6;
+  function makeLine(name, rows, closed, o) {
+    const pts = [];
+    const names = [];
+    const hs = [];
+    for (const r of rows) {
+      const p = toPt(r, o);
+      const q = pts[pts.length - 1];
+      if (q && Math.hypot(p[0] - q[0], p[1] - q[1]) < EPS5) continue;
+      pts.push(p);
+      names.push(r.name);
+      hs.push(r.H);
+    }
+    if (closed && pts.length > 2) {
+      const a = pts[0];
+      const b = pts[pts.length - 1];
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < EPS5) {
+        pts.pop();
+        names.pop();
+        hs.pop();
+      }
+    }
+    if (pts.length < 2) return void 0;
+    const line = { name, points: pts, names, closed: closed && pts.length > 2 };
+    if (hs.every((h) => h !== void 0) && hs.some((h) => h !== 0))
+      line.zs = hs.map((h) => h * (o.unit === "m" ? 1e3 : 1));
+    return line;
+  }
+  function isSimaText(fileName, text) {
+    return /\.sima?$/i.test(fileName) || /^\s*(G00|Z00|A00|A99)\s*,/m.test(text);
+  }
+  function parseSimaParcels(text) {
+    const out = [];
+    let cur;
+    for (const line of text.split(/\r\n|\r|\n/)) {
+      const c = line.split(",").map((x) => x.trim());
+      if (c[0] === "D00") {
+        if (cur) out.push({ ...cur, open: true });
+        cur = { name: c[2] || c[1] || `画地${out.length + 1}`, refs: [] };
+      } else if (c[0] === "B01" && cur) {
+        cur.refs.push({ no: c[1] ?? "", name: c[2] ?? "" });
+      } else if (c[0] === "D99" && cur) {
+        out.push(cur);
+        cur = void 0;
+      }
+    }
+    if (cur) out.push({ ...cur, open: true });
+    return out;
+  }
+  function simaRowsByNo(text) {
+    const m = /* @__PURE__ */ new Map();
+    for (const line of text.split(/\r\n|\r|\n/)) {
+      const c = line.split(",").map((x) => x.trim());
+      if (c[0] !== "A01") continue;
+      const X = Number(c[3]);
+      const Y = Number(c[4]);
+      if (c[3] === "" || c[4] === "" || !Number.isFinite(X) || !Number.isFinite(Y)) continue;
+      const r = { name: c[2] ?? "", X, Y };
+      const H = Number(c[5]);
+      if ((c[5] ?? "") !== "" && Number.isFinite(H)) r.H = H;
+      if (c[1]) m.set(`#${c[1]}`, r);
+      if (r.name && !m.has(r.name)) m.set(r.name, r);
+    }
+    return m;
+  }
+  function linesFromPoints(rows, opt, simaText) {
+    const lines = [];
+    const missing = [];
+    if (simaText !== void 0) {
+      const byNo = simaRowsByNo(simaText);
+      for (const pc of parseSimaParcels(simaText)) {
+        const rs = [];
+        let ok = true;
+        for (const ref of pc.refs) {
+          const r = (ref.no ? byNo.get(`#${ref.no}`) : void 0) ?? byNo.get(ref.name);
+          if (pc.open || !r || ref.name && r.name && r.name !== ref.name) {
+            ok = false;
+            break;
+          }
+          rs.push(r);
+        }
+        const ln = ok ? makeLine(`画地 ${pc.name}`, rs, true, opt) : void 0;
+        if (ln) lines.push(ln);
+        else missing.push(pc.name);
+      }
+    }
+    if (!lines.length) {
+      const all = makeLine("全部の点を順に結んだ線", rows, !!opt.closeAll, opt);
+      if (all) lines.push(all);
+    }
+    return { lines, missing };
+  }
+
+  // packages/modules-toplayout/src/profile.ts
+  function profileSegments(points) {
+    const pts = points.map((p, i) => ({ p, i })).sort((a, b) => a.p.sta - b.p.sta || a.i - b.i).map((x) => x.p);
+    const segs = [];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (a.h === void 0 || b.h === void 0 || !Number.isFinite(a.h) || !Number.isFinite(b.h)) continue;
+      const length = b.sta - a.sta;
+      const dh = b.h - a.h;
+      const s = { from: a.name, to: b.name, length, dh };
+      if (length > 0) s.grade = dh / length * 100;
+      segs.push(s);
+    }
+    return { points: pts, segs };
+  }
+
+  // packages/modules-toplayout/src/sima.ts
+  var fix = (v, d) => {
+    const r = Number(v.toFixed(d));
+    return (Object.is(r, -0) ? 0 : r).toFixed(d);
+  };
+  function toSima(points, opt = {}) {
+    const scale = (opt.unit ?? "m") === "m" ? 1e-3 : 1;
+    const d = opt.decimals ?? 3;
+    const eol = opt.eol ?? "\r\n";
+    const title = opt.title ?? "ECP-NIGEZUMI";
+    const lines = [`G00,01,${title},`, "Z00,座標ﾃﾞｰﾀ,", "A00,"];
+    points.forEach((p, i) => {
+      const X = p.y * scale;
+      const Y = p.x * scale;
+      const H = outputH(p, opt, scale);
+      lines.push(`A01,${i + 1},${p.name},${fix(X, d)},${fix(Y, d)},${fix(H, d)},`);
+    });
+    lines.push("A99,", "Z99,");
+    return `${lines.join(eol)}${eol}`;
+  }
+  var SJIS = {
+    座: [141, 192],
+    標: [149, 87],
+    ﾃ: [195],
+    ﾞ: [222],
+    ｰ: [176],
+    ﾀ: [192]
+  };
+  function simaToSjis(text) {
+    const out = [];
+    for (const ch of text) {
+      const c = ch.codePointAt(0);
+      if (c < 128) out.push(c);
+      else if (SJIS[ch]) out.push(...SJIS[ch]);
+      else throw new Error(`SIMA に書けない文字があります: 「${ch}」(点名・工事名は半角英数にしてください)`);
+    }
+    return Uint8Array.from(out);
+  }
+  var num = (s) => {
+    if (s === void 0 || s.trim() === "") return void 0;
+    const v = Number(s.trim());
+    return Number.isFinite(v) ? v : void 0;
+  };
+  function parseSima(text) {
+    const out = [];
+    for (const line of text.split(/\r\n|\r|\n/)) {
+      const c = line.split(",");
+      if ((c[0] ?? "").trim() !== "A01") continue;
+      const X = num(c[3]);
+      const Y = num(c[4]);
+      if (X === void 0 || Y === void 0) continue;
+      const row = { name: (c[2] ?? "").trim(), X, Y };
+      const H = num(c[5]);
+      if (H !== void 0) row.H = H;
+      out.push(row);
+    }
+    return out;
+  }
+  function parsePointCsv(text) {
+    const out = [];
+    for (const line of text.split(/\r\n|\r|\n/)) {
+      const c = line.split(",");
+      if (c.length < 3) continue;
+      const X = num(c[1]);
+      const Y = num(c[2]);
+      if (X === void 0 || Y === void 0) continue;
+      const row = { name: (c[0] ?? "").trim(), X, Y };
+      const H = num(c[3]);
+      if (H !== void 0) row.H = H;
+      out.push(row);
+    }
+    return out;
+  }
+  function rowsToHeightPoints(rows, opt) {
+    const k = opt.unit === "m" ? 1e3 : 1;
+    const hs = opt.hScale ?? 1;
+    const out = [];
+    for (const r of rows) {
+      if (r.H === void 0) continue;
+      const [x, y] = opt.axis === "northEast" ? [r.Y, r.X] : [r.X, r.Y];
+      out.push({ x: x * k, y: y * k, h: r.H * hs });
+    }
+    return out;
+  }
+
+  // packages/modules-toplayout/src/types.ts
+  var TOPLAYOUT_SCHEMA_VERSION = 1;
+
+  // packages/modules-toplayout/src/browser.ts
+  function linesFromDxf(data, k = 1) {
+    return linesFromDxfRaw(data).map((l) => k === 1 ? l : scaleLine(l, k));
+  }
+  function dxfScaleHints(data) {
+    const text = typeof data === "string" ? data : new TextDecoder("utf-8").decode(data);
+    const out = { candidates: [] };
+    const u = insunitsOf(text);
+    if (u) out.insunits = u;
+    try {
+      const ds = dxfDimScale(parseDxfDims(data));
+      if (ds) {
+        out.dimFactor = ds.factor;
+        out.dimAgreed = ds.agreed;
+        out.dimTotal = ds.total;
+        const cs = candidatesFromDimFactor(ds.factor);
+        out.candidates = u ? [...cs.filter((c) => c.unit === u), ...cs.filter((c) => c.unit !== u)] : cs;
+      }
+    } catch {
+    }
+    return out;
+  }
+  function linesFromDxfRaw(data) {
+    const out = [];
+    let id = 0;
+    for (const e of parseDxfLines3d(data)) {
+      const zs = e.hasZ ? e.zs : void 0;
+      if (e.kind === "ARC" || e.kind === "CIRCLE") {
+        const closed = e.kind === "CIRCLE";
+        const arc = {
+          center: e.points[0],
+          radius: e.radius,
+          startAngle: closed ? 0 : e.startAngle,
+          endAngle: closed ? 360 : e.endAngle
+        };
+        const pts = tessellateArc(arc, closed);
+        const line2 = { id: id++, layer: e.layer, closed, points: pts, arc, draw: pts };
+        if (zs) line2.zs = zs;
+        if (e.tilted) line2.tilted = true;
+        out.push(line2);
+        continue;
+      }
+      if (e.points.length < 2) continue;
+      const bulgy = hasArcBulge(e.points, e.bulges, e.closed);
+      const line = { id: id++, layer: e.layer, closed: e.closed, points: e.points, draw: e.points };
+      if (bulgy) {
+        line.bulges = e.bulges;
+        line.draw = tessellatePath(segmentsFromBulges(e.points, e.bulges, e.closed), e.closed);
+      }
+      if (zs) line.zs = zs;
+      if (e.tilted) line.tilted = true;
+      out.push(line);
+    }
+    return out;
+  }
+  function linesFromPointFile(text, sima, opt) {
+    const rows = sima ? parseSima(text) : parsePointCsv(text);
+    const o = sima ? { axis: "northEast", unit: "m", closeAll: opt.closeAll } : opt;
+    const r = linesFromPoints(rows, o, sima ? text : void 0);
+    const lines = r.lines.map((l, id) => {
+      const line = { id, layer: l.name, closed: l.closed, points: l.points, draw: l.points };
+      if (l.zs) line.zs = l.zs;
+      return line;
+    });
+    return { lines, missing: r.missing, points: rows.length };
+  }
+  function textsFromDxf(data, k = 1) {
+    try {
+      return parseDxfTexts(data).filter((t) => t.text.trim() !== "").map((t) => {
+        const o = { x: t.x * k, y: t.y * k, text: t.text, height: t.height * k };
+        if (t.mirrored) o.mirrored = true;
+        return o;
+      });
+    } catch {
+      return [];
+    }
+  }
+  function lineLength(line) {
+    const segs = line.arc ? [arcToSeg(line.arc, line.closed)] : segmentsFromBulges(line.points, line.bulges, line.closed);
+    return cumLengths(segs).at(-1);
+  }
+  var g = globalThis;
+  g.TopLayout = {
+    SCHEMA_VERSION: TOPLAYOUT_SCHEMA_VERSION,
+    linesFromDxf,
+    textsFromDxf,
+    linesFromPointFile,
+    profileSegments,
+    isSimaText,
+    lineInfo,
+    toDisplay,
+    formatCoord,
+    dxfScaleHints,
+    dimFactorAgrees,
+    calibrateScale,
+    drawingFactor,
+    COMMON_SCALES,
+    dxfTiltedNote,
+    parseDxfEntities,
+    parseDxfLines3d,
+    offsetPolyline,
+    pointsAlong,
+    offsetArc,
+    centerDistanceToOffset,
+    pointsAlongArc,
+    tessellateArc,
+    segmentsFromBulges,
+    offsetPath,
+    pointsAlongPath,
+    tessellatePath,
+    offsetOutline,
+    nigezumi,
+    toTopLayoutCsv,
+    toSima,
+    simaToSjis,
+    parseSima,
+    parsePointCsv,
+    rowsToHeightPoints,
+    buildTin,
+    tinHeight,
+    applyHeights,
+    lineLength
+  };
+})();
+</script>
+    <script>
+// 図脳RAPID の図面（.zrd・.zsdx・.zsdxz）を読んで DXF の文字列にする（墨太郎の「図面をひらく」で使う）。
+// 読み方は 墨太郎エンジン\sumitaro\zunou.py と同じ（そちらに説明）。ブラウザだけで動く（オフライン可）。
+(function (g) {
+  "use strict";
+  const MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  const END = 0xfffffffe, FREE = 0xffffffff;
+  const ZRD = { name: "zrd", sig: [1, 1, 2, 0x0a, 0, 0, 0], h: 17, enc: "shift_jis" };
+  const ZSDX = { name: "zsdx", sig: [1, 1, 2, 0x0f, 0, 0, 0], h: 32, enc: "utf-16le" };
+  const KIND = { 0x108: "DIMENSION", 0x10b: "GROUP", 0x10c: "LEADER" };
+
+  function isOle(u8) {
+    return u8.length > 512 && MAGIC.every((b, i) => u8[i] === b);
+  }
+
+  // ---------------------------------------------------------------- OLE 複合ファイル
+  function readStream(u8, name) {
+    if (!isOle(u8)) throw new Error("図脳RAPID の図面ではありません(OLE 複合ファイルではない)");
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const u16 = (o) => dv.getUint16(o, true), u32 = (o) => dv.getUint32(o, true);
+    const ss = 1 << u16(30), mss = 1 << u16(32);
+    const nFat = u32(44), dirStart = u32(48), cutoff = u32(56);
+    const miniStart = u32(60), difStart = u32(68), nDif = u32(72);
+    const sectOff = (i) => (i + 1) * ss;
+    const difat = [];
+    for (let i = 0; i < 109; i++) difat.push(u32(76 + 4 * i));
+    let d = difStart;
+    for (let k = 0; k < nDif && d !== END && d !== FREE; k++) {
+      const o = sectOff(d);
+      for (let i = 0; i < ss / 4 - 1; i++) difat.push(u32(o + 4 * i));
+      d = u32(o + ss - 4);
+    }
+    const fat = [];
+    for (const s of difat.slice(0, nFat)) {
+      const o = sectOff(s);
+      for (let i = 0; i < ss / 4; i++) fat.push(u32(o + 4 * i));
+    }
+    const chain = (start, table) => {
+      const out = [], seen = new Set();
+      let s = start;
+      while (s !== END && s !== FREE && s < table.length && !seen.has(s)) { seen.add(s); out.push(s); s = table[s]; }
+      return out;
+    };
+    const gather = (sects, size) => {
+      const out = new Uint8Array(sects.length * ss);
+      sects.forEach((s, i) => out.set(u8.subarray(sectOff(s), sectOff(s) + ss), i * ss));
+      return size === undefined ? out : out.subarray(0, size);
+    };
+    const dir = gather(chain(dirStart, fat));
+    const ddv = new DataView(dir.buffer);
+    const entries = [];
+    for (let o = 0; o + 128 <= dir.length; o += 128) {
+      const nl = ddv.getUint16(o + 64, true);
+      const nm = new TextDecoder("utf-16le").decode(dir.subarray(o, o + Math.max(0, nl - 2)));
+      entries.push({ name: nm, type: dir[o + 66], start: ddv.getUint32(o + 116, true), size: ddv.getUint32(o + 120, true) });
+    }
+    const e = entries.find((x) => x.type === 2 && x.name === name);
+    if (!e) throw new Error(`図脳RAPID の図面ではありません(${name} がない)`);
+    if (e.size >= cutoff) return gather(chain(e.start, fat), e.size);
+    const minifat = [];
+    for (const s of chain(miniStart, fat)) {
+      const o = sectOff(s);
+      for (let i = 0; i < ss / 4; i++) minifat.push(u32(o + 4 * i));
+    }
+    const ministream = gather(chain(entries[0].start, fat));
+    const ms = chain(e.start, minifat);
+    const out = new Uint8Array(ms.length * mss);
+    ms.forEach((s, i) => out.set(ministream.subarray(s * mss, (s + 1) * mss), i * mss));
+    return out.subarray(0, e.size);
+  }
+
+  // DecompressionStream が無いブラウザ（古い iPhone など）用の inflate（zlib の頭 2 バイトを飛ばす）
+  function inflateJS(src) {
+    let pos = 2, bit = 0, cnt = 0, out = new Uint8Array(Math.max(1024, src.length * 4)), op = 0;
+    const need = (n) => { if (op + n > out.length) { let m = out.length * 2; while (m < op + n) m *= 2; const o = new Uint8Array(m); o.set(out.subarray(0, op)); out = o; } };
+    const bits = (n) => { while (cnt < n) { if (pos >= src.length) throw new Error("inflate: 途中で終わり"); bit |= src[pos++] << cnt; cnt += 8; } const v = bit & ((1 << n) - 1); bit >>>= n; cnt -= n; return v; };
+    const build = (lens) => { const cnts = new Uint16Array(16), offs = new Uint16Array(16), sym = new Uint16Array(lens.length); for (const l of lens) cnts[l]++; cnts[0] = 0; for (let i = 1; i < 16; i++) offs[i] = offs[i - 1] + cnts[i - 1]; for (let i = 0; i < lens.length; i++) if (lens[i]) sym[offs[lens[i]]++] = i; return { cnts, sym }; };
+    const decode = (t) => { let code = 0, first = 0, idx = 0; for (let l = 1; l < 16; l++) { code |= bits(1); const c = t.cnts[l]; if (code - c < first) return t.sym[idx + code - first]; idx += c; first += c; first <<= 1; code <<= 1; } throw new Error("inflate: 符号が不正"); };
+    const LB = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258], LE = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+    const DB = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577], DE = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+    let fixL = null, fixD = null, last = 0;
+    while (!last) {
+      last = bits(1); const type = bits(2);
+      if (type === 0) {
+        bit = 0; cnt = 0; const len = src[pos] | (src[pos + 1] << 8); pos += 4;
+        need(len); out.set(src.subarray(pos, pos + len), op); op += len; pos += len; continue;
+      }
+      let lt, dt;
+      if (type === 1) {
+        if (!fixL) { const l = new Uint8Array(288); l.fill(8, 0, 144); l.fill(9, 144, 256); l.fill(7, 256, 280); l.fill(8, 280, 288); fixL = build(l); fixD = build(new Uint8Array(30).fill(5)); }
+        lt = fixL; dt = fixD;
+      } else if (type === 2) {
+        const hl = bits(5) + 257, hd = bits(5) + 1, hc = bits(4) + 4, ord = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15], cl = new Uint8Array(19);
+        for (let i = 0; i < hc; i++) cl[ord[i]] = bits(3);
+        const ct = build(cl), ls = new Uint8Array(hl + hd);
+        for (let i = 0; i < hl + hd;) { const s = decode(ct); if (s < 16) ls[i++] = s; else if (s === 16) { const p = ls[i - 1]; for (let r = 3 + bits(2); r--;) ls[i++] = p; } else if (s === 17) i += 3 + bits(3); else i += 11 + bits(7); }
+        lt = build(ls.subarray(0, hl)); dt = build(ls.subarray(hl));
+      } else throw new Error("inflate: 種類が不正");
+      for (;;) {
+        const s = decode(lt);
+        if (s < 256) { need(1); out[op++] = s; }
+        else if (s === 256) break;
+        else { const k = s - 257, len = LB[k] + bits(LE[k]), d = decode(dt), dist = DB[d] + bits(DE[d]); need(len); for (let i = 0; i < len; i++, op++) out[op] = out[op - dist]; }
+      }
+    }
+    return out.slice(0, op);
+  }
+
+  async function inflate(u8) {
+    if (typeof DecompressionStream === "function" && typeof Blob.prototype.stream === "function") {
+      try {
+        const s = new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate"));
+        return new Uint8Array(await new Response(s).arrayBuffer());
+      } catch (e) { /* 下の JS 版で */ }
+    }
+    return inflateJS(u8);
+  }
+
+  // ---------------------------------------------------------------- 記録
+  const view = (u8) => new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  function walk(u8, p, end, strict) {
+    const dv = view(u8), out = [];
+    while (p + 6 <= end) {
+      const t = dv.getUint16(p, true), n = dv.getUint32(p + 2, true);
+      if (p + 6 + n > end) return strict ? null : out;
+      out.push([t, p + 6, n]);
+      p += 6 + n;
+      if (t === 0xffff) return !strict || p === end ? out : null;
+    }
+    return strict ? null : out;
+  }
+  const startsWith = (u8, s) => [...s].every((ch, i) => u8[i] === ch.charCodeAt(0));
+
+  async function records(c) {
+    const dv = view(c);
+    if (startsWith(c, "ZRD.")) {
+      for (let s = 16; s < Math.min(c.length, 8192); s++) {
+        const t = dv.getUint16(s, true);
+        if (![0x11, 0x5, 0x6, 0x9, 0x10d].includes(t)) continue;
+        const r = walk(c, s, c.length, true);
+        if (r) return { f: ZRD, recs: r.map(([t, p, n]) => [t, c.subarray(p, p + n)]) };
+      }
+      throw new Error("図脳RAPID(.zrd)の記録の並びを見つけられません(対応していない版)");
+    }
+    if (startsWith(c, "PHT.ZSDX")) {
+      for (let s = 16; s < Math.min(c.length, 8192); s++) {
+        const t0 = dv.getUint16(s, true), n0 = dv.getUint32(s + 2, true);
+        if (!(t0 & 0x8000) || s + 6 + n0 > c.length || c[s + 6] !== 0x78) continue;
+        try {
+          const out = [];
+          let p = s;
+          while (p + 6 <= c.length) {
+            const t = dv.getUint16(p, true), n = dv.getUint32(p + 2, true);
+            let body = c.subarray(p + 6, p + 6 + n);
+            if (t !== 0xffff && t & 0x8000 && n) body = await inflate(body);
+            out.push([t === 0xffff ? t : t & 0x7fff, body]);
+            p += 6 + n;
+            if (t === 0xffff) break;
+          }
+          if (out.length > 3) return { f: ZSDX, recs: out };
+        } catch (e) { /* 次の位置 */ }
+      }
+      throw new Error("図脳RAPID(.zsdx)の記録の並びを見つけられません(対応していない版)");
+    }
+    throw new Error("図脳RAPID の図面ではありません(ヘッダが ZRD. でも PHT.ZSDX でもない)");
+  }
+
+  // ---------------------------------------------------------------- 図形
+  const ang = (cx, cy, x, y) => ((Math.atan2(y - cy, x - cx) * 180) / Math.PI + 360) % 360;
+  function str(b, dv, q, f) {
+    const n = dv.getUint32(q, true);
+    const s = new TextDecoder(f.enc).decode(b.subarray(q + 4, q + 4 + n)).replace(/\0+$/, "");
+    return [s, q + 4 + n];
+  }
+  function sigAt(b, i, f) { return f.sig.every((x, k) => b[i + k] === x); }
+  function kids(b, f) {
+    const dv = view(b), out = [];
+    let p = 1;
+    for (;;) {
+      let i = -1;
+      for (let k = p; k + 7 <= b.length; k++) if (sigAt(b, k, f)) { i = k; break; }
+      if (i < 0) return out;
+      const s = i - 6;
+      if (s >= 0) {
+        const t = dv.getUint16(s, true), n = dv.getUint32(s + 2, true);
+        if (t >= 0x101 && t <= 0x10c && s + 6 + n <= b.length) { out.push([t, b.subarray(s + 6, s + 6 + n)]); p = s + 6 + n; continue; }
+      }
+      p = i + 1;
+    }
+  }
+  // 塗り潰し・ハッチ(0x0110)の境界(設計図作成エンジンの zrd_read.py の _fill_paths と同じ読み方)
+  function arcPts(st, en, c, ccw) {
+    let a0 = Math.atan2(st[1] - c[1], st[0] - c[0]), a1 = Math.atan2(en[1] - c[1], en[0] - c[0]);
+    const r = Math.hypot(st[0] - c[0], st[1] - c[1]);
+    if (ccw) while (a1 <= a0) a1 += 2 * Math.PI; else while (a1 >= a0) a1 -= 2 * Math.PI;
+    const n = Math.max(1, Math.ceil(Math.abs(((a1 - a0) * 180) / Math.PI) / 2)), out = [];
+    for (let i = 1; i < n; i++) out.push([c[0] + r * Math.cos(a0 + ((a1 - a0) * i) / n), c[1] + r * Math.sin(a0 + ((a1 - a0) * i) / n)]);
+    out.push(en);
+    return out;
+  }
+  function fillPaths(b, dv, base) {
+    if (b.length < base + 4) return null;
+    const d = (o) => dv.getFloat64(o, true);
+    const n = dv.getUint32(base, true), paths = [];
+    let o = base + 4;
+    try {
+      for (let i = 0; i < n; i++) {
+        const k = b[o];
+        if (k === 0 || k === 1) {
+          if (k === 1 && !paths.length) return null;
+          if (k === 0) paths.push([]);
+          paths[paths.length - 1].push([d(o + 1), d(o + 9)]);
+          o += 17;
+        } else if (k === 2 || k === 3) {
+          const last = paths.length && paths[paths.length - 1];
+          if (!last || !last.length) return null;
+          last.push(...arcPts(last[last.length - 1], [d(o + 1), d(o + 9)], [d(o + 17), d(o + 25)], k === 3));
+          o += 41;
+        } else if (k === 4 && b[o + 1] === 0) {
+          const m = dv.getUint32(o + 2, true);
+          if (!paths.length) paths.push([]);
+          for (let j = 0; j < m; j++) paths[paths.length - 1].push([d(o + 6 + 16 * j), d(o + 14 + 16 * j)]);
+          o += 6 + 16 * m;
+        } else return null;
+      }
+    } catch (e) { return null; }
+    const out = [];
+    for (let p of paths) {
+      if (!p.every((q) => Number.isFinite(q[0]) && Number.isFinite(q[1]) && Math.abs(q[0]) < 1e9 && Math.abs(q[1]) < 1e9)) return null;
+      p = p.filter((q, i) => i === 0 || q[0] !== p[i - 1][0] || q[1] !== p[i - 1][1]);
+      if (p.length > 1 && p[0][0] === p[p.length - 1][0] && p[0][1] === p[p.length - 1][1]) p.pop();
+      if (p.length >= 3) out.push(p);
+    }
+    return out.length ? out : null;
+  }
+  // 寸法(0x0108)の線。共通部分の後 77 バイトの設定に続いて「点数 u32 ＋ 点」の並びが 5 つ:
+  //   0 補助線の先(寸法線の外側)、1 寸法線、2 補助線の元(図形からすき間をあけた所)、3 測った図形、4 寸法線(1 と同じ)
+  // 中ノ谷川・泉の広場の .zrd で確かめた(2026-11-06)。矢印は 0x010A(種類・先端・向き・大きさ)
+  function dimension(b, dv, f, base, group, out) {
+    const ok = (v) => Number.isFinite(v) && (v === 0 || (Math.abs(v) > 1e-6 && Math.abs(v) < 1e9));
+    const segs = [];
+    let q = f.h + 77;
+    while (q + 4 <= b.length) {
+      const n = dv.getUint32(q, true);
+      if (n < 1 || n > 1000 || q + 4 + 16 * n > b.length) break;
+      const pts = [];
+      for (let i = 0; i < n; i++) pts.push([dv.getFloat64(q + 4 + 16 * i, true), dv.getFloat64(q + 12 + 16 * i, true)]);
+      if (!pts.every((p) => ok(p[0]) && ok(p[1]))) break;
+      segs.push(pts);
+      q += 4 + 16 * n;
+    }
+    const g = { ...base, group: group || "DIMENSION", dim: true };
+    const line = (a, c) => { if (a[0] !== c[0] || a[1] !== c[1]) out.push({ ...g, type: "LINE", start: a, end: c }); };
+    if (segs.length >= 5 && segs.every((s) => s.length >= 2)) {
+      const L = (s) => s[s.length - 1];
+      out.push({ ...g, type: "LINE", start: segs[4][0], end: L(segs[4]), dimMain: true }); // 寸法線
+      line(segs[2][0], segs[0][0]);                 // 補助線
+      line(L(segs[2]), L(segs[0]));
+    } else for (const s of segs) for (let i = 0; i + 1 < s.length; i++) line(s[i], s[i + 1]);
+    // 矢印
+    for (let i = q; i + 6 + 50 <= b.length; i++) {
+      if (b[i] !== 0x0a || b[i + 1] !== 0x01) continue;
+      const n = dv.getUint32(i + 2, true), m = i + 6;
+      if (n < 50 || m + n > b.length || !sigAt(b, m, f)) continue;
+      const kind = b[m + 17], x = dv.getFloat64(m + 18, true), y = dv.getFloat64(m + 26, true);
+      const a = dv.getFloat64(m + 34, true), sz = dv.getFloat64(m + 42, true);
+      if (kind && sz > 0 && ok(x) && ok(y)) {
+        for (const da of [0.3, -0.3]) line([x, y], [x + sz * Math.cos(a + da), y + sz * Math.sin(a + da)]);
+      }
+      i += 5 + n;
+    }
+  }
+  function decode(t, b, f, layers, group, out, unknown) {
+    const dv = view(b), H = f.h;
+    const d = (o) => dv.getFloat64(o, true);
+    const lid = dv.getUint32(7, true);
+    const base = { layer: (layers.get(lid) || String(lid)), aux: lid >= 0x80000000, group };
+    try {
+      if (t === 0x101) out.push({ ...base, type: "LINE", start: [d(H), d(H + 8)], end: [d(H + 16), d(H + 24)] });
+      else if (t === 0x102) out.push({ ...base, type: "CIRCLE", center: [d(H + 35), d(H + 43)], radius: d(H + 51) });
+      else if (t === 0x103) {
+        const cx = d(H), cy = d(H + 8), r = d(H + 16), sx = d(H + 24), sy = d(H + 32), ex = d(H + 40), ey = d(H + 48);
+        out.push({ ...base, type: "ARC", center: [cx, cy], radius: r, sa: ang(cx, cy, sx, sy), ea: ang(cx, cy, ex, ey) });
+      } else if (t === 0x104 || t === 0x105) {
+        let cx = d(H + 35), cy = d(H + 43), a0 = d(H + 51), a = d(H + 59), bb = d(H + 67), sh = 0;
+        if (bb > a) { [a, bb] = [bb, a]; a0 += Math.PI / 2; sh = Math.PI / 2; }
+        const e = { ...base, type: "ELLIPSE", center: [cx, cy], angle: a0, major: a, minor: bb, t0: 0, t1: 2 * Math.PI };
+        if (t === 0x105) { e.t0 = d(H + 75) - sh; e.t1 = d(H + 83) - sh; }
+        out.push(e);
+      } else if (t === 0x106) {
+        const x = d(H), y = d(H + 8), n = dv.getUint32(H + 16, true);
+        const corner = n ? [d(H + 20), d(H + 28)] : [x, y];
+        let q = H + 20 + 16 * n;
+        const a = d(q), h = d(q + 9);
+        let font, s;
+        [font, q] = str(b, dv, q + 25, f);
+        [s, q] = str(b, dv, q, f);
+        out.push({ ...base, type: "TEXT", at: [x, y], corner, angle: a, height: h, text: s });
+      } else if (t === 0x107) {
+        let q = H + 36;
+        const marks = [];
+        while (dv.getUint16(q, true) === 0x10a) {
+          const n = dv.getUint32(q + 2, true);
+          if (n >= 50) marks.push({ kind: b[q + 6 + 17], ang: d(q + 6 + 34), size: d(q + 6 + 42) });
+          q += 6 + n;
+        }
+        const n = dv.getUint32(q, true), pts = [];
+        for (let i = 0; i < n; i++) pts.push([d(q + 4 + 16 * i), d(q + 12 + 16 * i)]);
+        if (n === 1 || (n === 2 && pts[0][0] === pts[1][0] && pts[0][1] === pts[1][1])) out.push({ ...base, type: "POINT", at: pts[0], mark: marks[0] || null });
+        else if (n) {
+          const closed = n > 2 && pts[0][0] === pts[n - 1][0] && pts[0][1] === pts[n - 1][1];
+          out.push({ ...base, type: "POLYLINE", points: closed ? pts.slice(0, -1) : pts, closed, marks: marks.some((m) => m.kind) ? marks : undefined });
+        }
+      } else if (t === 0x110) {
+        const paths = fillPaths(b, dv, H + 35);
+        if (paths) for (const pth of paths) out.push({ ...base, type: "POLYLINE", points: pth, closed: true, fill: true });
+        else unknown[t] = (unknown[t] || 0) + 1;
+      } else if (t === 0x108) {
+        dimension(b, dv, f, base, group, out);
+        for (const [kt, kb] of kids(b, f)) decode(kt, kb, f, layers, group || KIND[t], out, unknown);
+      } else if (KIND[t]) {
+        for (const [kt, kb] of kids(b, f)) decode(kt, kb, f, layers, group || KIND[t], out, unknown);
+      } else if (t !== 0x10a) unknown[t] = (unknown[t] || 0) + 1;
+    } catch (e) {
+      unknown[t] = (unknown[t] || 0) + 1;
+    }
+  }
+
+  async function parse(c) {
+    const { f, recs } = await records(c);
+    const layers = new Map(), entities = [], unknown = {};
+    let origin = null, rot = 0;
+    const layerRec = (dd) => {
+      const v = view(dd), lid = v.getUint32(0, true), ln = v.getUint32(4, true);
+      layers.set(lid, new TextDecoder(f.enc).decode(dd.subarray(8, 8 + ln)).replace(/\0+$/, ""));
+    };
+    for (const [t, dd] of recs) {
+      if (t === 0x11) layerRec(dd);
+      else if (t === 0x4) for (const [tt, p, n] of walk(dd, 4, dd.length, false) || []) { if (tt === 0x11) layerRec(dd.subarray(p, p + n)); }
+      else if (t === 0xa && dd.length === 16) origin = [view(dd).getFloat64(0, true), view(dd).getFloat64(8, true)];
+      else if (t === 0x303 && dd.length >= 16) { const a = view(dd).getFloat64(8, true); if (Number.isFinite(a) && Math.abs(a) < 100) rot = a; } // 座標設定の回転角(rad)
+    }
+    for (const [t, dd] of recs) {
+      if (t !== 0x5) continue;
+      for (const [tt, p, n] of walk(dd, f === ZSDX ? 12 : 4, dd.length, false) || []) {
+        const b = dd.subarray(p, p + n);
+        if (!sigAt(b, 0, f)) { unknown[tt] = (unknown[tt] || 0) + 1; continue; }
+        decode(tt, b, f, layers, null, entities, unknown);
+      }
+    }
+    const hasWorld = !!origin && (Math.abs(origin[0]) > 1e-9 || Math.abs(origin[1]) > 1e-9);
+    // 公共座標 = 回転(-rot) × (図面の点 - 原点)。中ノ谷川の図面(25°)を法面工座標.csv と照合して確かめた
+    let r = hasWorld ? Math.atan2(Math.sin(rot), Math.cos(rot)) : 0;
+    if (Math.abs(r) < 1e-12) r = 0;
+    return { fmt: f.name, layers, entities, origin: hasWorld ? origin : null, rot: r, unknown };
+  }
+
+  async function read(u8) {
+    return parse(readStream(u8, "Contents"));
+  }
+
+  // ---------------------------------------------------------------- DXF
+  // 図面は実寸 mm。公共座標の原点があれば、公共座標(mm。横=Y東・縦=X北)に移して書く。
+  // 図形の代表点(はなれ値の判定用)
+  function refPoint(e) {
+    return e.start || e.center || e.at || e.corner || (e.points && e.points[0]) || null;
+  }
+  // 図面の大部分からとても遠い図形(用紙の外に置いた原点の印・貼り付けの残りなど)を見つける。
+  // 中央値から 75% の図形までの距離の 20 倍、かつ 2 km より遠いもの。
+  function farSet(dr) {
+    const ps = [];
+    for (const e of dr.entities) { if (e.aux) continue; const p = refPoint(e); if (p) ps.push(p); }
+    if (ps.length < 20) return new Set();
+    const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[b.length >> 1]; };
+    const mx = med(ps.map((p) => p[0])), my = med(ps.map((p) => p[1]));
+    const ds = ps.map((p) => Math.hypot(p[0] - mx, p[1] - my)).sort((a, b) => a - b);
+    const lim = Math.max(20 * ds[Math.floor(ds.length * 0.75)], 2e6);
+    const far = new Set();
+    for (const e of dr.entities) { const p = refPoint(e); if (p && Math.hypot(p[0] - mx, p[1] - my) > lim) far.add(e); }
+    return far;
+  }
+  function toDxf(dr, opt = {}) {
+    const world = opt.world ?? !!dr.origin;
+    const [ox, oy] = world && dr.origin ? dr.origin : [0, 0];
+    const th = world && dr.origin ? -(dr.rot || 0) : 0, thD = (th * 180) / Math.PI, cs = Math.cos(th), sn = Math.sin(th);
+    const far = opt.keepFar ? new Set() : farSet(dr);
+    dr.dropped = far.size;
+    const L = [];
+    const g = (c, v) => { L.push(String(c), typeof v === "number" ? (Number.isInteger(v) && c >= 60 && c < 80 ? String(v) : v.toFixed(6)) : String(v)); };
+    const lay = (e) => (e.layer || "0").replace(/[<>/\\":;?*|=`,]/g, "_");
+    g(0, "SECTION"); g(2, "HEADER"); g(9, "$ACADVER"); g(1, "AC1009"); g(9, "$INSUNITS"); g(70, 4); g(0, "ENDSEC");
+    g(0, "SECTION"); g(2, "ENTITIES");
+    for (const e of dr.entities) {
+      if ((e.aux && !opt.aux) || far.has(e)) continue;
+      const P = (p) => { const x = p[0] - ox, y = p[1] - oy; return th ? [x * cs - y * sn, x * sn + y * cs] : [x, y]; };
+      if (e.type === "LINE") { const a = P(e.start), b = P(e.end); g(0, "LINE"); g(8, lay(e)); g(10, a[0]); g(20, a[1]); g(11, b[0]); g(21, b[1]); }
+      else if (e.type === "CIRCLE") { const c = P(e.center); g(0, "CIRCLE"); g(8, lay(e)); g(10, c[0]); g(20, c[1]); g(40, e.radius); }
+      else if (e.type === "ARC") { const c = P(e.center); g(0, "ARC"); g(8, lay(e)); g(10, c[0]); g(20, c[1]); g(40, e.radius); g(50, (e.sa + thD + 360) % 360); g(51, (e.ea + thD + 360) % 360); }
+      else if (e.type === "ELLIPSE") {
+        // 楕円は折れ線にする(墨太郎の線として選べる)
+        let t0 = e.t0, t1 = e.t1;
+        while (t1 <= t0) t1 += 2 * Math.PI;
+        const n = Math.max(8, Math.ceil(((t1 - t0) * 180) / Math.PI / 3));
+        const ca = Math.cos(e.angle), sa = Math.sin(e.angle);
+        g(0, "POLYLINE"); g(8, lay(e)); g(66, 1); g(70, 0);
+        for (let i = 0; i <= n; i++) {
+          const t = t0 + ((t1 - t0) * i) / n, u = e.major * Math.cos(t), v = e.minor * Math.sin(t);
+          const p = P([e.center[0] + u * ca - v * sa, e.center[1] + u * sa + v * ca]);
+          g(0, "VERTEX"); g(8, lay(e)); g(10, p[0]); g(20, p[1]);
+        }
+        g(0, "SEQEND");
+      } else if (e.type === "POLYLINE") {
+        g(0, "POLYLINE"); g(8, lay(e)); g(66, 1); g(70, e.closed ? 1 : 0);
+        for (const q of e.points) { const p = P(q); g(0, "VERTEX"); g(8, lay(e)); g(10, p[0]); g(20, p[1]); }
+        g(0, "SEQEND");
+        // 線の端の記号(引出線の矢印・黒丸など)。始めの記号は最初の点、終わりの記号は最後の点に付く
+        if (opt.marks && e.marks && !e.closed) {
+          e.marks.forEach((m, i) => {
+            if (!m || !m.kind || i > 1) return;
+            const p = P(i === 0 ? e.points[0] : e.points[e.points.length - 1]);
+            opt.marks.push({ x: p[0], y: p[1], kind: 100 + m.kind, ang: (m.ang || 0) + th, size: m.size || 0 });
+          });
+        }
+      } else if (e.type === "POINT") {
+        // 点の記号を線で描く(× ・＋・その他は小さい ＋)。大きさが無ければ 1 m
+        const p = P(e.at), m = e.mark || { kind: 0, ang: 0, size: 0 };
+        if (opt.marks) opt.marks.push({ x: p[0], y: p[1], kind: m.kind, ang: (m.ang || 0) + th, size: m.size || 0 });
+        if (opt.marks && opt.markLines === false) continue; // 記号は線にしない(かまし太郎：記号の中心に吸い付かせる)
+        const s = m.size > 0 ? m.size : 1000, a0 = (m.ang || 0) + th;
+        const strokes = m.kind === 9 ? [[s, a0 + Math.PI / 4], [s, a0 - Math.PI / 4]]
+          : m.kind === 8 ? [[s, a0], [s, a0 + Math.PI / 2], [s / 5, a0 + Math.PI / 4], [s / 5, a0 - Math.PI / 4]]
+          : [[s / 2, a0], [s / 2, a0 + Math.PI / 2]];
+        for (const [ln, th] of strokes) {
+          const dx = (ln / 2) * Math.cos(th), dy = (ln / 2) * Math.sin(th);
+          g(0, "LINE"); g(8, lay(e)); g(10, p[0] - dx); g(20, p[1] - dy); g(11, p[0] + dx); g(21, p[1] + dy);
+        }
+      }
+      else if (e.type === "TEXT" && e.text.trim()) {
+        const p = P(e.corner);
+        g(0, "TEXT"); g(8, lay(e)); g(10, p[0]); g(20, p[1]); g(40, Math.max(e.height, 1e-6));
+        g(1, e.text.replace(/[\r\n]+/g, " ")); g(50, ((((e.angle + th) * 180) / Math.PI) % 360 + 360) % 360);
+      }
+    }
+    g(0, "ENDSEC"); g(0, "EOF");
+    return L.join("\r\n") + "\r\n";
+  }
+
+  function summary(dr) {
+    const c = {};
+    for (const e of dr.entities) if (!e.aux) c[e.type] = (c[e.type] || 0) + 1;
+    return c;
+  }
+
+  // 公共座標(m) → 図面の点(mm、墨太郎の DXF の座標)。原点が無ければ null。
+  // 図脳の図面の点(mm) → 墨太郎の座標(公共座標 mm、横=Y東・縦=X北)。原点が無ければそのまま
+  function toWorld(dr, p) {
+    if (!dr.origin) return [p[0], p[1]];
+    const x = p[0] - dr.origin[0], y = p[1] - dr.origin[1], th = -(dr.rot || 0);
+    return th ? [x * Math.cos(th) - y * Math.sin(th), x * Math.sin(th) + y * Math.cos(th)] : [x, y];
+  }
+  function worldToDrawing(dr, X, Y) {
+    return dr.origin ? [Y * 1000, X * 1000] : null;
+  }
+
+  g.Zunou = { isOle, readStream, read, parse, toDxf, summary, worldToDrawing, toWorld };
+})(typeof window !== "undefined" ? window : globalThis);
+
+    </script>
+    <script>
+      (() => {
+        const TL = window.TopLayout;
+        const svg = document.getElementById("cv");
+        const statusEl = document.getElementById("status");
+        const $ = (id) => document.getElementById(id);
+        const NS = "http://www.w3.org/2000/svg";
+
+        let lines = [];        // DXF の線 {id,layer,closed,points,bulges?,zs?,arc?,draw}
+        let picked = null;     // 選んだ線
+        let side = "left";
+        let cdistFor = null;   // 中心からの離れを入れた線
+        let by = "line";       // 円・円弧の逃げの決め方 line = 線から(逃げ寸法と向き) / center = 中心からの離れ
+        let view = null;       // {minx,miny,maxx,maxy} 図面座標の範囲
+        let result = [];       // 逃げ墨の点(高さを決める前)
+        let shown = [];        // 高さを決めた点(書き出す点)
+        let missing = [];      // 高さが決まらない点の名前
+        let overrides = {};    // 点名 → 手で入れた H
+        let lineMsg = "";      // 線をえらんだときの案内
+        // 閉じた線の回り。時計回りなら外側は左(地積の SIMA は右回りが多い。検算 sokuryo T-TL-14 G)
+        function turnNote() {
+          if (!picked || !picked.closed || picked.arc || centerMode()) return "";
+          const p = picked.draw;
+          let a = 0;
+          for (let i = 0; i < p.length; i++) { const q = p[i], r = p[(i + 1) % p.length]; a += q[0] * r[1] - r[0] * q[1]; }
+          if (!a) return "";
+          return a < 0 ? " この閉じた線は時計回り: 外側は ◀左、内側は 右▶。" : " この閉じた線は反時計回り: 外側は 右▶、内側は ◀左。";
+        }
+        // 傾いた面の線の警告。線をえらんでいる間と書き出しの後も出し続ける(書き出しは止めない。D-633)
+        const tiltWarn = () => (picked && picked.tilted ? " ⚠ この線は傾いた面に描かれていて、図面の座標に直せません。杭の位置を図面で確かめてください。" : "");
+        const warnIfTilted = () => !!(picked && picked.tilted);
+        let ruleTouched = false; // 高さの決め方を人がえらんだか
+        let ptSrc = null;      // 点ファイル {name, rows, sima}
+        let heightTin = null;  // 点ファイルの三角網
+        let fileBase = "nigezumi";
+
+        function setStatus(t, warn = false) { statusEl.textContent = t; statusEl.className = "full status" + (warn ? " warn" : ""); }
+        const num = (id) => Number($(id).value) || 0;
+        const scale = () => ($("unit").value === "m" ? 0.001 : 1);
+        const unitName = () => $("unit").value;
+
+        // 図面座標 → 画面座標(y を反転)。fit して描く
+        function fit() {
+          const pad = 0.06;
+          const w = svg.clientWidth || 360, h = svg.clientHeight || 360;
+          if (!view) { svg.setAttribute("viewBox", `0 0 ${w} ${h}`); return (p) => p; }
+          const dx = view.maxx - view.minx || 1, dy = view.maxy - view.miny || 1;
+          const s = Math.min(w / (dx * (1 + pad * 2)), h / (dy * (1 + pad * 2)));
+          const ox = (w - dx * s) / 2, oy = (h - dy * s) / 2;
+          svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+          return (p) => [ox + (p[0] - view.minx) * s, h - (oy + (p[1] - view.miny) * s)];
+        }
+        let toScreen = (p) => p;
+        // 拡大縮小・移動。fit(全体が入る写し方)の上に、倍率 zk と画面の移動量 panX・panY を掛ける
+        let zk = 1, panX = 0, panY = 0;
+        const ZMIN = 0.5, ZMAX = 5000;
+        let frame = 0;
+        const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
+        function zoomAt(sx, sy, f) {
+          const nz = Math.min(ZMAX, Math.max(ZMIN, zk * f));
+          const g = nz / zk;
+          panX = sx - (sx - panX) * g;
+          panY = sy - (sy - panY) * g;
+          zk = nz;
+        }
+        function resetZoom() { zk = 1; panX = 0; panY = 0; }
+        // 点の組(点の配列の配列)の範囲。点の数がいくら多くても落ちないよう 1 つずつ見る
+        function bboxOf(groups) {
+          let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+          for (const g of groups) {
+            for (const p of g) {
+              if (p[0] < minx) minx = p[0];
+              if (p[0] > maxx) maxx = p[0];
+              if (p[1] < miny) miny = p[1];
+              if (p[1] > maxy) maxy = p[1];
+            }
+          }
+          return { minx, miny, maxx, maxy };
+        }
+
+        // 図面の線は「下の層」の canvas に描く(SVG の要素を何万も作らない。iPhone でも軽く動くように)。
+        // 線は格子の索引で画面に入るものだけ描き、1 px より小さい線は点 1 つにまとめる。
+        // 指で動かしている間は描いた絵を CSS で動かすだけにし、指を離したら描き直す。上の層(選んだ線・杭・寸法)は SVG のまま。
+        const cvBase = document.getElementById("cvBase");
+        const ctxB = cvBase.getContext("2d", { alpha: false });
+        let zMarksRaw = [], zMarks = []; // 図脳の点の記号(×・＋・点)。小さすぎても見えるよう画面の大きさで描く
+        let texts = [];        // 図面の文字 {x,y,text,height,mirrored?}(実寸 mm。表示だけ)
+        let gTop = null, idx = null, interacting = false, lastBaseMs = 0, drawn = null, idleTimer = 0;
+        function buildIndex() {
+          const n = lines.length, bb = new Float64Array(n * 4);
+          let gx0 = Infinity, gy0 = Infinity, gx1 = -Infinity, gy1 = -Infinity;
+          for (let i = 0; i < n; i++) {
+            let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+            for (const p of lines[i].draw) { if (p[0] < a) a = p[0]; if (p[0] > c) c = p[0]; if (p[1] < b) b = p[1]; if (p[1] > d) d = p[1]; }
+            bb[i * 4] = a; bb[i * 4 + 1] = b; bb[i * 4 + 2] = c; bb[i * 4 + 3] = d;
+            if (a < gx0) gx0 = a; if (b < gy0) gy0 = b; if (c > gx1) gx1 = c; if (d > gy1) gy1 = d;
+          }
+          const G = Math.max(1, Math.min(256, Math.ceil(Math.sqrt(n / 6))));
+          const cw = (gx1 - gx0) / G || 1, ch = (gy1 - gy0) / G || 1;
+          const cells = new Array(G * G), big = [];
+          for (let i = 0; i < n; i++) {
+            const i0 = Math.max(0, Math.min(G - 1, Math.floor((bb[i * 4] - gx0) / cw))), i1 = Math.max(0, Math.min(G - 1, Math.floor((bb[i * 4 + 2] - gx0) / cw)));
+            const j0 = Math.max(0, Math.min(G - 1, Math.floor((bb[i * 4 + 1] - gy0) / ch))), j1 = Math.max(0, Math.min(G - 1, Math.floor((bb[i * 4 + 3] - gy0) / ch)));
+            if ((i1 - i0 + 1) * (j1 - j0 + 1) > 64) { big.push(i); continue; }
+            for (let j = j0; j <= j1; j++) for (let k = i0; k <= i1; k++) (cells[j * G + k] || (cells[j * G + k] = [])).push(i);
+          }
+          idx = { lines, texts, bb, G, gx0, gy0, cw, ch, cells, big, stamp: new Uint32Array(n), tick: 0 };
+        }
+        // 図面の範囲 [x0,x1]×[y0,y1] に入りそうな線の番号
+        function query(x0, y0, x1, y1, fn) {
+          const { G, gx0, gy0, cw, ch, cells, big, bb, stamp } = idx;
+          const t = ++idx.tick;
+          const hit = (i) => { if (stamp[i] === t) return; stamp[i] = t; if (bb[i * 4] <= x1 && bb[i * 4 + 2] >= x0 && bb[i * 4 + 1] <= y1 && bb[i * 4 + 3] >= y0) fn(i); };
+          const i0 = Math.max(0, Math.floor((x0 - gx0) / cw)), i1 = Math.min(G - 1, Math.floor((x1 - gx0) / cw));
+          const j0 = Math.max(0, Math.floor((y0 - gy0) / ch)), j1 = Math.min(G - 1, Math.floor((y1 - gy0) / ch));
+          for (let j = j0; j <= j1; j++) for (let k = i0; k <= i1; k++) { const c = cells[j * G + k]; if (c) for (const i of c) hit(i); }
+          for (const i of big) hit(i);
+        }
+        // 下の層の写し方: 画面 = (図面 − 範囲の左下) × a(y は反転)+ (tx, ty)。fit() と同じ式
+        function baseMap() {
+          const w = svg.clientWidth || 360, h = svg.clientHeight || 360;
+          const pad = 0.06;
+          const dx = view.maxx - view.minx || 1, dy = view.maxy - view.miny || 1;
+          const s0 = Math.min(w / (dx * (1 + pad * 2)), h / (dy * (1 + pad * 2)));
+          const ox = (w - dx * s0) / 2, oy = (h - dy * s0) / 2;
+          return { w, h, a: s0 * zk, tx: ox * zk + panX, ty: (h - oy) * zk + panY };
+        }
+        function toDrawing(sx, sy) {
+          const m = baseMap();
+          return [(sx - m.tx) / m.a + view.minx, -(sy - m.ty) / m.a + view.miny];
+        }
+        function renderBase() {
+          const t0 = performance.now();
+          const w = svg.clientWidth || 360, h = svg.clientHeight || 360;
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          if (cvBase.width !== Math.round(w * dpr) || cvBase.height !== Math.round(h * dpr)) { cvBase.width = Math.round(w * dpr); cvBase.height = Math.round(h * dpr); }
+          cvBase.style.transform = "";
+          const css = getComputedStyle(document.documentElement);
+          ctxB.setTransform(1, 0, 0, 1, 0, 0);
+          ctxB.fillStyle = css.getPropertyValue("--bg").trim() || "#f4f5f7";
+          ctxB.fillRect(0, 0, cvBase.width, cvBase.height);
+          drawn = { zk, panX, panY, w, h };
+          if (!view || !lines.length) return;
+          if (!idx || idx.lines !== lines) buildIndex();
+          const { a, tx, ty } = baseMap();
+          const vx = view.minx, vy = view.miny;
+          ctxB.setTransform(dpr, 0, 0, dpr, 0, 0);
+          const [x0, y1] = toDrawing(-2, -2), [x1, y0] = toDrawing(w + 2, h + 2);
+          const tiny = 0.75 / a; // 0.75 px より小さい線は点にする
+          ctxB.beginPath();
+          const dots = [];
+          query(x0, y0, x1, y1, (i) => {
+            const bb = idx.bb;
+            if (bb[i * 4 + 2] - bb[i * 4] < tiny && bb[i * 4 + 3] - bb[i * 4 + 1] < tiny) { dots.push(i); return; }
+            const pts = lines[i].draw;
+            let px = (pts[0][0] - vx) * a + tx, py = -(pts[0][1] - vy) * a + ty;
+            ctxB.moveTo(px, py);
+            for (let k = 1; k < pts.length; k++) {
+              const qx = (pts[k][0] - vx) * a + tx, qy = -(pts[k][1] - vy) * a + ty;
+              if (k < pts.length - 1 && Math.abs(qx - px) < 0.6 && Math.abs(qy - py) < 0.6) continue; // 画面で重なる点は飛ばす
+              ctxB.lineTo(qx, qy); px = qx; py = qy;
+            }
+            if (lines[i].closed) ctxB.closePath();
+          });
+          ctxB.strokeStyle = css.getPropertyValue("--grid").trim() || "#99a3b0";
+          ctxB.lineWidth = 1;
+          ctxB.stroke();
+          if (dots.length) {
+            ctxB.fillStyle = ctxB.strokeStyle;
+            for (const i of dots) { const bb = idx.bb; ctxB.fillRect((bb[i * 4] - vx) * a + tx - 0.5, -(bb[i * 4 + 1] - vy) * a + ty - 0.5, 1, 1); }
+          }
+          // 図脳の点の記号：図面の大きさが画面で小さすぎるときも、見える大きさ(× ＋ は 9 px、点は 3 px)で描く
+          if (zMarks.length) {
+            ctxB.strokeStyle = css.getPropertyValue("--ink").trim() || "#1c2330";
+            ctxB.fillStyle = ctxB.strokeStyle;
+            ctxB.lineWidth = 1.2;
+            ctxB.beginPath();
+            const dotsM = [];
+            for (const m of zMarks) {
+              const sx = (m.x - vx) * a + tx, sy = -(m.y - vy) * a + ty;
+              if (sx < -20 || sy < -20 || sx > w + 20 || sy > h + 20) continue;
+              if (m.kind === 2) { dotsM.push(sx, sy, Math.max(m.size * a / 2, 1.5)); continue; }
+              if (m.kind === 103) { dotsM.push(sx, sy, Math.max(m.size * a / 2, 2.5)); continue; } // 線の端の黒丸
+              if (m.kind === 101) { // 線の端の矢印(先が点、ang は線の向き)
+                const L = Math.max(m.size * a, 9), b0 = -(m.ang || 0);
+                for (const da of [0.3, -0.3]) { ctxB.moveTo(sx, sy); ctxB.lineTo(sx + L * Math.cos(b0 + da), sy + L * Math.sin(b0 + da)); }
+                continue;
+              }
+              const s = Math.max((m.size > 0 ? m.size : 1000) * a, 9) / 2, a0 = -(m.ang || 0);
+              const st = (len, th) => { const dx = len * Math.cos(th), dy = len * Math.sin(th); ctxB.moveTo(sx - dx, sy - dy); ctxB.lineTo(sx + dx, sy + dy); };
+              if (m.kind === 9) { st(s, a0 + Math.PI / 4); st(s, a0 - Math.PI / 4); }
+              else if (m.kind === 8) { st(s, a0); st(s, a0 + Math.PI / 2); st(s / 5, a0 + Math.PI / 4); st(s / 5, a0 - Math.PI / 4); }
+              else if (m.kind === 1) { st(s, a0); st(s, a0 + Math.PI / 2); ctxB.moveTo(sx + s * 0.6, sy); ctxB.arc(sx, sy, s * 0.6, 0, Math.PI * 2); }
+              else { st(s / 2, a0); st(s / 2, a0 + Math.PI / 2); }
+            }
+            ctxB.stroke();
+            for (let i = 0; i < dotsM.length; i += 3) { ctxB.beginPath(); ctxB.arc(dotsM[i], dotsM[i + 1], dotsM[i + 2], 0, Math.PI * 2); ctxB.fill(); }
+          }
+          // 図面の文字(画面で 4 px 以上の大きさのものだけ。多すぎる時は出さない)
+          if (showTexts && texts.length) {
+            const hs = texts.map((t) => t.height).filter((v) => v > 0).sort((p, q) => p - q);
+            const hDef = hs.length ? hs[Math.floor(hs.length / 2)] : 0;
+            const span = Math.max(view.maxx - view.minx, view.maxy - view.miny);
+            ctxB.fillStyle = css.getPropertyValue("--sub").trim() || "#5b6676";
+            ctxB.textBaseline = "alphabetic";
+            let n = 0, font = "";
+            if (!idx.sortedTexts || idx.texts !== texts) { idx.texts = texts; idx.sortedTexts = texts.slice().sort((p, q) => (p.height || 0) - (q.height || 0)); }
+            for (const t of idx.sortedTexts) {
+              const fh = Math.round((t.height || hDef || span / 200) * a * 2) / 2; // 0.5 px 刻み(書体の設定を減らす)
+              if (fh < 1.5 || fh > 600) continue; // 1.5 px より小さい文字は読めないので描かない
+              const sx = (t.x - vx) * a + tx, sy = -(t.y - vy) * a + ty;
+              if (sx > w + 10 || sy < -fh || sy > h + fh || sx < -fh * Math.max(1, t.text.length)) continue;
+              if (++n > 8000) break;
+              const f = `${fh}px -apple-system, "Hiragino Sans", sans-serif`;
+              if (f !== font) { ctxB.font = f; font = f; }
+              ctxB.textAlign = t.mirrored ? "right" : "left";
+              ctxB.fillText(t.text, sx, sy);
+            }
+          }
+          lastBaseMs = performance.now() - t0;
+        }
+        // 指で動かしている間：描いた絵を CSS で動かすだけ(描き直しが軽い図面は毎回描き直す)
+        function moveBase() {
+          if (!drawn) return false;
+          if (lastBaseMs < 14) return false;
+          const g = zk / drawn.zk;
+          cvBase.style.transform = `matrix(${g},0,0,${g},${panX - drawn.panX * g},${panY - drawn.panY * g})`;
+          return true;
+        }
+        function settle() { interacting = false; schedule(); }
+        function draw() {
+          const w = svg.clientWidth || 360, h = svg.clientHeight || 360;
+          const base = fit();
+          toScreen = (p) => { const b = base(p); return [b[0] * zk + panX, b[1] * zk + panY]; };
+          if (!gTop) {
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+            gTop = document.createElementNS(NS, "g");
+            svg.appendChild(gTop);
+          }
+          if (!(interacting && moveBase())) renderBase();
+          while (gTop.firstChild) gTop.removeChild(gTop.firstChild);
+          // 選んだ線は上の層に太く重ねる
+          if (picked) {
+            const el = document.createElementNS(NS, "polyline");
+            const pts = picked.draw.map(toScreen);
+            if (picked.closed && pts.length) pts.push(pts[0]);
+            el.setAttribute("points", pts.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" "));
+            el.setAttribute("class", "seg pick");
+            gTop.appendChild(el);
+          }
+          // 点ファイルの高さの点(灰色の小さな四角)。画面に入る点だけ描く
+          if (heightTin) {
+            for (const q of heightTin.pts) {
+              const s = toScreen([q.x, q.y]);
+              if (s[0] < -4 || s[1] < -4 || s[0] > w + 4 || s[1] > h + 4) continue;
+              const r = document.createElementNS(NS, "rect");
+              r.setAttribute("x", (s[0] - 2).toFixed(1));
+              r.setAttribute("y", (s[1] - 2).toFixed(1));
+              r.setAttribute("width", "4");
+              r.setAttribute("height", "4");
+              r.setAttribute("class", "hp");
+              gTop.appendChild(r);
+            }
+          }
+          if (picked) drawStart();
+          if (picked && result.length) drawResult();
+          if (picked) drawLineLabels();
+          renderLineInfo();
+        }
+
+        // 選んだ線の寸法と座標(表示だけ。「寸法」「座標」のボタンで出し入れ。次に開いたときも覚えておく)
+        const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 保存できなくても動く */ } };
+        const load = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+        let showDims = load("tl.showDims") === "1";
+        let showCoords = load("tl.showCoords") === "1";
+        let showTexts = load("tl.showTexts") !== "0"; // 図面の文字(既定は出す)
+        const fmtLen = (mm) => (unitName() === "m" ? `${(mm / 1000).toFixed(3)} m` : `${Math.round(mm)} mm`);
+        // 座標は CSV と同じ書式(小数 3 桁・−0 は 0)。書き出したファイルと数字の見た目まで揃える(検算 sokuryo #10)
+        const fmtXY = (p) => {
+          const [X, Y] = TL.toDisplay(p, $("axis").value, unitName());
+          return [TL.formatCoord(X, 3), TL.formatCoord(Y, 3)];
+        };
+        const axisNames = () => ($("axis").value === "northEast" ? ["X(北)", "Y(東)"] : ["X(横)", "Y(縦)"]);
+        function svgText(x, y, t, cls, anchor = "start") {
+          const el = document.createElementNS(NS, "text");
+          el.setAttribute("x", x.toFixed(1));
+          el.setAttribute("y", y.toFixed(1));
+          el.setAttribute("class", "lbl " + cls);
+          el.setAttribute("text-anchor", anchor);
+          el.textContent = t;
+          gTop.appendChild(el);
+        }
+        function drawLineLabels() {
+          if (!showDims && !showCoords) return;
+          const info = TL.lineInfo(picked);
+          if (showDims) {
+            for (const e of info.edges) {
+              const m = toScreen(e.mid);
+              svgText(m[0], m[1] - 6, (e.radius ? `R${fmtLen(e.radius)} ` : "") + fmtLen(e.length), "len", "middle");
+            }
+          }
+          if (showCoords) {
+            info.vertices.forEach((v, i) => {
+              const q = toScreen(v);
+              const c = document.createElementNS(NS, "circle");
+              c.setAttribute("cx", q[0].toFixed(1));
+              c.setAttribute("cy", q[1].toFixed(1));
+              c.setAttribute("r", "3.5");
+              c.setAttribute("class", "vxmark");
+              gTop.appendChild(c);
+              const [X, Y] = fmtXY(v);
+              svgText(q[0] + 7, q[1] - 7, `P${i + 1}  ${X}, ${Y}`, "co");
+            });
+            if (info.center) {
+              const q = toScreen(info.center);
+              const [X, Y] = fmtXY(info.center);
+              svgText(q[0] + 7, q[1] - 7, `中心  ${X}, ${Y}`, "co");
+            }
+          }
+        }
+        // ② の一覧(全長・辺の長さ・頂点の座標)
+        function renderLineInfo() {
+          renderCal();
+          const box = $("infoBody");
+          if (!picked) {
+            box.innerHTML = "";
+            $("infoSum").textContent = "選んだ線の寸法と座標(線を選ぶと出ます)";
+            return;
+          }
+          const info = TL.lineInfo(picked);
+          const u = unitName();
+          const [xn, yn] = axisNames();
+          const k = u === "m" ? 0.001 : 1;
+          const hasZ = !!info.zs;
+          const vRows = info.vertices.map((v, i) => {
+            const [X, Y] = fmtXY(v);
+            return `<tr><td>P${i + 1}</td><td>${X}</td><td>${Y}</td>${hasZ ? `<td>${TL.formatCoord(info.zs[i] * k, 3)}</td>` : ""}</tr>`;
+          });
+          if (info.center) {
+            const [X, Y] = fmtXY(info.center);
+            vRows.push(`<tr><td>中心</td><td>${X}</td><td>${Y}</td>${hasZ ? "<td></td>" : ""}</tr>`);
+          }
+          const eRows = info.edges.map(
+            (e) => `<tr><td>P${e.from + 1} → P${e.to + 1}</td><td>${fmtLen(e.length)}</td><td>${e.radius ? `R ${fmtLen(e.radius)}` : "直線"}</td></tr>`,
+          );
+          box.innerHTML =
+            `<p class="step-note">全長 <b>${fmtLen(info.total)}</b>・辺 ${info.edges.length}・頂点 ${info.vertices.length}(図面 ${scaleText()}、座標は書き出しと同じ向き・単位)</p>` +
+            `<table class="info"><tr><th>辺</th><th>長さ</th><th>形</th></tr>${eRows.join("")}</table>` +
+            `<table class="info"><tr><th>点</th><th>${xn}</th><th>${yn}</th>${hasZ ? "<th>Z</th>" : ""}</tr>${vRows.join("")}</table>`;
+          $("infoSum").textContent = `選んだ線の寸法と座標(全長 ${fmtLen(info.total)}・辺 ${info.edges.length})`;
+        }
+        for (const [id, get, set, key] of [
+          ["tDims", () => showDims, (v) => { showDims = v; }, "tl.showDims"],
+          ["tCoords", () => showCoords, (v) => { showCoords = v; }, "tl.showCoords"],
+          ["tTexts", () => showTexts, (v) => { showTexts = v; }, "tl.showTexts"],
+        ]) {
+          $(id).setAttribute("aria-pressed", String(get()));
+          $(id).addEventListener("click", () => {
+            set(!get());
+            $(id).setAttribute("aria-pressed", String(get()));
+            store(key, get() ? "1" : "0");
+            draw();
+          });
+        }
+
+        // 選んだ線の始点(▲)。勾配の始点の高さはここ
+        function drawStart() {
+          const p0 = toScreen(picked.draw[0]);
+          const t = document.createElementNS(NS, "polygon");
+          const r = 7;
+          t.setAttribute("points", `${p0[0]},${p0[1] - r} ${p0[0] - r * 0.87},${p0[1] + r / 2} ${p0[0] + r * 0.87},${p0[1] + r / 2}`);
+          t.setAttribute("class", "startmark");
+          gTop.appendChild(t);
+        }
+
+        function drawResult() {
+          // 逃げ線(直線は折れ線、円弧は同心円を折れ線で近似)
+          const os = offSide();
+          const off = TL.offsetOutline(picked, os.offset, os.side);
+          const pl = document.createElementNS(NS, "polyline");
+          const sp = off.map(toScreen);
+          if (picked.closed && sp.length) sp.push(sp[0]);
+          pl.setAttribute("points", sp.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" "));
+          pl.setAttribute("class", "offset");
+          gTop.appendChild(pl);
+          for (const p of result) {
+            const c = document.createElementNS(NS, "circle");
+            const s = toScreen([p.x, p.y]);
+            c.setAttribute("cx", s[0].toFixed(1));
+            c.setAttribute("cy", s[1].toFixed(1));
+            c.setAttribute("r", p.kind === "vertex" ? "4.5" : "3");
+            c.setAttribute("class", "pt" + (p.kind === "vertex" ? " vx" : "") + (missing.includes(p.name) ? " miss" : ""));
+            gTop.appendChild(c);
+          }
+        }
+
+        // 線・向き・寸法・間かく・点名が変わったら計算し直す(手で直した高さは消す)
+        // 逃げ寸法と向き。円・円弧で「中心から」をえらんだら、中心からの離れ(新しい半径)から決める
+        const centerMode = () => !!(picked && picked.arc) && by === "center";
+        function offSide() {
+          if (!centerMode()) return { offset: num("offset"), side };
+          if ($("cdist").value === "") throw new Error("中心からの離れ (mm) を入れてください");
+          return TL.centerDistanceToOffset(picked.arc, num("cdist"));
+        }
+        function syncByUi() {
+          const isArc = !!(picked && picked.arc);
+          $("byWrap").hidden = !isArc;
+          const c = centerMode();
+          $("sideWrap").hidden = c;
+          $("offset").parentElement.hidden = c;
+          $("radWrap").hidden = !c;
+          if (isArc) {
+            const r = picked.arc.radius;
+            $("byNote").textContent = c
+              ? `この${picked.closed ? "円" : "円弧"}の半径は ${Math.round(r)} mm。中心からの離れが半径より小さいと内側、大きいと外側に逃がします。`
+              : `この${picked.closed ? "円" : "円弧"}の半径は ${Math.round(r)} mm。「中心から」にすると、中心からの離れ(新しい半径)で逃げを作れます。`;
+            // 線を選び直したら前の R は消す(別の円に前の R が残らないように)。切り替えた直後は、いまの逃げ線と同じ位置になる R を入れる
+            if (picked !== cdistFor) { $("cdist").value = ""; cdistFor = picked; }
+            if (c && $("cdist").value === "") $("cdist").value = String(Math.round(side === "left" ? r - num("offset") : r + num("offset")));
+          }
+        }
+        function recompute() {
+          overrides = {};
+          syncByUi();
+          if (!picked) { result = []; lineMsg = ""; refreshHeights(); draw(); return; }
+          try {
+            const pitch = $("mode").value === "pitch" ? num("pitch") : 0;
+            result = TL.nigezumi({
+              points: picked.points,
+              arc: picked.arc,
+              bulges: picked.bulges,
+              zs: picked.zs,
+              closed: picked.closed,
+              ...offSide(),
+              pitch,
+              naming: { prefix: $("prefix").value, start: num("start"), pad: num("pad") },
+            });
+            const vx = result.filter((p) => p.kind === "vertex").length;
+            lineMsg =
+              `✓ 線をえらびました(実長 ${(TL.lineLength(picked) / 1000).toFixed(3)} m・図面 ${scaleText()}${picked.zs ? "・高さ Z あり" : ""})。逃げ墨 ${result.length} 点(角 ${vx}・中間 ${result.length - vx})。` +
+              scaleWarn() +
+              tiltWarn() +
+              turnNote() +
+              (!ptOpen && picked.zs && scaleDen() !== 1
+                ? ` ⚠ 高さ Z にも縮尺 1:${scaleDen()} を掛けています。Z に実寸の標高が入っている図面なら、④で「点ファイル」か「一定の値」を使ってください。`
+                : "") +
+              (result.length > 500 ? " ⚠ 500 点を超えました。杭の間かくを広げてください(描画が重くなります)。" : "");
+          } catch (e) {
+            result = [];
+            lineMsg = "⚠ 計算できません: " + e.message;
+          }
+          refreshHeights();
+          draw();
+        }
+
+        // 高さの決め方(④)を読み取る。足りなければ null
+        function currentRule() {
+          switch ($("hRule").value) {
+            case "zAbs": return { kind: "zAbs" };
+            case "zRel": return $("zBase").value.trim() === "" ? null : { kind: "zRel", base: num("zBase") };
+            case "slope":
+              return $("slopeBy").value === "h1"
+                ? { kind: "slope", h0: num("h0"), h1: num("h1"), length: TL.lineLength(picked) }
+                : { kind: "slope", h0: num("h0"), grade: num("h1") };
+            case "points": return heightTin ? { kind: "points", tin: heightTin } : null;
+            case "const": return { kind: "const", h: num("hConst") };
+            default: return null;
+          }
+        }
+
+        // 杭の高さを決め直す(④ の入力・⑤ の手入力が変わったとき)
+        function refreshHeights() {
+          const rule = $("hRule").value;
+          for (const k of ["zRel", "slope", "points", "const"]) $("hb-" + k).hidden = rule !== k;
+          $("h1Label").textContent = $("slopeBy").value === "h1" ? "終点の高さ" : "勾配 %(上り +)";
+          missing = [];
+          // 縮尺が正しくない間は書き出させない(前の縮尺の点を出さない)
+          const ok = (v) => { const w = v && (!!ptOpen || !!drawingK()); $("export").disabled = !w; $("exportSima").disabled = !w; };
+          if (!picked || !result.length) {
+            shown = [];
+            renderTable();
+            ok(false);
+            if (picked) setStatus(lineMsg, true);
+            return;
+          }
+          const r = currentRule();
+          if (!r) {
+            shown = result.map((p) => ({ ...p }));
+            renderTable();
+            ok(false);
+            const why =
+              rule === "zRel"
+                ? "④ 基準の標高(Z=0 の標高)を入れてください。"
+                : rule === "points"
+                ? "④ 点の座標ファイル(CSV・SIMA)をひらいてください。"
+                : picked.zs
+                  ? "④ この線には図面の高さ(Z)があります。標高(T.P.)か相対かをえらんでください。"
+                  : "④ 杭の高さの決め方をえらんでください。";
+            setStatus(`${lineMsg} ${why}`, true);
+            return;
+          }
+          const res = TL.applyHeights(result, r, scale(), overrides);
+          shown = res.points;
+          missing = res.missing;
+          renderTable();
+          if (missing.length) {
+            ok(false);
+            const where = rule === "points" ? "点ファイルの範囲の外な" : rule === "zAbs" || rule === "zRel" ? "図面の高さ(Z)が無い" : "高さが決まらない";
+            setStatus(`${lineMsg} ⚠ ${missing.length} 点は${where}ので高さが決まりません。⑤の一覧で手で入れるか、決め方を変えてください。`, true);
+            return;
+          }
+          ok(true);
+          const nOv = Object.keys(overrides).length;
+          const loopWarn = rule === "slope" && picked.closed ? " ⚠ 閉じた線に勾配を当てたので、始点(▲)の前後で高さに段差があります。" : "";
+          setStatus(`${lineMsg} 高さも決まりました${nOv ? `(手入力 ${nOv} 点)` : ""}。⑤で CSV か SIMA を書き出してください。${loopWarn}`, !!loopWarn || warnIfTilted());
+        }
+
+        // ⑤ 点の一覧(H は手で直せる)
+        function renderTable() {
+          const t = $("ptsTable");
+          const u = unitName();
+          const fmt = (v) => (v === undefined || !Number.isFinite(v) ? "" : v.toFixed(3));
+          const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+          const rows = shown.map((p) => {
+            const cls = (p.name in overrides ? "ov" : "") + (missing.includes(p.name) ? " miss" : "");
+            const sta = p.sta === undefined ? "" : (p.sta * scale()).toFixed(3);
+            const n = esc(p.name);
+            return `<tr class="${cls}"><td>${n}</td><td>${sta}</td><td><input type="number" step="0.001" inputmode="decimal" data-name="${n}" value="${fmt(p.h)}" aria-label="${n} の高さ"></td></tr>`;
+          });
+          t.innerHTML = `<tr><th>点名</th><th>追加距離(${u})</th><th>H(${u})</th></tr>` + rows.join("");
+          const nOv = Object.keys(overrides).length;
+          renderProfile();
+          $("ptsSum").textContent = `点の一覧と高さ(${shown.length} 点${nOv ? `・手入力 ${nOv}` : ""}・杭ごとに手で直せる)`;
+        }
+        // 横から見た高さと勾配(縦断)。横 = 追加距離、縦 = H(縦は見やすいよう伸ばし、何倍かを書く)
+        function renderProfile() {
+          const sv = $("prof");
+          while (sv.firstChild) sv.removeChild(sv.firstChild);
+          const u = unitName();
+          const k = scale();
+          const pts = shown.filter((p) => p.sta !== undefined).map((p) => ({ name: p.name, sta: p.sta * k, h: Number.isFinite(p.h) ? p.h : undefined }));
+          const { points, segs } = TL.profileSegments(pts);
+          const hp = points.filter((p) => p.h !== undefined);
+          if (hp.length < 2) {
+            $("profSum").textContent = "横から見た高さと勾配(縦断)";
+            $("profNote").hidden = false;
+            return;
+          }
+          $("profNote").hidden = true;
+          const W = 640, H = 260, L = 56, R = 14, T = 26, B = 40;
+          let s0 = Infinity, s1 = -Infinity, h0 = Infinity, h1 = -Infinity;
+          for (const p of points) { if (p.sta < s0) s0 = p.sta; if (p.sta > s1) s1 = p.sta; }
+          for (const p of hp) { if (p.h < h0) h0 = p.h; if (p.h > h1) h1 = p.h; }
+          const ds = s1 - s0 || 1;
+          const dh0 = h1 - h0;
+          const padH = dh0 ? dh0 * 0.15 : Math.max(Math.abs(h0) * 0.01, u === "m" ? 0.5 : 500);
+          const hl = h0 - padH, hh = h1 + padH;
+          const sx = (W - L - R) / ds, sy = (H - T - B) / (hh - hl);
+          const X = (v) => L + (v - s0) * sx, Y = (v) => H - B - (v - hl) * sy;
+          const el = (tag, at, txt) => {
+            const e = document.createElementNS(NS, tag);
+            for (const [a, v] of Object.entries(at)) e.setAttribute(a, String(v));
+            if (txt !== undefined) e.textContent = txt;
+            sv.appendChild(e);
+            return e;
+          };
+          const d = u === "m" ? 3 : 0;
+          // 目盛り(高さ 3 本・距離 両端)
+          for (let i = 0; i <= 2; i++) {
+            const v = hl + ((hh - hl) * i) / 2;
+            el("line", { x1: L, x2: W - R, y1: Y(v).toFixed(1), y2: Y(v).toFixed(1), class: "gl" });
+            el("text", { x: L - 4, y: (Y(v) + 4).toFixed(1), "text-anchor": "end", class: "gt" }, v.toFixed(d));
+          }
+          el("text", { x: L, y: H - B + 16, class: "gt" }, `${s0.toFixed(d)}`);
+          el("text", { x: W - R, y: H - B + 16, "text-anchor": "end", class: "gt" }, `${s1.toFixed(d)}`);
+          el("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle", class: "gt" }, `追加距離(${u})`);
+          el("text", { x: 4, y: 14, class: "gt" }, `H(${u})・縦 ×${(sy / sx) >= 10 ? Math.round(sy / sx) : +(sy / sx).toPrecision(2)} 倍`);
+          // 高さのある区間ごとに線(高さの無い杭で切れる)
+          for (const g of segs) {
+            const a = points.find((p) => p.name === g.from), b = points.find((p) => p.name === g.to);
+            el("line", { x1: X(a.sta).toFixed(1), y1: Y(a.h).toFixed(1), x2: X(b.sta).toFixed(1), y2: Y(b.h).toFixed(1), class: "pl" });
+          }
+          const few = points.length <= 40;
+          for (const p of hp) {
+            el("circle", { cx: X(p.sta).toFixed(1), cy: Y(p.h).toFixed(1), r: few ? 3.5 : 2, class: "pd" + (p.name in overrides ? " ov" : "") });
+            // 端の名前は内側へ寄せる(図の外に切れない)
+            const an = X(p.sta) > W - R - 50 ? "end" : X(p.sta) < L + 30 ? "start" : "middle";
+            if (points.length <= 20) el("text", { x: X(p.sta).toFixed(1), y: (Y(p.h) - 8).toFixed(1), "text-anchor": an, class: "nm" }, `${p.name} ${p.h.toFixed(d)}`);
+          }
+          // 勾配(区間の真ん中。続けて同じ勾配なら最初の区間だけ)
+          let last;
+          for (const g of segs) {
+            if (g.grade === undefined) continue;
+            const t = `${g.grade >= 0 ? "+" : ""}${g.grade.toFixed(2)}%`;
+            if (t === last) continue;
+            last = t;
+            const a = points.find((p) => p.name === g.from), b = points.find((p) => p.name === g.to);
+            el("text", { x: ((X(a.sta) + X(b.sta)) / 2).toFixed(1), y: ((Y(a.h) + Y(b.h)) / 2 + 16).toFixed(1), "text-anchor": "middle", class: "gr" }, t);
+          }
+          const gs = segs.filter((g) => g.grade !== undefined).map((g) => g.grade);
+          const gmax = gs.reduce((m, v) => (Math.abs(v) > Math.abs(m) ? v : m), 0);
+          $("profSum").textContent = `横から見た高さと勾配(縦断・H ${h0.toFixed(d)}〜${h1.toFixed(d)} ${u}・いちばん急な勾配 ${gmax >= 0 ? "+" : ""}${gmax.toFixed(2)}%)`;
+        }
+        $("ptsTable").addEventListener("change", (ev) => {
+          const el = ev.target;
+          if (!(el instanceof HTMLInputElement) || !el.dataset.name) return;
+          if (el.value.trim() === "") delete overrides[el.dataset.name];
+          else overrides[el.dataset.name] = Number(el.value);
+          refreshHeights();
+          draw();
+        });
+        $("clearOv").addEventListener("click", () => { overrides = {}; refreshHeights(); draw(); });
+
+        // タップで最も近い線を選ぶ
+        // 画面の点 (sx, sy) に最も近い線を選ぶ(24 px 以内)
+        function pickAt(sx, sy) {
+          if (!lines.length || !view) return;
+          if (!idx || idx.lines !== lines) buildIndex();
+          let best = null, bestD = Infinity;
+          const r = 24 / baseMap().a;
+          const [cx, cy] = toDrawing(sx, sy);
+          query(cx - r, cy - r, cx + r, cy + r, (k) => {
+            const ln = lines[k];
+            const pts = ln.draw.map(toScreen);
+            const n = ln.closed ? pts.length : pts.length - 1;
+            for (let i = 0; i < n; i++) {
+              const a = pts[i], b = pts[(i + 1) % pts.length];
+              const d = distToSeg(sx, sy, a[0], a[1], b[0], b[1]);
+              if (d < bestD) { bestD = d; best = ln; }
+            }
+          });
+          if (best && bestD < 24) {
+            const changed = !picked || picked.id !== best.id;
+            picked = best;
+            $("zPick").disabled = false;
+            // D-628: 図面に高さのある線は、標高か相対かを人がえらぶまで書き出させない。
+            // 別の線に替えたとき、高さのある線で決め方が「標高・相対」以外なら選び直させる(前の線の決め方を持ち越さない)
+            const r = $("hRule").value;
+            if (!ruleTouched) $("hRule").value = picked.zs ? "" : "const";
+            else if (changed && picked.zs && r !== "zAbs" && r !== "zRel") $("hRule").value = "";
+            recompute();
+          }
+        }
+
+        // 指・マウスの操作: 動かさずに離したら「線を選ぶ」、一本で動かしたら「図を動かす」、二本で「拡大縮小」
+        const ptrs = new Map();
+        let gesture = null;
+        const posOf = (ev) => { const r = svg.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+        const two = () => {
+          const [a, b] = [...ptrs.values()];
+          return { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+        };
+        svg.addEventListener("pointerdown", (ev) => {
+          try { svg.setPointerCapture(ev.pointerId); } catch (e) { /* 捕まえられなくても動く */ }
+          const p = posOf(ev);
+          ptrs.set(ev.pointerId, p);
+          if (ptrs.size === 1) gesture = { kind: "tap", start: p, last: p };
+          else if (ptrs.size === 2) { gesture = { kind: "pinch", ...two() }; interacting = true; }
+        });
+        svg.addEventListener("pointermove", (ev) => {
+          if (!ptrs.has(ev.pointerId) || !gesture) return;
+          const p = posOf(ev);
+          ptrs.set(ev.pointerId, p);
+          if (ptrs.size === 1) {
+            if (gesture.kind === "tap" && Math.hypot(p[0] - gesture.start[0], p[1] - gesture.start[1]) > 8) { gesture.kind = "pan"; interacting = true; }
+            if (gesture.kind === "pan") {
+              panX += p[0] - gesture.last[0];
+              panY += p[1] - gesture.last[1];
+              schedule();
+            }
+            gesture.last = p;
+          } else if (ptrs.size === 2 && gesture.kind === "pinch") {
+            const { d, m } = two();
+            panX += m[0] - gesture.m[0];
+            panY += m[1] - gesture.m[1];
+            zoomAt(m[0], m[1], d / gesture.d);
+            gesture.d = d;
+            gesture.m = m;
+            schedule();
+          }
+        });
+        const endPtr = (ev) => {
+          if (!ptrs.has(ev.pointerId)) return;
+          ptrs.delete(ev.pointerId);
+          if (gesture && gesture.kind === "tap" && ev.type === "pointerup") pickAt(gesture.start[0], gesture.start[1]);
+          if (ptrs.size === 0) { gesture = null; if (interacting) settle(); }
+          else if (ptrs.size === 1) {
+            // 二本指の一本を離したら、残った指で図を動かす(線は選ばない)
+            const q = [...ptrs.values()][0];
+            gesture = { kind: "pan", start: q, last: q };
+          }
+        };
+        svg.addEventListener("pointerup", endPtr);
+        svg.addEventListener("pointercancel", endPtr);
+        svg.addEventListener("wheel", (ev) => {
+          ev.preventDefault();
+          const p = posOf(ev);
+          zoomAt(p[0], p[1], Math.pow(1.0015, -ev.deltaY));
+          interacting = true;
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(settle, 150);
+          schedule();
+        }, { passive: false });
+
+        const center = () => [svg.clientWidth / 2, svg.clientHeight / 2];
+        $("zIn").addEventListener("click", () => { const c = center(); zoomAt(c[0], c[1], 2); draw(); });
+        $("zOut").addEventListener("click", () => { const c = center(); zoomAt(c[0], c[1], 0.5); draw(); });
+        $("zFit").addEventListener("click", () => { resetZoom(); draw(); });
+        // 選んだ線(と逃げ線)が画面の 8 割に入るように寄る
+        $("zPick").addEventListener("click", () => {
+          if (!picked) return;
+          const groups = [picked.draw];
+          try { const os = offSide(); groups.push(TL.offsetOutline(picked, os.offset, os.side)); } catch (e) { /* 逃げ線が出せなくても元の線に寄る */ }
+          resetZoom();
+          draw();
+          const bb = bboxOf(groups.map((g) => g.map(toScreen)));
+          const bw = bb.maxx - bb.minx || 1, bh = bb.maxy - bb.miny || 1;
+          const w = svg.clientWidth, h = svg.clientHeight;
+          const f = Math.min((w * 0.8) / bw, (h * 0.8) / bh);
+          const cx = (bb.maxx + bb.minx) / 2, cy = (bb.maxy + bb.miny) / 2;
+          zk = Math.min(ZMAX, Math.max(ZMIN, f));
+          panX = w / 2 - cx * zk;
+          panY = h / 2 - cy * zk;
+          draw();
+        });
+
+        function distToSeg(px, py, x1, y1, x2, y2) {
+          const dx = x2 - x1, dy = y2 - y1;
+          const L2 = dx * dx + dy * dy;
+          let t = L2 ? ((px - x1) * dx + (py - y1) * dy) / L2 : 0;
+          t = Math.max(0, Math.min(1, t));
+          return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+        }
+
+        // 文字コード: UTF-8 で読めなければ Shift_JIS(日本の CAD・測量ソフトの CSV・SIMA はほぼこれ)
+        function decodeText(buf) {
+          try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+          catch { return new TextDecoder("shift_jis").decode(buf); }
+        }
+
+        // 図面の単位・縮尺(①)。図面の値 × 単位 × 縮尺の分母 = 実寸(mm)
+        let dxfBuf = null;     // 読んだ DXF のバイト列(単位・縮尺を変えたら読み直す)
+        let ptOpen = null;     // ①で開いた点ファイル {name, text, sima}(DXF の代わり。T-TL-14)
+        let hints = null;      // 単位・縮尺の手がかり
+        const scaleDen = () => ($("dScale").value === "custom" ? Number($("dCustom").value) : Number($("dScale").value));
+        function drawingK() {
+          const den = scaleDen();
+          try { return TL.drawingFactor($("dUnit").value, den); } catch { return null; }
+        }
+        const scaleText = () => ptOpen ? "点ファイル" : `${$("dUnit").value}・1:${$("dScale").value === "custom" ? $("dCustom").value || "?" : $("dScale").value}`;
+        // 選んでいる単位・縮尺が、手がかりと合っているか(合わなければ ⚠ の一言)
+        function scaleWarn() {
+          if (!hints) return "";
+          const k = drawingK();
+          const w = [];
+          if (hints.insunits && hints.insunits !== $("dUnit").value) w.push(`図面のヘッダの単位は ${hints.insunits} です`);
+          if (hints.dimFactor && k && !TL.dimFactorAgrees(hints.dimFactor, k)) {
+            const cs = hints.candidates.slice(0, 3).map((c) => `${c.unit} の 1:${c.scale}`);
+            w.push(
+              cs.length
+                ? `寸法からは ${cs.join(" か ")} に見えます`
+                : `寸法からは 図面の 1 = 実寸 ${+hints.dimFactor.toPrecision(6)}(寸法の値が mm のとき)で、選んだ縮尺と合いません`,
+            );
+          }
+          return w.length ? ` ⚠ ${w.join("。")}。図面の単位・縮尺を確かめてください。` : "";
+        }
+        function renderHints() {
+          const el = $("dHint");
+          if (!hints) return;
+          const parts = [];
+          if (hints.insunits) parts.push(`ヘッダの単位: <b>${hints.insunits}</b>`);
+          if (hints.dimFactor) {
+            parts.push(`寸法(${hints.dimAgreed}/${hints.dimTotal} 本)から: 図面の 1 = 実寸 ${+hints.dimFactor.toPrecision(6)} mm(寸法の値が mm のとき。m なら ${+(hints.dimFactor * 1000).toPrecision(6)} mm)`);
+          }
+          const btns = hints.candidates
+            .slice(0, 4)
+            .map(
+              (c) =>
+                `<button type="button" class="ghost hintbtn" data-unit="${c.unit}" data-scale="${c.scale}">${c.unit} の 1:${c.scale} にする(寸法の値を ${c.dimUnit} とみなす)</button>`,
+            )
+            .join("");
+          el.innerHTML =
+            (parts.length ? parts.join("。") + "。" : "図面に単位・寸法の手がかりがありません。") +
+            " 線を選ぶと<b>実長</b>が出るので、知っている寸法と比べて確かめてください。" +
+            (btns ? `<span class="hintbtns">${btns}</span>` : "");
+        }
+        $("dHint").addEventListener("click", (ev) => {
+          const b = ev.target.closest && ev.target.closest(".hintbtn");
+          if (!b) return;
+          $("dUnit").value = b.dataset.unit;
+          $("dScale").value = b.dataset.scale;
+          $("dCustomWrap").hidden = true;
+          loadLines(true);
+        });
+        // 長さの分かっている線で縮尺を合わせる。合わせる長さの選択肢を、選んだ線の全長と辺から作る。
+        // 円弧の辺は弧長・弦長・半径、円は円周・直径・半径を選べる(図面で分かっているのは弦長や半径のことが多い)
+        function calOptions(info) {
+          const o = [];
+          const circle = picked.arc && picked.closed;
+          if (circle) {
+            const r = info.edges[0].radius;
+            o.push(["total", `円周 ${fmtLen(info.total)}`], ["dia", `直径 ${fmtLen(2 * r)}`], ["rad0", `半径 ${fmtLen(r)}`]);
+            return o;
+          }
+          o.push(["total", `全長 ${fmtLen(info.total)}`]);
+          info.edges.forEach((e, i) => {
+            const name = `P${e.from + 1} → P${e.to + 1}`;
+            if (e.radius) {
+              const a = info.vertices[e.from], b = info.vertices[e.to];
+              o.push(
+                [`arc${i}`, `辺 ${name} 弧長 ${fmtLen(e.length)}`],
+                [`chord${i}`, `辺 ${name} 弦長 ${fmtLen(Math.hypot(b[0] - a[0], b[1] - a[1]))}`],
+                [`rad${i}`, `辺 ${name} 半径 ${fmtLen(e.radius)}`],
+              );
+            } else if (info.edges.length > 1) {
+              o.push([`len${i}`, `辺 ${name} ${fmtLen(e.length)}`]);
+            }
+          });
+          return o;
+        }
+        // 選んだ物差しの、いまの長さ(mm)
+        function calMeasure(info, v) {
+          if (v === "total") return info.total;
+          if (v === "dia") return 2 * info.edges[0].radius;
+          const m = /^(len|arc|chord|rad)(\d+)$/.exec(v);
+          if (!m) return undefined;
+          const e = info.edges[Number(m[2])];
+          if (!e) return undefined;
+          if (m[1] === "rad") return e.radius;
+          if (m[1] === "chord") {
+            const a = info.vertices[e.from], b = info.vertices[e.to];
+            return Math.hypot(b[0] - a[0], b[1] - a[1]);
+          }
+          return e.length;
+        }
+        function renderCal() {
+          const sel = $("calEdge");
+          $("calLenLabel").textContent = `本当の長さ(${unitName()})`;
+          if (!picked) {
+            sel.innerHTML = '<option value="">(線を選ぶと出ます)</option>';
+            sel.disabled = true;
+            $("calBtn").disabled = true;
+            return;
+          }
+          const keep = sel.value;
+          sel.innerHTML = calOptions(TL.lineInfo(picked)).map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+          if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+          sel.disabled = false;
+          $("calBtn").disabled = false;
+        }
+        $("calBtn").addEventListener("click", () => {
+          if (!picked) return;
+          const v = $("calEdge").value;
+          const measured = calMeasure(TL.lineInfo(picked), v);
+          if (!(measured > 0)) { setStatus("⚠ 合わせる長さを選び直してください(その長さが測れません)。", true); return; }
+          const trueMm = Number($("calLen").value) * (unitName() === "m" ? 1000 : 1);
+          let r;
+          try { r = TL.calibrateScale($("dUnit").value, scaleDen(), measured, trueMm, hints && hints.insunits); }
+          catch (e) { setStatus("⚠ 本当の長さを正しく入れてください(例 6.000)。", true); return; }
+          $("dUnit").value = r.unit;
+          const has = [...$("dScale").options].some((o) => o.value === String(r.den));
+          if (has) { $("dScale").value = String(r.den); $("dCustomWrap").hidden = true; }
+          else { $("dScale").value = "custom"; $("dCustom").value = String(r.den); $("dCustomWrap").hidden = false; }
+          loadLines(true);
+          // 合わせた後の長さと、入れた長さとの差(そろえたときは差が出る。1 mm を超えたら ⚠)
+          const after = picked ? calMeasure(TL.lineInfo(picked), v) : undefined;
+          const diff = after === undefined ? 0 : after - trueMm;
+          const big = Math.abs(diff) > 1 || r.near !== undefined;
+          const head =
+            `✓ 図面を ${r.unit} の 1:${r.den} に合わせました(${+r.ratio.toPrecision(6)} 倍${r.snapped ? "・よく使う縮尺にそろえた" : ""})。` +
+            (after === undefined ? "" : `合わせた後の長さ ${fmtLen(after)}・入れた長さとの差 ${diff >= 0 ? "+" : ""}${Math.round(diff)} mm。`) +
+            (Math.abs(diff) > 1 ? " ⚠ 差が 1 mm を超えます。線・長さの入れ違いがないか確かめてください。" : "") +
+            (r.near !== undefined
+              ? ` ⚠ 1:${r.near} から ${(Math.abs(r.den / r.near - 1) * 100).toFixed(2)}% ずれています。図面の縮尺は 1:${r.near} ではありませんか(線・長さの入れ違いも確かめてください)。`
+              : "");
+          setStatus(`${head} ${statusEl.textContent}`, big || statusEl.classList.contains("warn"));
+        });
+
+        // 単位・縮尺を当てて線を作り直す。keepPick なら同じ線を選び直す(線の番号は読み直しても同じ)
+        // 点ファイルの線。CSV の座標の向き・単位は書き出しと同じ(③④の「座標の向き」「単位」)、SIMA は X=北・Y=東・m
+        function loadPointLines(keepPick) {
+          const id = keepPick && picked ? picked.id : null;
+          const r = TL.linesFromPointFile(ptOpen.text, ptOpen.sima, { axis: $("axis").value, unit: unitName(), closeAll: $("closeAll").checked });
+          lines = r.lines;
+          texts = [];
+          picked = id === null ? null : lines.find((l) => l.id === id) || null;
+          $("ptOpenNote").textContent =
+            `${ptOpen.name}: 点 ${r.points}・線 ${lines.length}(${lines.length && lines[0].layer.startsWith("画地") ? `SIMA の画地 ${lines.length}` : "全部の点を順に結んだ線"})` +
+            (ptOpen.sima ? "。SIMA は X=北・Y=東・m。" : `。CSV は 点名,X,Y[,H] を書き出しと同じ向き(${$("axis").value === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"})・単位(${unitName()})として読みます。`) +
+            (r.missing.length ? ` ⚠ 点が見つからない画地は飛ばしました: ${r.missing.join("、")}` : "") +
+            " 図面の単位・縮尺は使いません。";
+          if (!lines.length) { setStatus("⚠ 線を作れません(座標のある点が 2 つ以上要ります)。", true); view = null; draw(); return; }
+          const bb = bboxOf(lines.map((ln) => ln.draw));
+          view = { minx: bb.minx, miny: bb.miny, maxx: bb.maxx, maxy: bb.maxy };
+          resetZoom();
+          $("zPick").disabled = !picked;
+          buildHeightTin();
+          if (picked) recompute();
+          else {
+            result = [];
+            refreshHeights();
+            setStatus(`② 打つ線を指でタップしてください(${lines.length} 本の線・点ファイル)。`, false);
+            draw();
+          }
+        }
+        function loadLines(keepPick) {
+          if (ptOpen) { loadPointLines(keepPick); return; }
+          if (!dxfBuf) return;
+          const k = drawingK();
+          if (!k) {
+            // 前の縮尺の点を書き出させない
+            $("export").disabled = true;
+            $("exportSima").disabled = true;
+            setStatus("⚠ 縮尺の分母を正しく入れてください(例 150)。", true);
+            return;
+          }
+          const id = keepPick && picked ? picked.id : null;
+          lines = TL.linesFromDxf(dxfBuf, k);
+          texts = TL.textsFromDxf(dxfBuf, k);
+          zMarks = zMarksRaw.map((m) => ({ ...m, x: m.x * k, y: m.y * k, size: m.size * k }));
+          picked = id === null ? null : lines.find((l) => l.id === id) || null;
+          if (!lines.length) { setStatus("線が見つかりません。別の図面をためしてください。", true); draw(); return; }
+          // 範囲は点を 1 つずつ見て求める(Math.min(...全部の点) は点が十数万を超えると
+          // スマホの Chrome で「Maximum call stack size exceeded」になる)
+          const bb = bboxOf(lines.map((ln) => ln.draw));
+          view = { minx: bb.minx, miny: bb.miny, maxx: bb.maxx, maxy: bb.maxy };
+          resetZoom();
+          $("zPick").disabled = !picked;
+          buildHeightTin();
+          if (picked) recompute();
+          else {
+            result = [];
+            refreshHeights();
+            const tilted = TL.dxfTiltedNote(lines);
+            setStatus(`${tilted ? `⚠ ${tilted}。 ` : ""}② 打つ線を指でタップしてください(${lines.length} 本の線・図面 ${scaleText()})。${scaleWarn()}`, !!tilted || !!scaleWarn());
+            draw();
+          }
+        }
+        for (const id of ["dUnit", "dScale", "dCustom"]) {
+          $(id).addEventListener(id === "dCustom" ? "input" : "change", () => {
+            $("dCustomWrap").hidden = $("dScale").value !== "custom";
+            loadLines(true);
+          });
+        }
+
+        $("file").addEventListener("change", async (ev) => {
+          const f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          try {
+          { // ひらいたファイルの日付と大きさ(スマホに古い写しが残っていないか見分ける)
+            const dt = new Date(f.lastModified || Date.now()), p2 = (v) => String(v).padStart(2, "0");
+            $("fileInfo").textContent = `ひらいたファイル: ${f.name}(${dt.getFullYear()}/${p2(dt.getMonth() + 1)}/${p2(dt.getDate())} ${p2(dt.getHours())}:${p2(dt.getMinutes())}・${(f.size / 1048576).toFixed(1)} MB)`;
+            $("fileInfo").hidden = false;
+          }
+            let buf = new Uint8Array(await f.arrayBuffer());
+            // 図脳RAPID(.zrd・.zsdx・.zsdxz)は DXF に直してから、DXF と同じに読む
+            let zunou = null;
+            zMarksRaw = [];
+            $("zunouNote").hidden = true;
+            if (window.Zunou && (Zunou.isOle(buf) || /\.(zrd|zsdx|zsdxz)$/i.test(f.name))) {
+              setStatus(`図脳RAPID の図面「${f.name}」を読んでいます…`, false);
+              try {
+                const dr = await Zunou.read(buf);
+                zMarksRaw = [];
+                buf = new TextEncoder().encode(Zunou.toDxf(dr, { marks: zMarksRaw }));
+                zunou = dr;
+              } catch (e) {
+                setStatus("⚠ 図脳RAPID の図面を読めません: " + e.message + "(図脳RAPID で DXF に出力して開いてください)", true);
+                return;
+              }
+              $("dUnit").value = "mm";
+              $("dScale").value = "1";
+              $("axis").value = zunou.origin ? "northEast" : "asDrawn";
+              const c = Zunou.summary(zunou);
+              const n = Object.values(c).reduce((a, b) => a + b, 0);
+              $("zunouNote").textContent =
+                `図脳RAPID(.${zunou.fmt})：図形 ${n} 件(線 ${(c.LINE || 0) + (c.POLYLINE || 0)}・円弧 ${c.ARC || 0}・円 ${c.CIRCLE || 0}・文字 ${c.TEXT || 0}・記号 ${c.POINT || 0}・寸法 ${zunou.entities.filter((e) => e.dimMain).length})。` +
+                (zunou.origin
+                  ? "図面に設定された公共座標で読みました。書き出しの座標の向きを「公共座標(X=北, Y=東)」にしました(そのまま杭ナビへ)。"
+                  : "公共座標の設定(座標の原点)が無いので、図面の座標(mm)のまま読みました。公共座標にするときは墨太郎エンジンの対応点(localize・apply)を使ってください。") +
+                (zunou.rot ? `(座標設定の回転 ${(zunou.rot * 180 / Math.PI).toFixed(4)}° も入れました。図は北が上になります)` : "") + 
+                (zunou.dropped ? ` 図面から遠く離れた図形 ${zunou.dropped} 件は表示から外しました。` : "");
+              $("zunouNote").hidden = false;
+            }
+            // DXF かどうかを中身で確かめる(ファイル選択で絞れないので)
+            const head = new TextDecoder("utf-8").decode(buf.subarray(0, 64 * 1024));
+            if (/\.jww$/i.test(f.name)) {
+              setStatus("⚠ JWW は読めません。Jw_cad で「DXF 形式で保存」してから開いてください。", true);
+              return;
+            }
+            if (head.startsWith("AutoCAD Binary DXF")) {
+              setStatus("⚠ バイナリ形式の DXF は読めません。CAD で ASCII(テキスト)形式の DXF で保存し直してください。", true);
+              return;
+            }
+            // DXF でなければ点ファイル(CSV・SIMA)として読んでみる
+            if (!/(^|\n)\s*SECTION\s*(\r?\n)/.test(head)) {
+              const text = decodeText(buf);
+              const sima = TL.isSimaText(f.name, text);
+              const n = (sima ? TL.parseSima(text) : TL.parsePointCsv(text)).length;
+              if (n >= 2) {
+                ptOpen = { name: f.name, text, sima };
+                // 点ファイルでは図面の単位・縮尺は使わない
+                for (const id of ["dUnitRow", "dHint", "calBox", "dCustomWrap"]) $(id).hidden = true;
+                dxfBuf = null; hints = null;
+                renderHints();
+                $("ptOpenBox").hidden = false;
+                picked = null; result = []; overrides = {}; ruleTouched = false;
+                fileBase = (f.name.replace(/\.[^.]+$/, "") || "nigezumi");
+                loadLines(false);
+                return;
+              }
+              setStatus(`⚠ 「${f.name}」は DXF でも点ファイルでもないようです(DXF の SECTION も、点名,X,Y の行・SIMA の A01 も 2 つ以上見つかりません)。`, true);
+              return;
+            }
+            dxfBuf = buf;
+            ptOpen = null;
+            $("ptOpenBox").hidden = true;
+            for (const id of ["dUnitRow", "dHint", "calBox"]) $(id).hidden = false;
+            $("dCustomWrap").hidden = $("dScale").value !== "custom";
+            hints = zunou ? null : TL.dxfScaleHints(dxfBuf);
+            if (zunou) $("dHint").innerHTML = "";
+            renderHints();
+            picked = null; result = []; overrides = {}; ruleTouched = false;
+            fileBase = (f.name.replace(/\.[^.]+$/, "") || "nigezumi");
+            loadLines(false);
+          } catch (e) {
+            setStatus("⚠ DXF を読めません: " + e.message, true);
+          }
+        });
+
+        // 点の座標ファイル(CSV・SIMA)→ 三角網
+        function buildHeightTin() {
+          heightTin = null;
+          if (!ptSrc) return;
+          const axis = ptSrc.sima ? "northEast" : $("ptAxis").value === "same" ? $("axis").value : $("ptAxis").value;
+          // SIMA は m(座標も標高も)。CSV は書き出しと同じ単位とみなす
+          const hp = ptSrc.sima
+            ? TL.rowsToHeightPoints(ptSrc.rows, { axis, unit: "m", hScale: unitName() === "m" ? 1 : 1000 })
+            : TL.rowsToHeightPoints(ptSrc.rows, { axis, unit: unitName() });
+          if (!hp.length) { $("ptInfo").textContent = `⚠ ${ptSrc.name}: 高さのある点がありません。`; return; }
+          heightTin = TL.buildTin(hp);
+          $("ptInfo").textContent =
+            `${ptSrc.name}: 高さの点 ${heightTin.pts.length}・三角形 ${heightTin.tris.length}` +
+            (ptSrc.sima ? "(SIMA: X=北・Y=東)" : `(CSV: ${axis === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"})`) +
+            "。図の灰色の点が高さの点です。杭と重ならなければ座標の向き・単位を確かめてください。";
+        }
+        $("ptFile").addEventListener("change", async (ev) => {
+          const f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          try {
+            const text = decodeText(new Uint8Array(await f.arrayBuffer()));
+            const sima = TL.isSimaText(f.name, text);
+            const rows = sima ? TL.parseSima(text) : TL.parsePointCsv(text);
+            ptSrc = { name: f.name, rows, sima };
+            buildHeightTin();
+          } catch (e) {
+            ptSrc = null; heightTin = null;
+            $("ptInfo").textContent = "⚠ 点ファイルを読めません: " + e.message;
+          }
+          refreshHeights();
+          draw();
+        });
+
+        for (const b of $("side").querySelectorAll("button")) {
+          b.addEventListener("click", () => {
+            side = b.dataset.side;
+            for (const x of $("side").querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+            recompute();
+          });
+        }
+        for (const b of $("by").querySelectorAll("button")) {
+          b.addEventListener("click", () => {
+            by = b.dataset.by;
+            for (const x of $("by").querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+            recompute();
+          });
+        }
+        for (const id of ["offset", "cdist", "pitch", "prefix", "start", "pad"]) {
+          $(id).addEventListener("input", recompute);
+        }
+        $("mode").addEventListener("change", () => {
+          $("pitchWrap").hidden = $("mode").value !== "pitch";
+          recompute();
+        });
+        $("hRule").addEventListener("change", () => { ruleTouched = true; refreshHeights(); draw(); });
+        for (const id of ["zBase", "h0", "h1", "hConst"]) $(id).addEventListener("input", refreshHeights);
+        $("slopeBy").addEventListener("change", refreshHeights);
+        for (const id of ["unit", "axis", "ptAxis"]) {
+          $(id).addEventListener("change", () => {
+            // 点ファイルで始めたときは、CSV の向き・単位が変わると線の位置も変わる
+            if (ptOpen && !ptOpen.sima && id !== "ptAxis") { loadLines(true); return; }
+            buildHeightTin(); refreshHeights(); draw();
+          });
+        }
+        $("closeAll").addEventListener("change", () => { if (ptOpen) loadLines(true); });
+
+        function download(data, name, type) {
+          const blob = new Blob([data], { type });
+          const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
+          if (standalone && navigator.canShare) {
+            try {
+              const file = new File([blob], name, { type: "application/octet-stream" });
+              if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(() => {}); return; }
+            } catch (e) { /* 共有できなければふつうに保存 */ }
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = name;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        $("export").addEventListener("click", () => {
+          if (!shown.length || missing.length) return;
+          // 高さは点ごとに決めた h を使う(⑤の手入力を含む)
+          const csv = TL.toTopLayoutCsv(shown, { axis: $("axis").value, unit: unitName(), decimals: 3, hFrom: "const", h: 0 });
+          const name = safeName(fileBase) + ".csv";
+          download(csv, name, "text/csv");
+          setStatus(`✓ ${shown.length} 点を ${name} に書き出しました。杭ナビ(TopLayout)の「入力」でえらんでください。${tiltWarn()}`, warnIfTilted());
+        });
+
+        $("exportSima").addEventListener("click", () => {
+          if (!shown.length || missing.length) return;
+          try {
+            // SIMA は単位の設定にかかわらず m で書く(H は出力の単位で持っているので、mm なら m に直す)
+            const hk = unitName() === "m" ? 1 : 0.001;
+            const text = TL.toSima(shown.map((p) => ({ ...p, h: p.h * hk })), { unit: "m", decimals: 3, hFrom: "const", h: 0 });
+            const name = safeName(fileBase) + ".sim";
+            download(TL.simaToSjis(text), name, "application/octet-stream");
+            setStatus(`✓ ${shown.length} 点を ${name}(SIMA・X=北・Y=東・m)に書き出しました。杭ナビ(TopLayout)の「入力」でえらんでください。${tiltWarn()}`, warnIfTilted());
+          } catch (e) {
+            setStatus("⚠ SIMA を書けません: " + e.message, true);
+          }
+        });
+
+        // ファイル名は半角英数に寄せる(取込の失敗を避ける)
+        function safeName(s) {
+          const t = s.replace(/[^0-9A-Za-z_-]/g, "_").slice(0, 20);
+          return t || "nigezumi";
+        }
+
+        window.addEventListener("resize", draw);
+        refreshHeights();
+        draw();
+      })();
+    </script>
+    <script>
+      // ホーム画面アプリ: 電波がなくても開けるように、アプリをこの端末に覚えておく(sw.js)
+      if ("serviceWorker" in navigator) window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+    </script>
+  </body>
+</html>
