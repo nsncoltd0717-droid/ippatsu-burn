@@ -494,6 +494,8 @@
       .ctl-line.ok { color: var(--ok); }
       .ovl.ctl .ovl-head > * { white-space: nowrap; }
       .ovl.ctl .ovl-head .badge { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
+      .cl-dl { margin: 0 0 8px; gap: 6px; }
+      .cl-dl .big { min-height: 42px; font-size: 15px; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -511,7 +513,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.5.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.5.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -904,6 +906,10 @@
           </div>
           <div class="cl-wrap"><table class="cl-tbl"><thead><tr><th>点名</th><th id="clHX">X</th><th id="clHY">Y</th><th>H</th><th>距離 m</th></tr></thead><tbody id="clBody"></tbody></table></div>
           <p class="step-note" id="clNote" style="margin:4px 0 6px"></p>
+          <div class="field2 cl-dl">
+            <button type="button" class="big ghost" id="clCsv">⬇ CSV</button>
+            <button type="button" class="big ghost" id="clSima">⬇ SIMA</button>
+          </div>
           <div class="cl-sel" id="clSel" hidden>
             <div class="cl-selname"><b id="clSelName">--</b><span id="clSelInfo"></span></div>
             <div class="field2">
@@ -1029,7 +1035,7 @@
         <h3>🔗 杭ナビにつなぐ(テスト版・Android)</h3>
         <p>杭ナビと TopLayout のやりとりを読み解いて、くるくる回し太郎からも動かせるようにしました。ブラウザは杭ナビに直接つなげないので、スマホで「くるくる中継」(くるくる中継.py)を動かして間に立たせます。① Termux を入れて <b>pkg install python</b>(最初だけ) ② <b>python くるくる中継.py</b> ③ スマホの Wi-Fi を杭ナビに ④ TopLayout を閉じる ⑤ 🎛 操作盤の「🔗 つなぐ」。◁▷ は押している間だけ回ります。点の方向へ回すには、器械設置で「🧭 向きを合わせる」(既知点1のプリズムを追尾して押す)をしてください。</p>
         <h3>📋 座標リスト</h3>
-        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・LIVE で見る、ができます。</p>
+        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・LIVE で見る、ができます。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
         <h3>注意</h3>
         <ul>
           <li class="warn">点名は半角英数（SIMA・杭ナビで全角が困ります）。同じ点名を杭ナビに入れ直すと上書きされず追加されます。</li>
@@ -5119,21 +5125,48 @@
 
         // ================================================================ 座標リスト
         let clF = "all", clSelN = null;
-        function renderCList() {
-          if (!$("clBody")) return;
-          const [nx, ny] = axisNames(); $("clHX").textContent = nx; $("clHY").textContent = ny;
+        function clList() {   // 座標リストにいま出している点(さがす・絞り込み・並びのとおり)
           const q = $("clQ").value.trim().toLowerCase();
           let list = picks.filter((p) => !q || p.name.toLowerCase().includes(q));
           if (clF === "design") list = list.filter((p) => roleOf(p) !== "known");
           if (clF === "known") list = list.filter((p) => roleOf(p) === "known");
           if (clF === "todo") list = list.filter((p) => roleOf(p) !== "known" && !p.done);
           if (clF === "near" && inst) list = list.slice().sort((a, b) => dmm(inst, a) - dmm(inst, b));
+          return list;
+        }
+        function clFileName(ext) {
+          const base = safeName(($("fname").value || site || "kurukuru").trim());
+          const tag = { all: "", design: "_design", known: "_known", todo: "_mada", near: "" }[clF] || "";
+          return `${base}${tag}${$("clQ").value.trim() ? "_q" : ""}.${ext}`;
+        }
+        $("clCsv").addEventListener("click", () => {
+          const list = clList(); if (!list.length) { setStatus("ダウンロードする点がありません。"); return; }
+          const csv = TL.toTopLayoutCsv(outPts(list), { axis: $("axis").value, unit: unitName(), decimals: 3 });
+          const name = clFileName("csv");
+          download(csv, name, "text/csv");
+          setStatus(`⬇ 座標リストの ${list.length} 点を ${name}(点名,X,Y,H・${$("axis").value === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"}・${unitName()})にしました。`);
+        });
+        $("clSima").addEventListener("click", () => {
+          const list = clList(); if (!list.length) { setStatus("ダウンロードする点がありません。"); return; }
+          try {
+            const k = unitName() === "m" ? 1 : 0.001;
+            const text = TL.toSima(outPts(list).map((p) => ({ ...p, h: p.h * k })), { unit: "m", decimals: 3, title: "KURUKURU" });
+            const name = clFileName("sim");
+            download(TL.simaToSjis(text), name, "application/octet-stream");
+            setStatus(`⬇ 座標リストの ${list.length} 点を ${name}(SIMA・X=北・Y=東・m)にしました。` + ($("axis").value !== "northEast" ? "⚠ 図面が公共座標ではないので、X=縦・Y=横 として書いています。" : ""));
+          } catch (e) { setStatus("⚠ SIMA を書けません: " + e.message, true); }
+        });
+        function renderCList() {
+          if (!$("clBody")) return;
+          const [nx, ny] = axisNames(); $("clHX").textContent = nx; $("clHY").textContent = ny;
+          const list = clList();
           $("clBody").innerHTML = list.map((p) => {
             const [X, Y] = fmtXY(p.x, p.y), kn = roleOf(p) === "known";
             return `<tr data-n="${esc(p.name)}" class="${p.name === clSelN ? "sel" : ""} ${p.name === target ? "tgt" : ""}"><td><b>${esc(p.name)}</b>${kn ? '<span class="k">既知</span>' : ""}${p.done ? '<span class="dn">✓</span>' : ""}</td><td>${X}</td><td>${Y}</td><td>${fmtH(p.h)}</td><td>${inst ? dm(inst, p).toFixed(2) : "--"}</td></tr>`;
           }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
           const ds = picks.filter((p) => roleOf(p) !== "known");
-          $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。";
+          $("clCsv").disabled = $("clSima").disabled = !list.length;
+          $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。⬇ は表示している点をそのまま書き出します。";
           const p = byName(clSelN);
           $("clSel").hidden = !p;
           if (p) {
