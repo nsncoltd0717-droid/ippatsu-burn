@@ -425,6 +425,46 @@
       .ovl.ctl.bar-top .ctl-ctrls { position: sticky; top: 40px; background: var(--panel); z-index: 2; }
       .ovl.ctl .ctl-acts button { min-height: 50px; }
       .ovl.ctl .ctl-rot button { min-height: 56px; }
+      /* ===== v0.4.0 LIVE ===== */
+      .tile.live, button.ctlopen.live { background: #0f172a; color: #fff; }
+      .tile.live small { color: #cbd5e1; }
+      .ovl.ctl.is-live .ctl-status { display: none; }
+      .ovl.ctl.is-live > .ovl-card > .msg.warn { display: none; }
+      .live-view { position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 34dvh; background: radial-gradient(ellipse at center, #334155 0%, #0f172a 75%); border-radius: 12px; overflow: hidden; touch-action: manipulation; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+      .live-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .live-band { position: absolute; top: 0; bottom: 0; left: 50%; width: 16%; transform: translateX(-50%); background: rgba(34,197,94,0.14); border-left: 1px dashed rgba(134,239,172,0.8); border-right: 1px dashed rgba(134,239,172,0.8); pointer-events: none; }
+      .live-cross { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%,-50%); pointer-events: none;
+        background: linear-gradient(#f43f5e,#f43f5e) center/2px 100% no-repeat, linear-gradient(#f43f5e,#f43f5e) center/100% 2px no-repeat; }
+      .live-cross::after { content: ""; position: absolute; inset: 12px; border: 2px solid #f43f5e; border-radius: 50%; }
+      .live-tap { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 3px solid #facc15; border-radius: 50%; pointer-events: none; animation: livetap 0.9s ease-out forwards; }
+      @keyframes livetap { from { transform: scale(0.4); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+      .live-top { position: absolute; left: 8px; right: 8px; top: 8px; display: flex; gap: 6px; align-items: center; pointer-events: none; }
+      .live-tgt { margin-left: auto; color: #fff; font-weight: 800; font-size: 14px; background: rgba(0,0,0,0.45); padding: 3px 8px; border-radius: 8px; }
+      .live-msg { position: absolute; left: 10px; right: 10px; top: 50%; transform: translateY(-50%); margin-top: 40px; color: #e2e8f0; font-size: 12.5px; text-align: center; pointer-events: none; text-shadow: 0 1px 2px #000; }
+      .live-guide { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; justify-content: center; gap: 10px; color: #fff; font-weight: 900; font-size: 18px; font-variant-numeric: tabular-nums; pointer-events: none; text-shadow: 0 1px 3px #000; }
+      .live-guide:empty { display: none; }
+      .live-search { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; margin-top: 10px; }
+      #liveDial { width: 150px; height: 150px; touch-action: manipulation; cursor: pointer; }
+      .live-sbtns { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      .live-sbtns .chips { margin: 0; flex-wrap: nowrap; }
+      .live-sbtns .chips button { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 13px; }
+      .live-sbtns .big { min-height: 46px; font-size: 15px; }
+      .live-sbtns .field2 { margin: 0; gap: 6px; }
+      #lsGo.on { background: var(--ng); }
+      @media (max-width: 360px) { .live-search { grid-template-columns: 124px 1fr; } #liveDial { width: 124px; height: 124px; } }
+      /* LIVE 中は下の操作部を小さくして、映像と方位盤が見えるように */
+      .ovl.ctl.is-live .ctl-line { display: none; }
+      .ovl.ctl.is-live .ctl-meas { margin: 8px 0 4px; }
+      .ovl.ctl.is-live .ctl-meas > div { padding: 3px 8px; }
+      .ovl.ctl.is-live .ctl-meas b { font-size: 15px; }
+      .ovl.ctl.is-live .ctl-ctrls { padding-top: 6px; }
+      .ovl.ctl.is-live .ctl-rot { margin: 0 0 4px; gap: 5px; }
+      .ovl.ctl.is-live .ctl-rot button { min-height: 44px; font-size: 18px; border-radius: 12px; }
+      .ovl.ctl.is-live .ctl-ctrls > label.big-label { display: inline-block; width: 30%; margin: 0; font-size: 12.5px; vertical-align: middle; }
+      .ovl.ctl.is-live #ctSpeed { display: inline-block; width: 68%; vertical-align: middle; margin: 0; }
+      .ovl.ctl.is-live .ctl-acts { grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 4px; }
+      .ovl.ctl.is-live .ctl-acts button { min-height: 44px; font-size: 12px; padding: 2px 1px; border-radius: 10px; white-space: nowrap; overflow: hidden; }
+      @media (max-width: 370px) { .ovl.ctl.is-live .ctl-acts button { font-size: 10.5px; } }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -442,7 +482,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.4.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -606,6 +646,7 @@
           <button class="big" id="stNext" type="button" disabled>次の点 ▶</button>
         </div>
         <button class="big ctlopen" type="button" data-ctl="stake" style="margin-top:10px">🎛 杭ナビ操作盤（杭打ちの誘導）</button>
+        <button class="big ctlopen live" type="button" data-ctl="live" style="margin-top:8px">📹 LIVE（映像を見ながら回す・回転サーチ）</button>
         <div class="field2" style="margin-top:10px">
           <div><label class="big-label sm" for="stOrder">次の点の選び方</label>
             <select id="stOrder"><option value="near">いまの点から近い順</option><option value="name">点名順</option><option value="file">拾った順</option></select></div>
@@ -708,6 +749,7 @@
       <div class="ovl-card">
         <div class="ovl-head"><b>メニュー</b><span class="sub" id="menuSite"></span><button class="ghost ovl-x" type="button" data-close="menuOvl">閉じる</button></div>
         <div class="tiles" id="menuTiles">
+          <button type="button" class="tile wide live" data-go="live"><i>📹</i>LIVE<small>映像を見ながら回す・回転サーチ</small></button>
           <button type="button" class="tile" data-go="site"><i>🏗</i>現場<small>選ぶ・新しく作る</small></button>
           <button type="button" class="tile" data-go="setup"><i>📐</i>器械設置<small>既知点2点で位置決め</small></button>
           <button type="button" class="tile" data-go="radial"><i>📡</i>放射観測<small>測って座標を取る</small></button>
@@ -742,7 +784,7 @@
             <div><label class="big-label sm" for="cfgTol">杭打ちの OK 範囲 (mm)</label><input id="cfgTol" type="number" step="1" inputmode="decimal" value="10" /></div>
           </div>
           <div class="field2">
-            <div><label class="big-label sm" for="cfgModel">器械</label><select id="cfgModel"><option>LN-150</option><option>LN-100</option><option>LN-160</option></select></div>
+            <div><label class="big-label sm" for="cfgModel">器械</label><select id="cfgModel"><option>LN-150</option><option>LN-100</option><option>LN-160</option><option>LN-1000i</option></select></div>
             <div><label class="big-label sm" for="cfgLink">つなぎ方</label><select id="cfgLink"><option value="bt">Bluetooth</option><option value="wifi">無線LAN</option></select></div>
           </div>
           <div class="field2">
@@ -768,6 +810,7 @@
         <div class="ovl-head"><b>🎛 杭ナビ操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ghost ovl-x" type="button" data-close="ctlOvl">閉じる</button></div>
         <div class="msg warn" style="margin:0 0 10px">準備中です。ボタンは押せますが、まだ杭ナビには何も送りません(下の「操作の記録」に残るだけ)。いまの操作は TopLayout でしてください。</div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
+          <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
           <button type="button" data-t="setup" aria-pressed="true">器械設置</button>
           <button type="button" data-t="stake" aria-pressed="false">杭打ち</button>
           <button type="button" data-t="radial" aria-pressed="false">放射観測</button>
@@ -781,6 +824,38 @@
           <div><small>レーザー</small><b id="csLaser">OFF</b></div>
           <div><small>プリズム</small><b id="csPrism">ATP2/ATP2S</b></div>
           <div><small>ミラー高</small><b id="csMirror">0.100 m</b></div>
+        </div>
+        <!-- LIVE(LN-1000i のカメラ映像・タッチドライブ・回転サーチ) -->
+        <div class="ctl-pane" data-pane="live" hidden>
+          <div class="live-view" id="liveView" role="button" aria-label="杭ナビのカメラ映像(タップした方へ回す)">
+            <canvas id="liveImg"></canvas>
+            <div class="live-band" title="プリズムを捕まえられる範囲"></div>
+            <div class="live-cross"></div>
+            <div class="live-tap" id="liveTap" hidden></div>
+            <div class="live-top"><span class="badge ng" id="liveSt">映像なし</span><span class="live-tgt" id="liveTgt">出す点 --</span></div>
+            <div class="live-msg" id="liveMsg"></div>
+            <div class="live-guide" id="liveGuide"></div>
+          </div>
+          <div class="live-search">
+            <svg id="liveDial" viewBox="-110 -110 220 220" aria-label="杭ナビの向き(タップした方位へ回す)"></svg>
+            <div class="live-sbtns">
+              <div class="chips" id="lsRange">
+                <button type="button" data-r="360" aria-pressed="true">全周</button>
+                <button type="button" data-r="180" aria-pressed="false">±90°</button>
+                <button type="button" data-r="90" aria-pressed="false">±45°</button>
+              </div>
+              <div class="chips" id="lsDir">
+                <button type="button" data-d="R" aria-pressed="true">右回り ↻</button>
+                <button type="button" data-d="L" aria-pressed="false">左回り ↺</button>
+              </div>
+              <button type="button" class="big primary" id="lsGo" data-act="rotSearch">🔄 回転サーチ</button>
+              <div class="field2">
+                <button type="button" class="big ghost" data-act="turnTarget">出す点へ</button>
+                <button type="button" class="big ghost" data-act="panorama">パノラマ</button>
+              </div>
+            </div>
+          </div>
+          <p class="step-note" id="liveNote" style="margin:4px 0 8px"></p>
         </div>
         <!-- 器械設置 -->
         <div class="ctl-pane" data-pane="setup">
@@ -891,6 +966,8 @@
         </ol>
         <h3>メニュー・操作盤(準備中)</h3>
         <p>右上の「メニュー」は TopLayout のホームと同じ並び(現場・器械設置・放射観測・杭打ち・入力・出力・設定・点検)です。🎛 は杭ナビの操作盤です。杭ナビとのつなぎ方が分かったら、ここから杭ナビを動かせるようにする予定で、いまはボタンを押しても杭ナビには何も送りません。</p>
+        <h3>📹 LIVE(準備中)</h3>
+        <p>メニューの「LIVE」か 🎛 操作盤の「📹 LIVE」で開きます。LN-1000i のカメラ映像を見ながら、映像をタップしてその方へ杭ナビを回す(タッチドライブ)・回転サーチ(全周・±90°・±45°、右回り・左回り)・方位盤をタップしてその方位へ回す、ができるようにする画面です。LIVE の下にも、いつもの操作部(回す・サーチ・測定・追尾など)を置いています。いまは杭ナビとつながっていないので、針の動きは見本です。</p>
         <h3>注意</h3>
         <ul>
           <li class="warn">点名は半角英数（SIMA・杭ナビで全角が困ります）。同じ点名を杭ナビに入れ直すと上書きされず追加されます。</li>
@@ -4555,6 +4632,8 @@
           search: "サーチ", measure: "測定", track: "追尾", guide: "ガイド光", laser: "レーザー", level: "整準",
           measK1: "既知点1を測る", measK2: "既知点2を測る", setInst: "器械点を決める", precheck: "始業前点検の測定", method: "器械設置のしかた",
           guideToPt: "点の方向へ回す", record: "記録", stakeDone: "杭を打った", prevPt: "前の点", nextPt: "次の点",
+          rotSearch: "回転サーチ", stopSearch: "回転サーチを止める", turnTarget: "出す点の方へ回す", panorama: "パノラマ画像を撮る",
+          touchDrive: "タッチドライブ(映像でタップした方へ回す)", turnTo: "方位へ回す", live: "LIVE 映像",
         };
         const ctlLog = [];
         const KuiNavi = {
@@ -4617,6 +4696,7 @@
           const jump = (main, sub) => { closeOvl("menuOvl"); mainMode = main; if (sub) subMode = sub; setMode(main === "coord" ? subMode : main); };
           if (go === "site" || go === "settings") return showSub(go);
           if (go === "setup") return jump("setup");
+          if (go === "live") { closeOvl("menuOvl"); setCtlTab("live"); openOvl("ctlOvl"); return; }
           if (go === "recv") { jump("coord", "pick"); receiveShare(); return; }
           if (go === "precheck") { closeOvl("menuOvl"); setCtlTab("precheck"); openOvl("ctlOvl"); return; }
           if (go === "stake") return jump("stake");
@@ -4631,6 +4711,8 @@
           ctlTab = t;
           for (const b of $("ctlTabs").children) b.setAttribute("aria-pressed", String(b.dataset.t === t));
           for (const p of document.querySelectorAll("#ctlOvl .ctl-pane")) p.hidden = p.dataset.pane !== t;
+          $("ctlOvl").classList.toggle("is-live", t === "live");
+          if (t === "live") KuiNavi.send("live", { on: true });
           renderCtl();
         }
         $("ctlTabs").addEventListener("click", (e) => { const t = e.target.dataset.t; if (t) setCtlTab(t); });
@@ -4676,10 +4758,12 @@
             if (inst) t += `<br>杭ナビから ${dm(inst, p).toFixed(2)} m・方向角 ${dms(azimuth(inst, p))}`;
             $("ctDesign").innerHTML = t;
           } else $("ctDesign").textContent = "杭打ちで出す点がありません。";
+          renderLive();
         }
         $("ctlOvl").addEventListener("click", (e) => {
           const b = e.target.closest("[data-act]"); if (!b) return;
           const act = b.dataset.act;
+          if (LIVE_ACTS.includes(act)) { liveAct(act); return; }
           if (b.classList.contains("tgl2")) b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
           const args = {};
           if (/^rot/.test(act)) args.speed = Number($("ctSpeed").value);
@@ -4698,9 +4782,130 @@
           }
           if (act === "stakeDone") { const p = byName(target); if (p) { p.done = true; const n = nextTarget(); if (n) target = n.name; afterChange(); } }
           KuiNavi.send(act, Object.keys(args).length ? args : null);
+          if (/^rot|^stop$/.test(act)) liveRot(act);
           if (!["nextPt", "prevPt", "stakeDone"].includes(act)) setStatus(`🎛 「${ACT[act] || act}」…杭ナビとはまだつながっていないので、記録だけしました(準備中)。`);
           renderCtl();
         });
+
+        // ================================================================ LIVE(LN-1000i のカメラ映像・タッチドライブ・回転サーチ)
+        // 映像と杭ナビの向きは、つながったら KuiNavi から liveFrame()・liveHeading() に入れてもらう。
+        // いまは未接続なので、向きの針はボタンに合わせて動く「見本」。
+        const LIVE_ACTS = ["rotSearch", "turnTarget", "panorama"];
+        const CAM_FOV = 30;                       // 映像の横の画角(度・仮)
+        let liveHd = null, liveAnim = null, lsRange = 360, lsDir = "R", liveConnected = false;
+        const norm = (a) => ((a % 360) + 360) % 360;
+        const dAng = (a, b) => { let d = norm(b - a); if (d > 180) d -= 360; return d; };   // a から b へ(右回り +)
+        const dmsS = (d) => dms(Math.abs(d)).replace(/″$/, "″");
+        function liveTargetAz() { const p = byName(target); return inst && p ? azimuth(inst, p) : null; }
+        function liveHome() { if (liveHd != null) return liveHd; const A = byName(k1); if (!inst || !A) return 0; liveHd = azimuth(inst, A); return liveHd; }
+        function liveFrame(img) {   // 杭ナビの映像の1枚(ImageBitmap・img・video)を出す
+          const c = $("liveImg"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+          c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); liveConnected = true; renderLive();
+        }
+        function liveHeading(az) { liveHd = norm(az); renderLive(); }
+        window.kurukuruLive = { frame: liveFrame, heading: liveHeading };
+        function liveAnimate(path, label, done) {   // 見本の向きの動き(path は向きの列・度)
+          if (liveAnim) cancelAnimationFrame(liveAnim.id);
+          const seg = []; let tot = 0;
+          for (let i = 1; i < path.length; i++) { const len = Math.abs(path[i] - path[i - 1]); seg.push([path[i - 1], path[i], len]); tot += len; }
+          const speed = 40 + 20 * Number($("ctSpeed").value || 3), t0 = performance.now();
+          liveAnim = { label, sector: label === "search" ? path : null };
+          const step = (now) => {
+            let d = (now - t0) / 1000 * speed;
+            if (d >= tot) { liveHd = norm(path[path.length - 1]); liveAnim = null; renderLive(); if (done) done(); return; }
+            for (const [a, b, len] of seg) { if (d <= len) { liveHd = norm(a + (b - a) * (len ? d / len : 1)); break; } d -= len; }
+            renderLive(); liveAnim.id = requestAnimationFrame(step);
+          };
+          liveAnim.id = requestAnimationFrame(step);
+          renderLive();
+        }
+        function liveStop() { if (liveAnim) { cancelAnimationFrame(liveAnim.id); liveAnim = null; renderLive(); } }
+        function liveTurn(az) { const h = liveHome(); liveAnimate([h, h + dAng(h, az)], "turn"); }
+        function liveRot(act) {
+          if (act === "stop") { liveStop(); return; }
+          const sp = Number($("ctSpeed").value || 3), h = liveHome();
+          const d = { rotL1: -sp, rotL2: -sp * 10, rotR1: sp, rotR2: sp * 10 }[act];
+          if (d != null) liveAnimate([h, h + d], "turn");
+        }
+        function liveAct(act) {
+          const h = liveHome();
+          if (act === "rotSearch") {
+            if (liveAnim && liveAnim.label === "search") { liveStop(); KuiNavi.send("stopSearch"); setStatus("🔄 回転サーチを止めました。"); return; }
+            const sg = lsDir === "R" ? 1 : -1, half = lsRange / 2;
+            const path = lsRange >= 360 ? [h, h + sg * 360] : [h, h + sg * half, h - sg * half, h];
+            KuiNavi.send("rotSearch", { range: lsRange >= 360 ? "全周" : `±${half}°`, dir: lsDir === "R" ? "右回り" : "左回り", from: dms(h), pattern: $("cfgSearch").value === "v" ? "縦" : "横" });
+            liveAnimate(path, "search", () => setStatus("🔄 回転サーチ(見本)が一回りしました。杭ナビとつながると、プリズムを見つけたところで止まって追尾に入ります。"));
+            setStatus("🔄 回転サーチ…(杭ナビとはまだつながっていないので見本の動きです。もう一度押すと止まります)");
+          } else if (act === "turnTarget") {
+            const az = liveTargetAz();
+            if (az == null) { setStatus("出す点の方へ回すには、① 据付 で杭ナビの位置と ② 杭打ち の点が要ります。"); return; }
+            KuiNavi.send("turnTarget", { point: target, azimuth: dms(az) }); liveTurn(az);
+            setStatus(`📍 ${target} の方(方向角 ${dms(az)})へ回す…(見本)`);
+          } else if (act === "panorama") {
+            KuiNavi.send("panorama", { from: dms(h) });
+            setStatus("パノラマ画像は杭ナビ(LN-1000i)とつながってから撮れます。撮った画像の上をタップしてその方へ回せるようにします。");
+          }
+          renderLive();
+        }
+        $("lsRange").addEventListener("click", (e) => { const r = e.target.dataset.r; if (!r) return; lsRange = Number(r); for (const b of $("lsRange").children) b.setAttribute("aria-pressed", String(b.dataset.r === r)); renderLive(); });
+        $("lsDir").addEventListener("click", (e) => { const d = e.target.dataset.d; if (!d) return; lsDir = d; for (const b of $("lsDir").children) b.setAttribute("aria-pressed", String(b.dataset.d === d)); renderLive(); });
+        $("liveView").addEventListener("click", (e) => {   // タッチドライブ
+          const r = $("liveView").getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+          const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * r.height / r.width;
+          const t = $("liveTap"); t.hidden = true; t.style.left = `${fx * 100}%`; t.style.top = `${fy * 100}%`; void t.offsetWidth; t.hidden = false;
+          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°` });
+          const h = liveHome(); liveAnimate([h, h + dH], "turn");
+          setStatus(`👆 タッチドライブ:${dH >= 0 ? "右" : "左"}へ ${Math.abs(dH).toFixed(1)}°・${dV >= 0 ? "上" : "下"}へ ${Math.abs(dV).toFixed(1)}°(見本)`);
+        });
+        $("liveDial").addEventListener("click", (e) => {   // 方位盤をタップした方位へ回す
+          const r = $("liveDial").getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
+          if (Math.hypot(x, y) < r.width * 0.12) return;
+          const az = norm(Math.atan2(x, -y) * 180 / Math.PI);
+          KuiNavi.send("turnTo", { azimuth: dms(az) }); liveTurn(az);
+          setStatus(`方向角 ${dms(az)} へ回す…(見本)`);
+        });
+        function renderLive() {
+          if (!$("liveDial")) return;
+          const h = liveHome(), taz = liveTargetAz(), p = byName(target);
+          const P = (a, r) => [Math.sin(a * Math.PI / 180) * r, -Math.cos(a * Math.PI / 180) * r];
+          let g = `<circle r="100" fill="var(--bg)" stroke="var(--line)" stroke-width="2"/>`;
+          for (let a = 0; a < 360; a += 10) { const [x1, y1] = P(a, a % 30 ? 94 : 88), [x2, y2] = P(a, 100); g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--sub)" stroke-width="${a % 90 ? 1 : 2.5}"/>`; }
+          for (const [a, t] of [[0, "N"], [90, "90"], [180, "180"], [270, "270"]]) { const [x, y] = P(a, 74); g += `<text x="${x}" y="${y + 5}" text-anchor="middle" font-size="${a ? 13 : 16}" font-weight="800" fill="${a ? "var(--sub)" : "var(--ng)"}">${t}</text>`; }
+          // サーチする範囲
+          const sec = liveAnim && liveAnim.sector ? liveAnim.sector : null;
+          const range = sec ? null : lsRange;
+          const arc = (a0, a1) => { const [x0, y0] = P(a0, 100), [x1, y1] = P(a1, 100), big = Math.abs(a1 - a0) > 180 ? 1 : 0, sw = a1 > a0 ? 1 : 0; return `<path d="M0 0 L${x0} ${y0} A100 100 0 ${big} ${sw} ${x1} ${y1} Z" fill="rgba(37,99,235,0.13)"/>`; };
+          if (range && range < 360) g += arc(h - range / 2, h + range / 2);
+          if (sec) { const lo = Math.min(...sec), hi = Math.max(...sec); g += hi - lo >= 360 ? `<circle r="100" fill="rgba(37,99,235,0.13)"/>` : arc(lo, hi); }
+          // 既知点・出す点の方向
+          for (const [n, col, lab] of [[k1, "var(--known)", "1"], [k2, "var(--known)", "2"]]) {
+            const q = byName(n); if (!inst || !q) continue;
+            const [x, y] = P(azimuth(inst, q), 100); g += `<path d="M${x} ${y - 9} l8 14 h-16 z" fill="${col}"/><text x="${x}" y="${y + 3}" text-anchor="middle" font-size="9" font-weight="900" fill="#fff">${lab}</text>`;
+          }
+          if (taz != null) { const [x, y] = P(taz, 100); g += `<circle cx="${x}" cy="${y}" r="9" fill="var(--accent2)" stroke="#fff" stroke-width="2"/>`; }
+          // 杭ナビの向き(針)
+          const [nx, ny] = P(h, 92), [bx, by] = P(h, -18);
+          g += `<line x1="${bx}" y1="${by}" x2="${nx}" y2="${ny}" stroke="var(--inst)" stroke-width="6" stroke-linecap="round"/>`;
+          const [lx, ly] = P(h - 8, 78), [rx, ry] = P(h + 8, 78);
+          g += `<path d="M${nx} ${ny} L${lx} ${ly} L${rx} ${ry} Z" fill="var(--inst)"/><circle r="10" fill="var(--inst)"/>`;
+          g += `<text x="0" y="40" text-anchor="middle" font-size="13" font-weight="800" fill="var(--ink)">${dms(h).replace(/′\d+″$/, "′")}</text>`;
+          $("liveDial").innerHTML = g;
+          // 映像の上の表示
+          const lv = $("cfgModel").value === "LN-1000i";
+          $("liveSt").textContent = liveConnected ? "LIVE" : "映像なし"; $("liveSt").className = "badge " + (liveConnected ? "ok" : "ng");
+          $("liveTgt").textContent = p ? `出す点 ${p.name}` : "出す点 --";
+          $("liveMsg").textContent = liveConnected ? "" : lv
+            ? "杭ナビ(LN-1000i)につながると、ここにカメラ映像が出ます。映像をタップするとその方へ回ります(タッチドライブ)。"
+            : `カメラ映像は LN-1000i だけです(いまの設定は ${$("cfgModel").value}。メニュー › 設定 › 器械)。回転サーチ・向きの操作はどの杭ナビでも使えます。`;
+          let gd = "";
+          if (taz != null && p) { const d = dAng(h, taz); gd = Math.abs(d) < 0.01 ? `<span>◎ ${esc(p.name)} の方向</span>` : `<span>${d > 0 ? "右へ ▶" : "◀ 左へ"} ${dmsS(d).replace(/″$/, "″")}</span>`; gd += `<span>${dm(inst, p).toFixed(2)} m</span>`; }
+          $("liveGuide").innerHTML = gd;
+          $("lsGo").textContent = liveAnim && liveAnim.label === "search" ? "■ サーチを止める" : "🔄 回転サーチ";
+          $("lsGo").classList.toggle("on", !!(liveAnim && liveAnim.label === "search"));
+          $("liveNote").textContent = (liveConnected ? "" : "いまは杭ナビとつながっていないので、針(杭ナビの向き)はボタンに合わせて動く見本です。") +
+            "緑の帯はプリズムを捕まえられる範囲、オレンジは出す点、▲は既知点の方向。方位盤をタップするとその方位へ回します。" + (inst ? "" : "(① 据付 で杭ナビの位置を決めると、点の方向が出ます)");
+        }
         window.addEventListener("resize", draw);
         // 入力のあとページ全体がずれたままにならないよう戻す(図のタップ位置がずれるため)
         document.addEventListener("focusout", () => setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) window.scrollTo(0, 0); }, 120));
