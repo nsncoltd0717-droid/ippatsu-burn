@@ -465,6 +465,29 @@
       .ovl.ctl.is-live .ctl-acts { grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 4px; }
       .ovl.ctl.is-live .ctl-acts button { min-height: 44px; font-size: 12px; padding: 2px 1px; border-radius: 10px; white-space: nowrap; overflow: hidden; }
       @media (max-width: 370px) { .ovl.ctl.is-live .ctl-acts button { font-size: 10.5px; } }
+      /* ===== v0.4.1 座標リスト ===== */
+      .ctl-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+      .ctl-tabs::-webkit-scrollbar { display: none; }
+      .ctl-tabs button { flex: 0 0 auto; width: auto; min-width: 0; white-space: nowrap; padding-left: 12px; padding-right: 12px; }
+      .cl-wrap { max-height: 30dvh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+      .cl-tbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+      .cl-tbl th { position: sticky; top: 0; background: var(--bg); font-size: 11.5px; color: var(--sub); text-align: right; padding: 6px 6px; z-index: 1; }
+      .cl-tbl th:first-child, .cl-tbl td:first-child { text-align: left; }
+      .cl-tbl td { padding: 9px 6px; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; }
+      .cl-tbl tr { cursor: pointer; }
+      .cl-tbl tr.sel td { background: rgba(37,99,235,0.12); }
+      .cl-tbl tr.tgt td:first-child { box-shadow: inset 4px 0 0 var(--accent2); }
+      .cl-tbl td b { font-weight: 800; }
+      .cl-tbl .k { color: var(--known); font-size: 11px; font-weight: 800; margin-left: 3px; }
+      .cl-tbl .dn { color: var(--ok); font-weight: 800; margin-left: 3px; }
+      .cl-sel { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px; margin-bottom: 6px; }
+      .cl-selname { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+      .cl-selname b { font-size: 22px; font-weight: 900; color: var(--accent2); }
+      .cl-selname span { font-size: 12.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+      .cl-sel .field2 { margin: 0; gap: 6px; }
+      @media (max-width: 370px) { .cl-tbl { font-size: 12px; } .cl-tbl td { padding: 9px 4px; } }
+      #clF { flex-wrap: nowrap; }
+      #clF button { flex: 1 1 auto; min-width: 0; padding: 6px 4px; font-size: 13px; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -482,7 +505,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.4.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.4.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -750,6 +773,7 @@
         <div class="ovl-head"><b>メニュー</b><span class="sub" id="menuSite"></span><button class="ghost ovl-x" type="button" data-close="menuOvl">閉じる</button></div>
         <div class="tiles" id="menuTiles">
           <button type="button" class="tile wide live" data-go="live"><i>📹</i>LIVE<small>映像を見ながら回す・回転サーチ</small></button>
+          <button type="button" class="tile wide" data-go="clist"><i>📋</i>座標リスト<small>点をさがす・出す点にする・その方へ回す</small></button>
           <button type="button" class="tile" data-go="site"><i>🏗</i>現場<small>選ぶ・新しく作る</small></button>
           <button type="button" class="tile" data-go="setup"><i>📐</i>器械設置<small>既知点2点で位置決め</small></button>
           <button type="button" class="tile" data-go="radial"><i>📡</i>放射観測<small>測って座標を取る</small></button>
@@ -811,6 +835,7 @@
         <div class="msg warn" style="margin:0 0 10px">準備中です。ボタンは押せますが、まだ杭ナビには何も送りません(下の「操作の記録」に残るだけ)。いまの操作は TopLayout でしてください。</div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
           <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
+          <button type="button" data-t="list" aria-pressed="false">📋 座標リスト</button>
           <button type="button" data-t="setup" aria-pressed="true">器械設置</button>
           <button type="button" data-t="stake" aria-pressed="false">杭打ち</button>
           <button type="button" data-t="radial" aria-pressed="false">放射観測</button>
@@ -853,9 +878,33 @@
                 <button type="button" class="big ghost" data-act="turnTarget">出す点へ</button>
                 <button type="button" class="big ghost" data-act="panorama">パノラマ</button>
               </div>
+              <div class="field2">
+                <button type="button" class="big ghost" id="liveList">📋 座標リスト</button>
+              </div>
             </div>
           </div>
           <p class="step-note" id="liveNote" style="margin:4px 0 8px"></p>
+        </div>
+        <!-- 座標リスト -->
+        <div class="ctl-pane" data-pane="list" hidden>
+          <input id="clQ" type="search" placeholder="点名でさがす(例 P01)" autocomplete="off" aria-label="点名でさがす" />
+          <div class="chips" id="clF" style="margin-top:6px">
+            <button type="button" data-f="all" aria-pressed="true">全部</button>
+            <button type="button" data-f="design" aria-pressed="false">設計点</button>
+            <button type="button" data-f="known" aria-pressed="false">既知点</button>
+            <button type="button" data-f="todo" aria-pressed="false">まだ</button>
+            <button type="button" data-f="near" aria-pressed="false">近い順</button>
+          </div>
+          <div class="cl-wrap"><table class="cl-tbl"><thead><tr><th>点名</th><th id="clHX">X</th><th id="clHY">Y</th><th>H</th><th>距離 m</th></tr></thead><tbody id="clBody"></tbody></table></div>
+          <p class="step-note" id="clNote" style="margin:4px 0 6px"></p>
+          <div class="cl-sel" id="clSel" hidden>
+            <div class="cl-selname"><b id="clSelName">--</b><span id="clSelInfo"></span></div>
+            <div class="field2">
+              <button type="button" class="big primary" id="clTarget">📍 出す点に</button>
+              <button type="button" class="big" id="clTurn">この点へ回す</button>
+            </div>
+            <button type="button" class="big ghost" id="clLive" style="margin-top:6px">📹 LIVE で見る</button>
+          </div>
         </div>
         <!-- 器械設置 -->
         <div class="ctl-pane" data-pane="setup">
@@ -968,6 +1017,8 @@
         <p>右上の「メニュー」は TopLayout のホームと同じ並び(現場・器械設置・放射観測・杭打ち・入力・出力・設定・点検)です。🎛 は杭ナビの操作盤です。杭ナビとのつなぎ方が分かったら、ここから杭ナビを動かせるようにする予定で、いまはボタンを押しても杭ナビには何も送りません。</p>
         <h3>📹 LIVE(準備中)</h3>
         <p>メニューの「LIVE」か 🎛 操作盤の「📹 LIVE」で開きます。LN-1000i のカメラ映像を見ながら、映像をタップしてその方へ杭ナビを回す(タッチドライブ)・回転サーチ(全周・±90°・±45°、右回り・左回り)・方位盤をタップしてその方位へ回す、ができるようにする画面です。LIVE の下にも、いつもの操作部(回す・サーチ・測定・追尾など)を置いています。いまは杭ナビとつながっていないので、針の動きは見本です。</p>
+        <h3>📋 座標リスト</h3>
+        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・LIVE で見る、ができます。</p>
         <h3>注意</h3>
         <ul>
           <li class="warn">点名は半角英数（SIMA・杭ナビで全角が困ります）。同じ点名を杭ナビに入れ直すと上書きされず追加されます。</li>
@@ -4697,6 +4748,7 @@
           if (go === "site" || go === "settings") return showSub(go);
           if (go === "setup") return jump("setup");
           if (go === "live") { closeOvl("menuOvl"); setCtlTab("live"); openOvl("ctlOvl"); return; }
+          if (go === "clist") { closeOvl("menuOvl"); setCtlTab("list"); openOvl("ctlOvl"); return; }
           if (go === "recv") { jump("coord", "pick"); receiveShare(); return; }
           if (go === "precheck") { closeOvl("menuOvl"); setCtlTab("precheck"); openOvl("ctlOvl"); return; }
           if (go === "stake") return jump("stake");
@@ -4711,7 +4763,7 @@
           ctlTab = t;
           for (const b of $("ctlTabs").children) b.setAttribute("aria-pressed", String(b.dataset.t === t));
           for (const p of document.querySelectorAll("#ctlOvl .ctl-pane")) p.hidden = p.dataset.pane !== t;
-          $("ctlOvl").classList.toggle("is-live", t === "live");
+          $("ctlOvl").classList.toggle("is-live", t === "live" || t === "list");
           if (t === "live") KuiNavi.send("live", { on: true });
           renderCtl();
         }
@@ -4759,6 +4811,7 @@
             $("ctDesign").innerHTML = t;
           } else $("ctDesign").textContent = "杭打ちで出す点がありません。";
           renderLive();
+          renderCList();
         }
         $("ctlOvl").addEventListener("click", (e) => {
           const b = e.target.closest("[data-act]"); if (!b) return;
@@ -4906,6 +4959,44 @@
           $("liveNote").textContent = (liveConnected ? "" : "いまは杭ナビとつながっていないので、針(杭ナビの向き)はボタンに合わせて動く見本です。") +
             "緑の帯はプリズムを捕まえられる範囲、オレンジは出す点、▲は既知点の方向。方位盤をタップするとその方位へ回します。" + (inst ? "" : "(① 据付 で杭ナビの位置を決めると、点の方向が出ます)");
         }
+
+        // ================================================================ 座標リスト
+        let clF = "all", clSelN = null;
+        function renderCList() {
+          if (!$("clBody")) return;
+          const [nx, ny] = axisNames(); $("clHX").textContent = nx; $("clHY").textContent = ny;
+          const q = $("clQ").value.trim().toLowerCase();
+          let list = picks.filter((p) => !q || p.name.toLowerCase().includes(q));
+          if (clF === "design") list = list.filter((p) => roleOf(p) !== "known");
+          if (clF === "known") list = list.filter((p) => roleOf(p) === "known");
+          if (clF === "todo") list = list.filter((p) => roleOf(p) !== "known" && !p.done);
+          if (clF === "near" && inst) list = list.slice().sort((a, b) => dmm(inst, a) - dmm(inst, b));
+          $("clBody").innerHTML = list.map((p) => {
+            const [X, Y] = fmtXY(p.x, p.y), kn = roleOf(p) === "known";
+            return `<tr data-n="${esc(p.name)}" class="${p.name === clSelN ? "sel" : ""} ${p.name === target ? "tgt" : ""}"><td><b>${esc(p.name)}</b>${kn ? '<span class="k">既知</span>' : ""}${p.done ? '<span class="dn">✓</span>' : ""}</td><td>${X}</td><td>${Y}</td><td>${fmtH(p.h)}</td><td>${inst ? dm(inst, p).toFixed(2) : "--"}</td></tr>`;
+          }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
+          const ds = picks.filter((p) => roleOf(p) !== "known");
+          $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。";
+          const p = byName(clSelN);
+          $("clSel").hidden = !p;
+          if (p) {
+            $("clSelName").textContent = p.name + (p.done ? " ✓" : "");
+            $("clSelInfo").textContent = inst ? `杭ナビから ${dm(inst, p).toFixed(2)} m・方向角 ${dms(azimuth(inst, p))}` : "(杭ナビの位置が未定)";
+            $("clTarget").textContent = p.name === target ? "✓ 出す点です" : "📍 出す点に";
+          }
+        }
+        $("clQ").addEventListener("input", renderCList);
+        $("clF").addEventListener("click", (e) => { const f = e.target.dataset.f; if (!f) return; clF = f; for (const b of $("clF").children) b.setAttribute("aria-pressed", String(b.dataset.f === f)); renderCList(); });
+        $("clBody").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-n]"); if (!tr) return; clSelN = tr.dataset.n; renderCList(); });
+        $("clTarget").addEventListener("click", () => { const p = byName(clSelN); if (!p) return; target = p.name; afterChange(); setStatus(`📍 ${p.name} を出す点にしました。`); });
+        $("clTurn").addEventListener("click", () => {
+          const p = byName(clSelN); if (!p) return;
+          if (!inst) { setStatus("その点へ回すには、① 据付 で杭ナビの位置を決めてください。"); return; }
+          const az = azimuth(inst, p); KuiNavi.send("turnTo", { point: p.name, azimuth: dms(az) }); liveTurn(az);
+          setStatus(`${p.name} の方(方向角 ${dms(az)})へ回す…(見本)`);
+        });
+        $("clLive").addEventListener("click", () => { const p = byName(clSelN); if (p) { target = p.name; afterChange(); } setCtlTab("live"); });
+        $("liveList").addEventListener("click", () => setCtlTab("list"));
         window.addEventListener("resize", draw);
         // 入力のあとページ全体がずれたままにならないよう戻す(図のタップ位置がずれるため)
         document.addEventListener("focusout", () => setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) window.scrollTo(0, 0); }, 120));
