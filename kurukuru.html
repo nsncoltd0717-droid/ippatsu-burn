@@ -488,6 +488,12 @@
       @media (max-width: 370px) { .cl-tbl { font-size: 12px; } .cl-tbl td { padding: 9px 4px; } }
       #clF { flex-wrap: nowrap; }
       #clF button { flex: 1 1 auto; min-width: 0; padding: 6px 4px; font-size: 13px; }
+      /* ===== v0.5.0 杭ナビにつなぐ ===== */
+      .ovl-head .ctlconn { width: auto; min-height: 36px; padding: 4px 12px; font-size: 14px; margin-left: auto; }
+      .ovl-head .ctlconn + .ovl-x { margin-left: 0; }
+      .ctl-line.ok { color: var(--ok); }
+      .ovl.ctl .ovl-head > * { white-space: nowrap; }
+      .ovl.ctl .ovl-head .badge { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -505,7 +511,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.4.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.5.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -809,7 +815,8 @@
           </div>
           <div class="field2">
             <div><label class="big-label sm" for="cfgModel">器械</label><select id="cfgModel"><option>LN-150</option><option>LN-100</option><option>LN-160</option><option>LN-1000i</option></select></div>
-            <div><label class="big-label sm" for="cfgLink">つなぎ方</label><select id="cfgLink"><option value="bt">Bluetooth</option><option value="wifi">無線LAN</option></select></div>
+            <div><label class="big-label sm" for="cfgLink">つなぎ方</label><select id="cfgLink"><option value="wifi">無線LAN(くるくる中継)</option><option value="bt">Bluetooth(まだ)</option></select></div>
+            <div><label class="big-label sm" for="cfgRelay">くるくる中継のアドレス</label><input id="cfgRelay" type="text" value="ws://127.0.0.1:8766" autocomplete="off" spellcheck="false" /></div>
           </div>
           <div class="field2">
             <div><label class="big-label sm" for="cfgBar">操作ボタンの位置</label><select id="cfgBar"><option value="bottom">下(片手で押しやすい)</option><option value="top">上</option></select></div>
@@ -831,8 +838,8 @@
     <!-- 杭ナビ操作盤(まだ杭ナビとはつながらない見本) -->
     <div class="ovl ctl" id="ctlOvl" hidden>
       <div class="ovl-card">
-        <div class="ovl-head"><b>🎛 杭ナビ操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ghost ovl-x" type="button" data-close="ctlOvl">閉じる</button></div>
-        <div class="msg warn" style="margin:0 0 10px">準備中です。ボタンは押せますが、まだ杭ナビには何も送りません(下の「操作の記録」に残るだけ)。いまの操作は TopLayout でしてください。</div>
+        <div class="ovl-head"><b>🎛 操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ctlconn" id="ctlConnBtn" type="button">🔗 つなぐ</button><button class="ghost ovl-x" type="button" data-close="ctlOvl">閉じる</button></div>
+        <div class="msg warn" style="margin:0 0 10px">テスト版です。「🔗 つなぐ」で杭ナビ(Wi-Fi)につながると、回す・止める・サーチ(追尾)・点の方向へ回す・ガイド光・レーザー・向きと距離の読み取りが本物になります。つなぐには、スマホで「くるくる中継」を動かします(Android)。はじめは杭ナビのそばで、すぐ止められるようにして試してください。</div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
           <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
           <button type="button" data-t="list" aria-pressed="false">📋 座標リスト</button>
@@ -929,6 +936,8 @@
             <div><small>標準偏差 X</small><b>--- mm</b></div><div><small>Y</small><b>--- mm</b></div><div><small>Z</small><b>--- mm</b></div>
           </div>
           <p class="step-note" id="ctSigmaNote" style="margin:4px 0 10px"></p>
+          <button type="button" class="big" id="ctOrient">🧭 向きを合わせる(既知点1のプリズムを追尾して押す)</button>
+          <p class="step-note" id="ctOrientNote" style="margin:4px 0 10px"></p>
         </div>
         <!-- 杭打ち -->
         <div class="ctl-pane" data-pane="stake" hidden>
@@ -1017,6 +1026,8 @@
         <p>右上の「メニュー」は TopLayout のホームと同じ並び(現場・器械設置・放射観測・杭打ち・入力・出力・設定・点検)です。🎛 は杭ナビの操作盤です。杭ナビとのつなぎ方が分かったら、ここから杭ナビを動かせるようにする予定で、いまはボタンを押しても杭ナビには何も送りません。</p>
         <h3>📹 LIVE(準備中)</h3>
         <p>メニューの「LIVE」か 🎛 操作盤の「📹 LIVE」で開きます。LN-1000i のカメラ映像を見ながら、映像をタップしてその方へ杭ナビを回す(タッチドライブ)・回転サーチ(全周・±90°・±45°、右回り・左回り)・方位盤をタップしてその方位へ回す、ができるようにする画面です。LIVE の下にも、いつもの操作部(回す・サーチ・測定・追尾など)を置いています。いまは杭ナビとつながっていないので、針の動きは見本です。</p>
+        <h3>🔗 杭ナビにつなぐ(テスト版・Android)</h3>
+        <p>杭ナビと TopLayout のやりとりを読み解いて、くるくる回し太郎からも動かせるようにしました。ブラウザは杭ナビに直接つなげないので、スマホで「くるくる中継」(くるくる中継.py)を動かして間に立たせます。① Termux を入れて <b>pkg install python</b>(最初だけ) ② <b>python くるくる中継.py</b> ③ スマホの Wi-Fi を杭ナビに ④ TopLayout を閉じる ⑤ 🎛 操作盤の「🔗 つなぐ」。◁▷ は押している間だけ回ります。点の方向へ回すには、器械設置で「🧭 向きを合わせる」(既知点1のプリズムを追尾して押す)をしてください。</p>
         <h3>📋 座標リスト</h3>
         <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・LIVE で見る、ができます。</p>
         <h3>注意</h3>
@@ -4687,20 +4698,135 @@
           touchDrive: "タッチドライブ(映像でタップした方へ回す)", turnTo: "方位へ回す", live: "LIVE 映像",
         };
         const ctlLog = [];
+        // ---- 杭ナビとのやりとり(TopLayout ⇔ LN-1000i の通信を読み解いたもの。くわしくは 杭ナビ通信メモ.md)
+        //   1行 = 「@命令,値,…,チェックサム」+ CR。チェックサムは最後のカンマまでの文字コードの和の下2桁(16進)。
+        //   ブラウザは杭ナビに直接 TCP でつなげないので、スマホで動かす「くるくる中継」(WebSocket ⇔ TCP)を通す。
+        const kcs = (body) => { let t = 0; for (let i = 0; i < body.length; i++) t += body.charCodeAt(i); return (t & 255).toString(16).toUpperCase().padStart(2, "0"); };
+        const tnow = () => { const t = new Date(), p2 = (v) => String(v).padStart(2, "0"); return `${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}`; };
+        function ctlLogAdd(line) {
+          ctlLog.push(`${tnow()}  ${line}`);
+          if (ctlLog.length > 400) ctlLog.shift();
+          if (!$("ctlOvl").hidden) { $("ctlLog").textContent = ctlLog.slice().reverse().join("\n"); $("ctlLogN").textContent = String(ctlLog.length); }
+        }
+        const KERR = { E297: "(レーザーがもう消えている)", E114: "(回転中で角度が出ない)", E115: "(回転中で角度が出ない)" };
         const KuiNavi = {
-          connected: false,
-          // TODO: TopLayout / 杭ナビの通信の作りが分かったらここに書く(いまは何もしない)
-          async connect() { throw new Error("杭ナビにつなぐ方法はまだ準備中です。いまは TopLayout でつないでください。"); },
+          connected: false, ws: null, buf: "", last: null, model: "", batt: null, live: false, holding: false,
+          hOff: Number(load("kr.hoff") || 0),        // 方向角 = 杭ナビの水平角 + hOff(「向きを合わせる」で決める)
+          raw(cmd, ...a) {
+            const body = `@${cmd},` + (a.length ? a.join(",") + "," : "");
+            const line = body + kcs(body);
+            if (this.ws && this.ws.readyState === 1) this.ws.send(line + "\r");
+            if (cmd !== "SMOTR" || !this.holding) ctlLogAdd(`→ ${line}`);
+          },
+          async connect() {
+            if (this.ws) { this.disconnect(); return; }
+            const url = ($("cfgRelay").value || "ws://127.0.0.1:8766").trim();
+            setStatus(`🔗 くるくる中継(${url})につないでいます…`);
+            let ws;
+            try { ws = new WebSocket(url); } catch (e) { setStatus("🔗 つなげません:" + e.message); return; }
+            this.ws = ws; this.buf = "";
+            const tmo = setTimeout(() => { if (!this.connected) { setStatus("🔗 くるくる中継が見つかりません。スマホで くるくる中継.py を動かしてから、もう一度「つなぐ」を押してください。"); this.disconnect(); } }, 8000);
+            ws.onmessage = (ev) => {
+              const d = String(ev.data);
+              if (d.startsWith("#OPEN")) { clearTimeout(tmo); this.hello(); return; }
+              if (d.startsWith("#ERR")) { clearTimeout(tmo); setStatus("🔗 " + d.slice(5)); ctlLogAdd("中継: " + d.slice(5)); return; }
+              this.buf += d;
+              let i;
+              while ((i = this.buf.indexOf("\r")) >= 0) { const ln = this.buf.slice(0, i); this.buf = this.buf.slice(i + 1); if (ln) this.recv(ln); }
+            };
+            ws.onerror = () => { };
+            ws.onclose = () => { clearTimeout(tmo); const was = this.connected; this.ws = null; this.connected = false; this.live = false; if (was) setStatus("🔗 杭ナビとの接続が切れました。"); renderCtl(); };
+          },
+          hello() {
+            this.connected = true;
+            this.raw("IWCCS");
+            setTimeout(() => {
+              for (const c of ["ONUMB", "SBATT", "SFILD", "STILT", "LLPOF", "OCOND", "OINFO"]) this.raw(c);
+              this.raw("IATMS", 15, 1013); this.raw("ITRGT", 1, 34, -7); this.raw("MBATT", 1); this.raw("PFILD", "", 2);
+            }, 200);
+            setStatus("🔗 杭ナビにつながりました。");
+            renderCtl();
+          },
+          disconnect() {
+            if (this.ws) { try { if (this.connected) { this.raw("SMOTR"); this.raw("PFILD", "", 0); if (this.live) this.raw("CVSOF"); } this.ws.close(); } catch (e) { /* */ } }
+            this.ws = null; this.connected = false; this.live = false; renderCtl();
+          },
+          recv(ln) {
+            const f = ln.split(","), cmd = f[0].slice(1), body = ln.slice(0, ln.lastIndexOf(",") + 1);
+            if (kcs(body) !== f[f.length - 1]) { ctlLogAdd(`← (チェックサム違い) ${ln}`); return; }
+            if (f[1] === "\x06") return;                                   // 受け取りました
+            if (cmd === "PFILD") return this.field(f);
+            if (/^E\d+$/.test(f[1]) && f.length === 3) { ctlLogAdd(`← ${ln} ${KERR[f[1]] || "(エラー)"}`); if (f[1] !== "E297") setStatus(`杭ナビ:${cmd} がエラー ${f[1]} ${KERR[f[1]] || ""}`); return; }
+            ctlLogAdd(`← ${ln}`);
+            if (cmd === "ONUMB") { this.model = f[1]; $("csModel").textContent = f[1]; if ([...$("cfgModel").options].some((o) => o.text === f[1])) $("cfgModel").value = f[1]; setStatus(`🔗 ${f[1]}(${f[2]})につながりました。`); renderLive(); }
+            if (cmd === "MBATT") { this.batt = f[1]; $("csBatt").textContent = `${f[1]}/5`; }
+          },
+          field(f) {
+            const num = (v) => (v === "" || /^E/.test(v) ? null : Number(v));
+            this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]), trk: Number(f[5]), t: Date.now() };
+            const L = this.last;
+            if (L.h != null) liveHd = norm(L.h * 360 + this.hOff);
+            const now = performance.now();
+            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderMeas(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
+          },
+          azToH(az) { return (norm(az - this.hOff) / 360).toFixed(8); },
+          // 操作盤のボタン → 杭ナビの命令
           async send(cmd, args) {
-            const t = new Date(), p2 = (v) => String(v).padStart(2, "0");
-            ctlLog.push(`${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}  ${ACT[cmd] || cmd}${args ? "  " + JSON.stringify(args) : ""}  (未送信)`);
-            if (ctlLog.length > 300) ctlLog.shift();
-            $("ctlLog").textContent = ctlLog.slice().reverse().join("\n"); $("ctlLogN").textContent = String(ctlLog.length);
-            return null;
+            const a = args || {};
+            if (!this.connected) { ctlLogAdd(`${ACT[cmd] || cmd}${args ? "  " + JSON.stringify(args) : ""}  (未接続なので送らない)`); return null; }
+            const sp = Number($("ctSpeed").value || 3);
+            switch (cmd) {
+              case "rotL1": case "rotL2": case "rotR1": case "rotR2": {
+                const v = { rotL1: -2 * sp, rotL2: -4 * sp, rotR1: 2 * sp, rotR2: 4 * sp }[cmd];
+                this.raw("RSSPD", 0, v); if (!this.holding) setTimeout(() => this.raw("SMOTR"), 500); return null;
+              }
+              case "stop": case "stopSearch": this.raw("SMOTR"); return null;
+              case "search": case "rotSearch": this.raw("RTRCK", 0); return null;
+              case "track": if (a.on) this.raw("RTRCK", 0); else this.raw("SMOTR"); return null;
+              case "guide": if (a.on) this.raw("LGLON", 0, 2); else this.raw("LGLOF"); return null;
+              case "laser": if (a.on) this.raw("LLPON", 0, 1); else this.raw("LLPOF"); return null;
+              case "live":
+                if (a.on && !this.live) { this.raw("CVSON", 50000); this.raw("ICSET", 1, 0, 0, 3000, 0); this.live = true; }
+                if (!a.on && this.live) { this.raw("CVSOF"); this.live = false; }
+                return null;
+              case "touchDrive": this.raw("CMPOS", Math.round((a.fx - 0.5) * 1280), Math.round((a.fy - 0.5) * 720), ""); return null;
+              case "turnTo": case "turnTarget": case "guideToPt":
+                if (a.az == null) return null;
+                this.raw("RLAYO", this.azToH(a.az), (a.dist || 0).toFixed(3)); return null;
+              case "measure": {
+                const L = this.last;
+                if (!L || L.sd == null) { setStatus("📏 距離が出ていません。プリズムを追尾(サーチ)してから押してください。"); return null; }
+                const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z);
+                ctlLogAdd(`測定  斜距離 ${L.sd.toFixed(4)} m・水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(norm(L.h * 360 + this.hOff))}`);
+                setStatus(`📏 水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(norm(L.h * 360 + this.hOff))}`);
+                return L;
+              }
+              default:
+                ctlLogAdd(`${ACT[cmd] || cmd}${args ? "  " + JSON.stringify(args) : ""}  (この操作の杭ナビの命令はまだ分かっていません)`);
+                return null;
+            }
           },
         };
+        function renderMeas() {
+          const L = KuiNavi.last;
+          if (!KuiNavi.connected || !L) { $("cmAz").textContent = "---°--′--″"; $("cmHd").textContent = "---.--- m"; $("cmVd").textContent = "---.--- m"; }
+          else {
+            $("cmAz").textContent = L.h != null ? dms(norm(L.h * 360 + KuiNavi.hOff)) : "回転中";
+            if (L.sd != null && L.v != null) { const z = L.v * 2 * Math.PI; $("cmHd").textContent = `${(L.sd * Math.sin(z)).toFixed(3)} m`; $("cmVd").textContent = `${(L.sd * Math.cos(z)).toFixed(3)} m`; }
+            else { $("cmHd").textContent = "---.--- m"; $("cmVd").textContent = "---.--- m"; }
+          }
+          let st = "状態:杭ナビにつながっていません(🔗 つなぐ)";
+          if (KuiNavi.connected) {
+            st = !L ? "状態:つながりました(読み取りを待っています)"
+              : L.trk === 2 ? "状態:プリズムを追尾しています" + (L.sd != null ? "" : "(距離待ち)")
+              : L.trk === 3 ? "状態:プリズムをさがしています(サーチ中)"
+              : L.lay === 3 ? "状態:点の方向へ回っています" : L.lay === 2 ? "状態:点の方向を向いています" : "状態:つながっています(プリズムは追尾していません)";
+          }
+          $("ctlLine").textContent = st;
+          $("ctlLine").classList.toggle("ok", KuiNavi.connected);
+        }
         const openOvl = (id) => { $(id).hidden = false; };
-        const closeOvl = (id) => { $(id).hidden = true; };
+        const closeOvl = (id) => { $(id).hidden = true; if (id === "ctlOvl" && KuiNavi.live) KuiNavi.send("live", { on: false }); };
         document.addEventListener("click", (e) => { const c = e.target.closest && e.target.closest("[data-close]"); if (c) closeOvl(c.dataset.close); });
         for (const id of ["menuOvl", "ctlOvl"]) $(id).addEventListener("click", (e) => { if (e.target.id === id) closeOvl(id); });
 
@@ -4726,7 +4852,7 @@
         });
 
         // ---- 設定
-        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre"];
+        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre"];
         try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
         for (const k of CFG) $(k).addEventListener("change", () => { const c = {}; for (const q of CFG) c[q] = $(q).value; store("kr.cfg", JSON.stringify(c)); renderCtl(); });
 
@@ -4734,7 +4860,7 @@
         const SOON = {
           radial: "放射観測(測って座標を取る)は、杭ナビとつながるようになってから使えます。いまは TopLayout の「放射観測」を使ってください。",
           precheck: "",
-          connect: "杭ナビにつなぐ方法(TopLayout と杭ナビのやりとりの作り)を調べているところです。分かったらここからつなげるようにします。",
+
         };
         function showSub(name) {
           for (const d of document.querySelectorAll("#menuOvl .ovl-sub")) d.hidden = d.dataset.sub !== name;
@@ -4749,6 +4875,7 @@
           if (go === "setup") return jump("setup");
           if (go === "live") { closeOvl("menuOvl"); setCtlTab("live"); openOvl("ctlOvl"); return; }
           if (go === "clist") { closeOvl("menuOvl"); setCtlTab("list"); openOvl("ctlOvl"); return; }
+          if (go === "connect") { closeOvl("menuOvl"); setCtlTab(ctlTab); openOvl("ctlOvl"); KuiNavi.connect(); return; }
           if (go === "recv") { jump("coord", "pick"); receiveShare(); return; }
           if (go === "precheck") { closeOvl("menuOvl"); setCtlTab("precheck"); openOvl("ctlOvl"); return; }
           if (go === "stake") return jump("stake");
@@ -4764,13 +4891,29 @@
           for (const b of $("ctlTabs").children) b.setAttribute("aria-pressed", String(b.dataset.t === t));
           for (const p of document.querySelectorAll("#ctlOvl .ctl-pane")) p.hidden = p.dataset.pane !== t;
           $("ctlOvl").classList.toggle("is-live", t === "live" || t === "list");
-          if (t === "live") KuiNavi.send("live", { on: true });
+          if (t === "live") KuiNavi.send("live", { on: true }); else if (KuiNavi.live) KuiNavi.send("live", { on: false });
           renderCtl();
         }
         $("ctlTabs").addEventListener("click", (e) => { const t = e.target.dataset.t; if (t) setCtlTab(t); });
         $("ctlBtn").addEventListener("click", () => { setCtlTab(mode === "stake" ? "stake" : ctlTab); openOvl("ctlOvl"); });
         for (const b of document.querySelectorAll(".ctlopen")) b.addEventListener("click", () => { setCtlTab(b.dataset.ctl); openOvl("ctlOvl"); });
         $("ctSpeed").addEventListener("input", () => { $("ctSpeedV").textContent = $("ctSpeed").value; });
+        // つながっているときの ◁◁ ◁ ▷ ▷▷ は「押している間だけ回る」(TopLayout と同じ:回す速さ → 離すと止める)
+        for (const b of document.querySelectorAll(".ctl-rot [data-act^=rot]")) {
+          const up = () => { if (!KuiNavi.holding) return; KuiNavi.holding = false; KuiNavi.raw("SMOTR"); };
+          b.addEventListener("pointerdown", (e) => { if (!KuiNavi.connected) return; e.preventDefault(); KuiNavi.holding = true; KuiNavi.send(b.dataset.act); });
+          for (const ev of ["pointerup", "pointercancel", "pointerleave"]) b.addEventListener(ev, up);
+        }
+        $("ctlConnBtn").addEventListener("click", () => KuiNavi.connect());
+        $("ctOrient").addEventListener("click", () => {
+          const A = byName(k1), L = KuiNavi.last;
+          if (!KuiNavi.connected || !L || L.h == null) { setStatus("向きを合わせるには、杭ナビにつないで、既知点1のプリズムを追尾してください。"); return; }
+          if (!inst || !A) { setStatus("向きを合わせるには、① 据付 で杭ナビの位置と既知点1を決めてください。"); return; }
+          KuiNavi.hOff = norm(azimuth(inst, A) - L.h * 360); store("kr.hoff", String(KuiNavi.hOff));
+          ctlLogAdd(`向きを合わせた  既知点1 ${A.name} の方向角 ${dms(azimuth(inst, A))}`);
+          setStatus(`🧭 向きを合わせました(既知点1 ${A.name} の方向角 ${dms(azimuth(inst, A))})。これで「点の方向へ回す」が使えます。`);
+          renderCtl();
+        });
         let ctMethod = load("kr.method") || "free", ctDim = load("kr.dim") || "3d";
         const METHOD_NOTE = {
           free: "好きな所に据えて、見える既知点を2点(以上)測ります。杭ナビのふつうのやり方です。",
@@ -4782,9 +4925,12 @@
         $("ctDim").addEventListener("click", (e) => { const d = e.target.dataset.d; if (!d) return; ctDim = d; store("kr.dim", d); renderCtl(); });
         $("ctlLogClear").addEventListener("click", () => { ctlLog.length = 0; $("ctlLog").textContent = ""; $("ctlLogN").textContent = "0"; });
         function renderCtl() {
-          $("ctlConn").textContent = KuiNavi.connected ? "接続中" : "未接続";
+          $("ctlConn").textContent = KuiNavi.connected ? (KuiNavi.model || "接続中") : KuiNavi.ws ? "つないでいます" : "未接続";
           $("ctlConn").className = "badge " + (KuiNavi.connected ? "ok" : "ng");
-          $("tileConn").textContent = KuiNavi.connected ? "接続中" : "未接続(準備中)";
+          $("ctlConnBtn").textContent = KuiNavi.ws ? "切る" : "🔗 つなぐ";
+          $("tileConn").textContent = KuiNavi.connected ? `接続中(${KuiNavi.model || "杭ナビ"})` : "未接続(くるくる中継を使う)";
+          $("ctOrientNote").textContent = KuiNavi.hOff ? `向き:合わせ済み(ずれ ${dms(KuiNavi.hOff)})` : "向き:まだ合わせていません(杭ナビの水平角をそのまま方向角として使います)";
+          renderMeas();
           $("csModel").textContent = $("cfgModel").value;
           $("csPrism").textContent = $("cfgPrism").value;
           $("csMirror").textContent = `${Number($("cfgMirror").value || 0).toFixed(3)} m`;
@@ -4817,12 +4963,13 @@
           const b = e.target.closest("[data-act]"); if (!b) return;
           const act = b.dataset.act;
           if (LIVE_ACTS.includes(act)) { liveAct(act); return; }
+          if (KuiNavi.connected && /^rot[LR]/.test(act)) return;          // 押している間だけ回す(上で送った)
           if (b.classList.contains("tgl2")) b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
           const args = {};
           if (/^rot/.test(act)) args.speed = Number($("ctSpeed").value);
           if (b.classList.contains("tgl2")) args.on = b.getAttribute("aria-pressed") === "true";
           if (act === "measK1" || act === "measK2") { args.point = (act === "measK1" ? k1 : k2) || null; args.prism = $("cfgPrism").value; args.mirror = Number($("cfgMirror").value); }
-          if (act === "guideToPt") { const p = byName(target); if (p) { args.point = p.name; if (inst) args.azimuth = dms(azimuth(inst, p)); } }
+          if (act === "guideToPt") { const p = byName(target); if (p) { args.point = p.name; if (inst) { args.azimuth = dms(azimuth(inst, p)); args.az = azimuth(inst, p); args.dist = dm(inst, p); } } }
           if (act === "record") args.name = $("ctName").value;
           if (act === "search") args.pattern = $("cfgSearch").value === "v" ? "縦" : "横";
           if (act === "precheck") args.point = $("ctPre").value || null;
@@ -4836,7 +4983,7 @@
           if (act === "stakeDone") { const p = byName(target); if (p) { p.done = true; const n = nextTarget(); if (n) target = n.name; afterChange(); } }
           KuiNavi.send(act, Object.keys(args).length ? args : null);
           if (/^rot|^stop$/.test(act)) liveRot(act);
-          if (!["nextPt", "prevPt", "stakeDone"].includes(act)) setStatus(`🎛 「${ACT[act] || act}」…杭ナビとはまだつながっていないので、記録だけしました(準備中)。`);
+          if (!["nextPt", "prevPt", "stakeDone", "measure"].includes(act) || !KuiNavi.connected) setStatus(KuiNavi.connected ? `🎛 「${ACT[act] || act}」を送りました。` : `🎛 「${ACT[act] || act}」…杭ナビにつながっていないので、記録だけしました(🔗 つなぐ)。`);
           renderCtl();
         });
 
@@ -4860,6 +5007,7 @@
         window.kurukuruLive = { frame: liveFrame, heading: liveHeading };
         function liveAnimate(path, label, done) {   // 見本の向きの動き(path は向きの列・度)
           if (liveAnim) cancelAnimationFrame(liveAnim.id);
+          if (KuiNavi.connected) { liveAnim = null; renderLive(); return; }   // つながっているときは本物の向き(PFILD)を出す
           const seg = []; let tot = 0;
           for (let i = 1; i < path.length; i++) { const len = Math.abs(path[i] - path[i - 1]); seg.push([path[i - 1], path[i], len]); tot += len; }
           const speed = 40 + 20 * Number($("ctSpeed").value || 3), t0 = performance.now();
@@ -4876,6 +5024,7 @@
         function liveStop() { if (liveAnim) { cancelAnimationFrame(liveAnim.id); liveAnim = null; renderLive(); } }
         function liveTurn(az) { const h = liveHome(); liveAnimate([h, h + dAng(h, az)], "turn"); }
         function liveRot(act) {
+          if (KuiNavi.connected) return;
           if (act === "stop") { liveStop(); return; }
           const sp = Number($("ctSpeed").value || 3), h = liveHome();
           const d = { rotL1: -sp, rotL2: -sp * 10, rotR1: sp, rotR2: sp * 10 }[act];
@@ -4884,6 +5033,13 @@
         function liveAct(act) {
           const h = liveHome();
           if (act === "rotSearch") {
+            if (KuiNavi.connected) {
+              const L = KuiNavi.last;
+              if (L && L.trk === 3) { KuiNavi.send("stopSearch"); setStatus("🔄 回転サーチを止めました。"); return; }
+              KuiNavi.send("rotSearch", { range: lsRange >= 360 ? "全周" : `±${lsRange / 2}°`, dir: lsDir });
+              setStatus("🔄 回転サーチ(自動追尾)を送りました。プリズムを見つけると追尾に入ります。" + (lsRange < 360 || lsDir === "L" ? "(範囲・向きの指定の命令はまだ分かっていないので、杭ナビにおまかせです)" : ""));
+              renderLive(); return;
+            }
             if (liveAnim && liveAnim.label === "search") { liveStop(); KuiNavi.send("stopSearch"); setStatus("🔄 回転サーチを止めました。"); return; }
             const sg = lsDir === "R" ? 1 : -1, half = lsRange / 2;
             const path = lsRange >= 360 ? [h, h + sg * 360] : [h, h + sg * half, h - sg * half, h];
@@ -4893,8 +5049,8 @@
           } else if (act === "turnTarget") {
             const az = liveTargetAz();
             if (az == null) { setStatus("出す点の方へ回すには、① 据付 で杭ナビの位置と ② 杭打ち の点が要ります。"); return; }
-            KuiNavi.send("turnTarget", { point: target, azimuth: dms(az) }); liveTurn(az);
-            setStatus(`📍 ${target} の方(方向角 ${dms(az)})へ回す…(見本)`);
+            KuiNavi.send("turnTarget", { point: target, azimuth: dms(az), az, dist: dm(inst, byName(target)) }); liveTurn(az);
+            setStatus(`📍 ${target} の方(方向角 ${dms(az)})へ回す…` + (KuiNavi.connected ? "" : "(見本)"));
           } else if (act === "panorama") {
             KuiNavi.send("panorama", { from: dms(h) });
             setStatus("パノラマ画像は杭ナビ(LN-1000i)とつながってから撮れます。撮った画像の上をタップしてその方へ回せるようにします。");
@@ -4907,7 +5063,7 @@
           const r = $("liveView").getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
           const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * r.height / r.width;
           const t = $("liveTap"); t.hidden = true; t.style.left = `${fx * 100}%`; t.style.top = `${fy * 100}%`; void t.offsetWidth; t.hidden = false;
-          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°` });
+          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3) });
           const h = liveHome(); liveAnimate([h, h + dH], "turn");
           setStatus(`👆 タッチドライブ:${dH >= 0 ? "右" : "左"}へ ${Math.abs(dH).toFixed(1)}°・${dV >= 0 ? "上" : "下"}へ ${Math.abs(dV).toFixed(1)}°(見本)`);
         });
@@ -4915,7 +5071,7 @@
           const r = $("liveDial").getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
           if (Math.hypot(x, y) < r.width * 0.12) return;
           const az = norm(Math.atan2(x, -y) * 180 / Math.PI);
-          KuiNavi.send("turnTo", { azimuth: dms(az) }); liveTurn(az);
+          KuiNavi.send("turnTo", { azimuth: dms(az), az }); liveTurn(az);
           setStatus(`方向角 ${dms(az)} へ回す…(見本)`);
         });
         function renderLive() {
@@ -4948,15 +5104,16 @@
           const lv = $("cfgModel").value === "LN-1000i";
           $("liveSt").textContent = liveConnected ? "LIVE" : "映像なし"; $("liveSt").className = "badge " + (liveConnected ? "ok" : "ng");
           $("liveTgt").textContent = p ? `出す点 ${p.name}` : "出す点 --";
-          $("liveMsg").textContent = liveConnected ? "" : lv
+          $("liveMsg").textContent = liveConnected ? "" : KuiNavi.connected && lv ? "杭ナビにはつながっています。カメラの映像の受け取り方はまだ調べ中です(向き・距離・回す操作は本物です)。" : lv
             ? "杭ナビ(LN-1000i)につながると、ここにカメラ映像が出ます。映像をタップするとその方へ回ります(タッチドライブ)。"
             : `カメラ映像は LN-1000i だけです(いまの設定は ${$("cfgModel").value}。メニュー › 設定 › 器械)。回転サーチ・向きの操作はどの杭ナビでも使えます。`;
           let gd = "";
           if (taz != null && p) { const d = dAng(h, taz); gd = Math.abs(d) < 0.01 ? `<span>◎ ${esc(p.name)} の方向</span>` : `<span>${d > 0 ? "右へ ▶" : "◀ 左へ"} ${dmsS(d).replace(/″$/, "″")}</span>`; gd += `<span>${dm(inst, p).toFixed(2)} m</span>`; }
           $("liveGuide").innerHTML = gd;
-          $("lsGo").textContent = liveAnim && liveAnim.label === "search" ? "■ サーチを止める" : "🔄 回転サーチ";
-          $("lsGo").classList.toggle("on", !!(liveAnim && liveAnim.label === "search"));
-          $("liveNote").textContent = (liveConnected ? "" : "いまは杭ナビとつながっていないので、針(杭ナビの向き)はボタンに合わせて動く見本です。") +
+          const searching = KuiNavi.connected ? !!(KuiNavi.last && KuiNavi.last.trk === 3) : !!(liveAnim && liveAnim.label === "search");
+          $("lsGo").textContent = searching ? "■ サーチを止める" : "🔄 回転サーチ";
+          $("lsGo").classList.toggle("on", searching);
+          $("liveNote").textContent = (KuiNavi.connected ? "針は杭ナビの本当の向きです。" : "いまは杭ナビとつながっていないので、針(杭ナビの向き)はボタンに合わせて動く見本です。") +
             "緑の帯はプリズムを捕まえられる範囲、オレンジは出す点、▲は既知点の方向。方位盤をタップするとその方位へ回します。" + (inst ? "" : "(① 据付 で杭ナビの位置を決めると、点の方向が出ます)");
         }
 
@@ -4992,8 +5149,8 @@
         $("clTurn").addEventListener("click", () => {
           const p = byName(clSelN); if (!p) return;
           if (!inst) { setStatus("その点へ回すには、① 据付 で杭ナビの位置を決めてください。"); return; }
-          const az = azimuth(inst, p); KuiNavi.send("turnTo", { point: p.name, azimuth: dms(az) }); liveTurn(az);
-          setStatus(`${p.name} の方(方向角 ${dms(az)})へ回す…(見本)`);
+          const az = azimuth(inst, p); KuiNavi.send("turnTo", { point: p.name, azimuth: dms(az), az, dist: dm(inst, p) }); liveTurn(az);
+          setStatus(`${p.name} の方(方向角 ${dms(az)})へ回す…` + (KuiNavi.connected ? "" : "(見本)"));
         });
         $("clLive").addEventListener("click", () => { const p = byName(clSelN); if (p) { target = p.name; afterChange(); } setCtlTab("live"); });
         $("liveList").addEventListener("click", () => setCtlTab("list"));
