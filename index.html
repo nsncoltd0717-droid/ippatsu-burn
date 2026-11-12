@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>一発バーン脳みそforRAPID</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="一発バーン" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0d3f8f" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <style>
+      :root { --bg: #f4f5f7; --fg: #1d2330; --sub: #5d6575; --card: #fff; --line: #d9dde5; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #14171c; --fg: #e8eaef; --sub: #9aa3b2; --card: #1e232b; --line: #333a45; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+        padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 20px); }
+      h1 { font-size: 22px; margin: 4px 0 4px; }
+      p.lead { color: var(--sub); margin: 0 0 18px; font-size: 14px; }
+      .app { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 18px 16px; margin-bottom: 14px; border-radius: 14px;
+        background: var(--card); border: 1px solid var(--line); border-left: 8px solid var(--c); color: inherit; text-decoration: none; }
+      .app:active { transform: scale(0.99); }
+      .app b { font-size: 19px; }
+      .app small { color: var(--sub); align-self: center; }
+      .app span { grid-column: 1 / -1; color: var(--sub); font-size: 14px; }
+      footer { color: var(--sub); font-size: 12px; margin-top: 22px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <h1>一発バーン脳みそforRAPID</h1>
+    <p class="lead">使うアプリを選んでください。図面は各アプリの中で開きます。</p>
+      <a class="app" href="kamashi.html" style="--c:#0b6bcb">
+        <b>一発かまし太郎</b><small>v1.0.5</small><span>点を拾って座標・寸法を出し、杭ナビ用に書き出す</span>
+      </a>
+      <a class="app" href="nomiso.html" style="--c:#d9480f">
+        <b>脳みそバーンforRAPID</b><small>v0.2.1</small><span>頭脳RAPIDの図面を見る・測る・少し直す</span>
+      </a>
+    <footer>
+      電波のない所でも、一度開いたことがあれば使えます。電波のある所で開くと新しい版に入れ替わります。<br />
+      アプリの中の ☰ でこの画面に戻ります。<br />
+      作成 20261112
+    </footer>
+    <script>
+      // ホーム画面アプリ: 電波がなくても開けるように、アプリをこの端末に覚えておく(sw.js)
+      if ("serviceWorker" in navigator) window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+    </script>
+  </body>
+</html>
