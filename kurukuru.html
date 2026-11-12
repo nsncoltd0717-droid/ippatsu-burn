@@ -442,7 +442,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -502,6 +502,7 @@
           <button type="button" data-snap="mid" aria-pressed="false">中点</button>
           <button type="button" data-snap="on" aria-pressed="false">線の上</button>
         </div>
+        <button class="big" id="recvBtn" type="button" style="margin-bottom:8px">📥 一発かまし太郎・脳みそバーンから受け取る</button>
         <button class="ghost" id="takeFile" type="button" disabled>開いた点ファイルの点を全部 一覧に入れる</button>
         <div class="filebtn" style="margin-top:8px"><button class="ghost" type="button">＋ 点ファイル（CSV・SIMA）の点を一覧に足す</button><input id="fileAdd" type="file" accept=".csv,.txt,.sim,.SIM,.CSV" multiple /></div>
         <details class="adv" style="margin-top:10px"><summary>事務所でやること(手順)</summary><div class="adv-body"><ul class="steplist" data-steps="coord"></ul></div></details>
@@ -715,6 +716,7 @@
           <button type="button" class="tile" data-go="output"><i>📤</i>出力<small>CSV・SIMA・照合</small></button>
           <button type="button" class="tile" data-go="settings"><i>⚙</i>設定<small>プリズム・単位・接続</small></button>
           <button type="button" class="tile" data-go="precheck"><i>✅</i>始業前点検<small>既知点を測って確かめる</small></button>
+          <button type="button" class="tile wide" data-go="recv"><i>📥</i>受け取る<small>一発かまし太郎・脳みそバーンから</small></button>
           <button type="button" class="tile wide" data-go="connect"><i>🔗</i>杭ナビにつなぐ<small id="tileConn">未接続</small></button>
         </div>
         <!-- 現場 -->
@@ -4435,6 +4437,9 @@
         $("file").addEventListener("change", async (ev) => {
           const f = ev.target.files && ev.target.files[0];
           if (!f) return;
+          try { await openFile(f); } finally { ev.target.value = ""; }
+        });
+        async function openFile(f) {
           try {
             { // ひらいたファイルの日付と大きさ(スマホに古い写しが残っていないか見分ける)
               const dt = new Date(f.lastModified || Date.now()), p2 = (v) => String(v).padStart(2, "0");
@@ -4491,8 +4496,56 @@
             loadLines();
           } catch (e) {
             setStatus("⚠ 図面を読めません: " + e.message, true);
-          } finally { ev.target.value = ""; }
-        });
+          }
+        }
+
+        // ---------------------------------------------------------------- 受け取る(一発かまし太郎・脳みそバーンから)
+        // 決まり:IndexedDB「ippatsu-share」の「kv」のキー「toKurukuru」
+        //   { from, at, axis, file: { name, type, lastModified, bytes } | null, points: [{ name, X, Y, H, role? }] }(X,Y,H は m・axis の向き)
+        function shareOpen() {
+          return new Promise((ok, ng) => {
+            if (!window.indexedDB) return ng(new Error("この端末では受け渡しが使えません"));
+            const rq = indexedDB.open("ippatsu-share", 1);
+            rq.onupgradeneeded = () => rq.result.createObjectStore("kv");
+            rq.onsuccess = () => ok(rq.result); rq.onerror = () => ng(rq.error || new Error("受け渡しの場所を開けません"));
+          });
+        }
+        async function shareGet() {
+          const db = await shareOpen();
+          const v = await new Promise((ok, ng) => { const rq = db.transaction("kv").objectStore("kv").get("toKurukuru"); rq.onsuccess = () => ok(rq.result || null); rq.onerror = () => ng(rq.error); });
+          db.close();
+          return v;
+        }
+        const WEBNOTE = "ホーム画面のアプリ(一発バーン)の中で渡すと確実です。ファイルで開いている web版どうしでは、端末によって渡りません。そのときは、渡す側で CSV を書き出して、ここの「点ファイルを足す」で開いてください。";
+        async function receiveShare() {
+          let d = null;
+          try { d = await shareGet(); } catch (e) { setStatus("⚠ 受け取れません: " + e.message + "。" + WEBNOTE, true); return; }
+          if (!d) { setStatus("受け取るデータがありません。一発かまし太郎か脳みそバーンで「📤 くるくる回し太郎で使う」を押してから、ここで受け取ってください。" + WEBNOTE, true); return; }
+          const when = new Date(d.at || Date.now()), p2 = (v) => String(v).padStart(2, "0");
+          const whenT = `${when.getMonth() + 1}/${when.getDate()} ${p2(when.getHours())}:${p2(when.getMinutes())}`;
+          if (!confirm(`${d.from} から ${whenT} に渡されたデータを受け取ります。\n図面:${d.file ? d.file.name : "なし"}\n点:${(d.points || []).length} 点\n\n${d.file ? "いま開いている図面は閉じて、この図面を開きます。" : "いまの図面に点を足します。"}よろしいですか?`)) return;
+          if (d.file && d.file.bytes) {
+            const f = new File([d.file.bytes], d.file.name, { type: d.file.type || "", lastModified: d.file.lastModified || Date.now() });
+            await openFile(f);
+            if (!view) return;
+          }
+          if (d.axis === "northEast" || d.axis === "asDrawn") {
+            if ($("axis").value !== d.axis) { $("axis").value = d.axis; if (ptOpen && !ptOpen.sima) loadLines(); }
+          }
+          const hk1 = unitName() === "m" ? 1 : 1000;
+          const rows = (d.points || []).map((q) => { const [x, y] = fromDisplay(Number(q.X), Number(q.Y), "m"); return { name: q.name, x, y, h: (Number(q.H) || 0) * hk1, role: q.role }; }).filter((q) => Number.isFinite(q.x) && Number.isFinite(q.y));
+          let n = 0, skip = 0;
+          for (const q of rows) {
+            const nm = String(q.name || "").trim();
+            if (!nm || picks.some((p) => p.name === nm && Math.hypot(p.x - q.x, p.y - q.y) < 1)) { skip++; continue; }
+            picks.push({ name: nm, x: q.x, y: q.y, h: q.h, kind: "share", role: q.role === "known" || q.role === "design" ? q.role : (KNOWN_RE.test(nm) ? "known" : "design"), src: d.from });
+            n++;
+          }
+          if (!view && picks.length) { const bb = bboxOf([picks.map((p) => [p.x, p.y])]); view = { ...bb }; resetZoom(); }
+          afterChange();
+          setStatus(`✓ ${d.from} から受け取りました(${d.file ? "図面「" + d.file.name + "」・" : ""}点 ${n} 点${skip ? `・同じ点 ${skip} は飛ばす` : ""})。① 据付 で既知点を確かめてください。`);
+        }
+        $("recvBtn").addEventListener("click", receiveShare);
 
 
         // ================================================================ メニュー・操作盤(準備中)
@@ -4564,6 +4617,7 @@
           const jump = (main, sub) => { closeOvl("menuOvl"); mainMode = main; if (sub) subMode = sub; setMode(main === "coord" ? subMode : main); };
           if (go === "site" || go === "settings") return showSub(go);
           if (go === "setup") return jump("setup");
+          if (go === "recv") { jump("coord", "pick"); receiveShare(); return; }
           if (go === "precheck") { closeOvl("menuOvl"); setCtlTab("precheck"); openOvl("ctlOvl"); return; }
           if (go === "stake") return jump("stake");
           if (go === "input") return jump("coord", "pick");

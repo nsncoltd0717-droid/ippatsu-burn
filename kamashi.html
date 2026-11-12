@@ -242,7 +242,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>一発かまし太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.0.5 11/12</small></h1>
+      <h1>一発かまし太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.0.6 11/12</small></h1>
       <button class="help-btn ghost" id="helpBtn" type="button">使い方</button>
     </header>
     <main>
@@ -338,6 +338,7 @@
           <button class="big primary" id="export" type="button" disabled>⬇　CSV</button>
           <button class="big primary" id="exportSima" type="button" disabled>⬇　SIMA</button>
         </div>
+        <button class="big" id="kuruSend" type="button" disabled style="margin-top:10px">📤 くるくる回し太郎で使う(図面と点)</button>
         <p class="step-note" id="note">CSV は 点名,X,Y,H(見出しなし)。SIMA は X=北・Y=東・m。どちらも杭ナビ(TopLayout)の「入力」・墨太郎・測量エンジンで読めます。</p>
       </section>
 
@@ -3182,6 +3183,7 @@
           save();
           draw();
           const ok = picks.length > 0;
+          $("kuruSend").disabled = !ok && !lastFile;
           $("export").disabled = !ok; $("exportSima").disabled = !ok;
           $("tUndo").disabled = !ok; $("zPick").disabled = !ok;
         }
@@ -3353,6 +3355,7 @@
             $("zunouNote").hidden = true; $("ptOpenNote").hidden = true;
             fileBase = f.name.replace(/\.[^.]+$/, "") || "kamashi";
             fileKey = f.name + ":" + f.size;
+            lastFile = f;
             if (window.Zunou && (Zunou.isOle(buf) || /\.(zrd|zsdx|zsdxz)$/i.test(f.name))) {
               setStatus(`図脳RAPID の図面「${f.name}」を読んでいます…`, false);
               try {
@@ -3419,6 +3422,42 @@
         }
         function safeName(s) { const t = s.replace(/[^0-9A-Za-z_-]/g, "_").slice(0, 20); return t || "kamashi"; }
         const outPts = () => picks.map((p) => ({ name: p.name, x: p.x, y: p.y, h: p.h }));
+        // ---------------------------------------------------------------- くるくる回し太郎へ送る(共通の受け渡し)
+        // 受け渡しの決まり(一発かまし太郎・脳みそバーン → くるくる回し太郎):
+        //   IndexedDB「ippatsu-share」の「kv」に、キー「toKurukuru」で次を入れる
+        //   { from: アプリ名, at: 時刻, file: { name, type, lastModified, bytes(ArrayBuffer) } | null,
+        //     axis: "northEast"|"asDrawn", points: [{ name, X, Y, H, role? }] (X,Y,H は m・axis の向き) }
+        //   同じ https のサイトの中(ホーム画面アプリ版)でだけ確実に渡る。web版(ファイルで開く)は端末によって渡らない。
+        function shareOpen() {
+          return new Promise((ok, ng) => {
+            if (!window.indexedDB) return ng(new Error("この端末では受け渡しが使えません"));
+            const rq = indexedDB.open("ippatsu-share", 1);
+            rq.onupgradeneeded = () => rq.result.createObjectStore("kv");
+            rq.onsuccess = () => ok(rq.result); rq.onerror = () => ng(rq.error || new Error("受け渡しの場所を開けません"));
+          });
+        }
+        async function sendToKurukuru(payload) {
+          const db = await shareOpen();
+          await new Promise((ok, ng) => { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(payload, "toKurukuru"); tx.oncomplete = ok; tx.onerror = () => ng(tx.error); });
+          db.close();
+          try { localStorage.setItem("share.toKurukuru", JSON.stringify({ from: payload.from, at: payload.at, n: payload.points.length, file: payload.file && payload.file.name })); } catch (e) { /* */ }
+        }
+        const inAppVersion = () => /\/(nomiso|kamashi|kurukuru|sumitaro)\.html$/.test(location.pathname) || /\/$/.test(location.pathname);
+        function afterSend(n, fname) {
+          const msg = `✓ ${fname ? "図面「" + fname + "」と" : ""}点 ${n} 点を くるくる回し太郎 に渡しました。くるくる回し太郎の「メニュー → 受け取る」(または ⚙座標値設定 → 拾う の「受け取る」)で読み込めます。`;
+          if (inAppVersion() && confirm(msg + "\n\nくるくる回し太郎を開きますか?")) { location.href = "kurukuru.html"; return; }
+          setStatus(msg + (inAppVersion() ? "" : " ※ファイルで開いている web版では、端末によって渡らないことがあります。そのときは CSV で書き出して、くるくる回し太郎で開いてください。"));
+        }
+        let lastFile = null;   // くるくる回し太郎へ渡す図面
+        $("kuruSend").addEventListener("click", async () => {
+          try {
+            const k = unitName() === "m" ? 1 : 0.001;
+            const points = picks.map((p) => { const [X, Y] = TL.toDisplay([p.x, p.y], $("axis").value, "m"); return { name: p.name, X, Y, H: (Number(p.h) || 0) * k }; });
+            const file = lastFile ? { name: lastFile.name, type: lastFile.type || "", lastModified: lastFile.lastModified || 0, bytes: await lastFile.arrayBuffer() } : null;
+            await sendToKurukuru({ from: "一発かまし太郎", at: Date.now(), axis: $("axis").value, file, points });
+            afterSend(points.length, file && file.name);
+          } catch (e) { setStatus("⚠ 渡せませんでした: " + e.message + "(CSV で書き出して、くるくる回し太郎で開いてください)", true); }
+        });
         $("export").addEventListener("click", () => {
           if (!picks.length) return;
           const csv = TL.toTopLayoutCsv(outPts(), { axis: $("axis").value, unit: unitName(), decimals: 3, hFrom: "const", h: 0 });

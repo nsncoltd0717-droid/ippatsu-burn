@@ -269,7 +269,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーンforRAPID</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.1</small></h1>
+      <h1><span id="appName">脳みそバーンforRAPID</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.2</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -328,6 +328,8 @@
           <button class="ghost" id="cClear" type="button" disabled>一覧を消す</button>
         </div>
         <button class="ghost" id="cCsv" type="button" style="margin-top:8px" disabled>⬇ 一覧を CSV で書き出す</button>
+        <button class="big primary" id="cKuru" type="button" style="margin-top:8px" disabled>📤 くるくる回し太郎で使う(図面と一覧の点)</button>
+        <p class="step-note">ホーム画面のアプリ(一発バーン)で使うと、くるくる回し太郎で同じ図面と点をすぐ使えます。一覧の点は C001… の名前で、杭を打つ点(設計点)として入ります。</p>
       </section>
 
       <!-- 直す -->
@@ -2743,6 +2745,7 @@
         let hiddenLayers = new Set();
         let view = null;
         let fileBase = "nomiso", fileKey = "", zunouInfo = null;
+        let lastFile = null;   // くるくる回し太郎へ渡す図面
 
         let mode = "view";            // view | measure | coord | edit
         let mSub = "pts";             // pts | ent
@@ -3421,6 +3424,41 @@
           download(TL.toTopLayoutCsv(pts, { axis: axis(), unit: unitName(), decimals: 3, hFrom: "const", h: 0 }), safeName(fileBase) + "_coords.csv", "text/csv");
           setStatus(`✓ ${pts.length} 点を CSV(点名,X,Y,H)に書き出しました。杭ナビ・墨太郎でも読めます。`);
         });
+        // ---------------------------------------------------------------- くるくる回し太郎へ送る(共通の受け渡し)
+        // 受け渡しの決まり(一発かまし太郎・脳みそバーン → くるくる回し太郎):
+        //   IndexedDB「ippatsu-share」の「kv」に、キー「toKurukuru」で次を入れる
+        //   { from: アプリ名, at: 時刻, file: { name, type, lastModified, bytes(ArrayBuffer) } | null,
+        //     axis: "northEast"|"asDrawn", points: [{ name, X, Y, H, role? }] (X,Y,H は m・axis の向き) }
+        //   同じ https のサイトの中(ホーム画面アプリ版)でだけ確実に渡る。web版(ファイルで開く)は端末によって渡らない。
+        function shareOpen() {
+          return new Promise((ok, ng) => {
+            if (!window.indexedDB) return ng(new Error("この端末では受け渡しが使えません"));
+            const rq = indexedDB.open("ippatsu-share", 1);
+            rq.onupgradeneeded = () => rq.result.createObjectStore("kv");
+            rq.onsuccess = () => ok(rq.result); rq.onerror = () => ng(rq.error || new Error("受け渡しの場所を開けません"));
+          });
+        }
+        async function sendToKurukuru(payload) {
+          const db = await shareOpen();
+          await new Promise((ok, ng) => { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(payload, "toKurukuru"); tx.oncomplete = ok; tx.onerror = () => ng(tx.error); });
+          db.close();
+          try { localStorage.setItem("share.toKurukuru", JSON.stringify({ from: payload.from, at: payload.at, n: payload.points.length, file: payload.file && payload.file.name })); } catch (e) { /* */ }
+        }
+        const inAppVersion = () => /\/(nomiso|kamashi|kurukuru|sumitaro)\.html$/.test(location.pathname) || /\/$/.test(location.pathname);
+        function afterSend(n, fname) {
+          const msg = `✓ ${fname ? "図面「" + fname + "」と" : ""}点 ${n} 点を くるくる回し太郎 に渡しました。くるくる回し太郎の「メニュー → 受け取る」(または ⚙座標値設定 → 拾う の「受け取る」)で読み込めます。`;
+          if (inAppVersion() && confirm(msg + "\n\nくるくる回し太郎を開きますか?")) { location.href = "kurukuru.html"; return; }
+          setStatus(msg + (inAppVersion() ? "" : " ※ファイルで開いている web版では、端末によって渡らないことがあります。そのときは CSV で書き出して、くるくる回し太郎で開いてください。"));
+        }
+        $("cKuru").addEventListener("click", async () => {
+          if (!lastFile) { setStatus("先に図面を開いてください。", true); return; }
+          try {
+            const points = cPts.map((p) => { const [X, Y] = TL.toDisplay([p.x, p.y], axis(), "m"); return { name: "C" + String(p.no).padStart(3, "0"), X, Y, H: 0, role: "design" }; });
+            await sendToKurukuru({ from: "脳みそバーンforRAPID", at: Date.now(), axis: axis(),
+              file: { name: lastFile.name, type: lastFile.type || "", lastModified: lastFile.lastModified || 0, bytes: await lastFile.arrayBuffer() }, points });
+            afterSend(points.length, lastFile.name);
+          } catch (e) { setStatus("⚠ 渡せませんでした: " + e.message + "(CSV で書き出して、くるくる回し太郎で開いてください)", true); }
+        });
         $("mBack").addEventListener("click", () => { mPts.pop(); hover = null; measureInfo(); if (!mPts.length) setStatus("はかりたい点をタップしてください。"); draw(); });
         $("mClear").addEventListener("click", () => { mPts = []; mEnt = null; hover = null; $("mInfo").innerHTML = ""; setStatus(mSub === "ent" ? "長さを知りたい線をタップしてください。" : "はかりたい点を順にタップしてください。"); draw(); });
         $("mClose").addEventListener("change", () => { measureInfo(); draw(); });
@@ -3862,6 +3900,7 @@
             zunouInfo = null;
             fileBase = f.name.replace(/\.[^.]+$/, "") || "nomiso";
             fileKey = f.name + ":" + f.size;
+            lastFile = f; $("cKuru").disabled = false;
             let note = "";
             if (window.Zunou && (Zunou.isOle(buf) || /\.(zrd|zsdx|zsdxz)$/i.test(f.name))) {
               setStatus(`図脳RAPID の図面「${f.name}」を読んでいます…`);
