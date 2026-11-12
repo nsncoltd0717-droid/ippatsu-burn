@@ -220,9 +220,9 @@
       button.del { width: auto; min-height: 38px; padding: 4px 8px; }
       button.warnbtn { color: var(--accent2); }
       .tglbar button:disabled { opacity: 0.45; }
-      .dlg { position: fixed; inset: 0; background: rgba(0,0,0,0.25); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
+      .dlg { position: fixed; left: 0; right: 0; top: 0; bottom: 0; background: rgba(0,0,0,0.25); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
       .dlg[hidden] { display: none; }
-      .dlg-card { background: var(--panel); width: 100%; max-width: 560px; border-radius: 16px 16px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px rgba(0,0,0,0.2); }
+      .dlg-card { background: var(--panel); width: 100%; max-width: 560px; max-height: 100%; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px rgba(0,0,0,0.2); }
       .dlg-title { font-weight: 800; font-size: 17px; margin-bottom: 2px; }
       .warn { color: var(--accent2); }
       .modes { margin: 0 0 12px; }
@@ -353,6 +353,78 @@
       .sheet:not([data-main="coord"]) #fileInfo, .sheet:not([data-main="coord"]) #zunouNote, .sheet:not([data-main="coord"]) #ptOpenNote { display: none; }
       .sheet:not([data-main="coord"]) .status { font-size: 13px !important; font-weight: 600; padding: 6px 10px !important; margin-bottom: 8px !important; }
       .sheet[data-main="stake"] .navibar { margin-bottom: 6px; }
+      /* ===== v0.3.0 メニュー・操作盤 ===== */
+      header .hbtn { flex: 0 0 auto; width: auto; padding: 8px 10px; font-size: 14px; font-weight: 700; }
+      header .hopen button { padding: 8px 10px; }
+      .ovl { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; justify-content: center; }
+      .ovl[hidden] { display: none; }
+      .ovl-card { background: var(--panel); width: 100%; max-width: 620px; max-height: 92dvh; overflow-y: auto; border-radius: 16px 16px 0 0;
+        padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px rgba(0,0,0,0.25); }
+      .ovl.ctl .ovl-card { max-height: 100dvh; height: 100dvh; border-radius: 0; padding-top: calc(10px + env(safe-area-inset-top)); }
+      .ovl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; position: sticky; top: -12px; background: var(--panel); padding: 4px 0; z-index: 2; }
+      .ovl-head b { font-size: 18px; }
+      .ovl-head .sub { font-size: 13px; }
+      .ovl-x { margin-left: auto; width: auto; padding: 8px 14px; }
+      .badge { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 10px; border: 1px solid currentColor; }
+      .badge.ng { color: var(--ng); } .badge.ok { color: var(--ok); }
+      .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+      .tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 4px; min-height: 92px; border-radius: 14px;
+        background: var(--bg); color: var(--ink); border: 1px solid var(--line); font-size: 15px; font-weight: 800; }
+      .tile i { font-style: normal; font-size: 26px; line-height: 1.1; }
+      .tile small { font-size: 11px; font-weight: 500; color: var(--sub); text-align: center; line-height: 1.3; }
+      .tile.on { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+      .tile.wide { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 10px; min-height: 56px; }
+      .ovl-sub { border-top: 1px solid var(--line); padding-top: 10px; }
+      .ovl-sub[hidden] { display: none; }
+      .ctl-tabs { margin-bottom: 10px; }
+      .ctl-tabs button { flex: 1 1 0; }
+      .ctl-status, .ctl-meas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+      .ctl-status > div, .ctl-meas > div { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; min-width: 0; }
+      .ctl-status small, .ctl-meas small, .ctl-target small, .gnums small, .kbtn small { display: block; font-size: 11px; color: var(--sub); font-weight: 600; }
+      .ctl-status b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+      .ctl-meas b { font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .ctl-pane[hidden] { display: none; }
+      .ctl-known { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .kbtn { display: flex; flex-direction: column; align-items: flex-start; padding: 10px 12px; min-height: 84px; border-radius: 12px; background: var(--bg); color: var(--ink); border: 2px solid var(--known); text-align: left; }
+      .kbtn b { font-size: 20px; color: var(--known); } .kbtn span { font-size: 12px; color: var(--sub); }
+      .ctl-result { margin: 8px 0 10px; font-size: 14px; font-variant-numeric: tabular-nums; }
+      .ctl-target { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+      .ctl-target > div { flex: 1; text-align: center; }
+      .ctl-target b { font-size: 30px; font-weight: 900; color: var(--accent2); }
+      .tnav { width: 56px; min-height: 56px; font-size: 20px; }
+      .guide { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; background: var(--bg); border: 2px solid var(--accent2); border-radius: 14px; padding: 10px; }
+      .garrow { font-size: 84px; line-height: 1; text-align: center; color: var(--accent2); font-weight: 900; }
+      .gnums { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+      .gnums b { font-size: 19px; font-variant-numeric: tabular-nums; }
+      .gnums .grem { grid-column: 1 / -1; } .gnums .grem b { font-size: 26px; color: var(--accent2); }
+      .ctl-design { font-size: 13.5px; color: var(--sub); margin-top: 8px; font-variant-numeric: tabular-nums; }
+      .ctl-rot { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 4px 0 6px; }
+      .ctl-rot button { min-height: 64px; font-size: 22px; font-weight: 900; border-radius: 14px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+      .ctl-rot button.stop { background: var(--ng); color: #fff; border-color: var(--ng); }
+      .ctl-rot button:active, .ctl-acts button:active { transform: scale(0.97); }
+      #ctSpeed { width: 100%; padding: 0; }
+      .ctl-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+      .ctl-acts button { min-height: 58px; font-size: 16px; }
+      .ctl-acts .tgl2[aria-pressed="false"] { background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+      .ctl-acts .tgl2[aria-pressed="true"] { background: var(--ok); }
+      .ctl-log { font-size: 12px; max-height: 30vh; overflow: auto; background: var(--bg); padding: 8px; border-radius: 8px; white-space: pre-wrap; margin: 0 0 8px; }
+      button.ctlopen { background: var(--inst); }
+      .ctl-sigma { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .ctl-sigma > div { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+      .ctl-sigma small { display: block; font-size: 11px; color: var(--sub); font-weight: 600; }
+      .ctl-sigma b { font-size: 16px; font-variant-numeric: tabular-nums; }
+      .ctl-line { font-size: 13px; font-weight: 700; color: var(--ng); background: var(--bg); border-radius: 8px; padding: 6px 10px; margin: 8px 0 6px; }
+      .ovl.ctl .ovl-card { display: flex; flex-direction: column; }
+      .ovl.ctl .ovl-card > * { flex: 0 0 auto; }
+      .ovl.ctl .ovl-head { order: -3; }
+      .ovl.ctl.bar-top .ctl-ctrls { order: -2; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8px; }
+      .ovl.ctl:not(.bar-top) .ctl-ctrls { border-top: 1px solid var(--line); margin-top: 6px; }
+      #ctMethod button, #ctDim button { font-size: 13px; min-height: 36px; }
+      .ctl-pane .field2 { margin-bottom: 10px; }
+      .ovl.ctl:not(.bar-top) .ctl-ctrls { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom)); background: var(--panel); padding-bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 2; box-shadow: 0 -6px 12px -8px rgba(0,0,0,0.25); }
+      .ovl.ctl.bar-top .ctl-ctrls { position: sticky; top: 40px; background: var(--panel); z-index: 2; }
+      .ovl.ctl .ctl-acts button { min-height: 50px; }
+      .ovl.ctl .ctl-rot button { min-height: 56px; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -369,9 +441,11 @@
   </head>
   <body>
     <header>
-      <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">☰</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.1</small></h1>
+      <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
+      <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
+      <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
     <main>
@@ -487,6 +561,7 @@
         </div>
         <div id="suggestOut"></div>
         <div id="setupOut"></div>
+        <button class="big ctlopen" type="button" data-ctl="setup" style="margin-top:12px">🎛 杭ナビ操作盤（器械点を決める）</button>
         <div class="step-head" style="margin-top:14px"><span class="num">✓</span>現場で据え付ける(TopLayout)</div>
         <p class="step-note" style="margin-top:0">既知点1 = <b id="tk1">既知点1</b>、既知点2 = <b id="tk2">既知点2</b></p>
         <ul class="steplist" data-steps="setup"></ul>
@@ -529,6 +604,7 @@
           <button class="big primary" id="stDone" type="button" disabled>✓ 打った</button>
           <button class="big" id="stNext" type="button" disabled>次の点 ▶</button>
         </div>
+        <button class="big ctlopen" type="button" data-ctl="stake" style="margin-top:10px">🎛 杭ナビ操作盤（杭打ちの誘導）</button>
         <div class="field2" style="margin-top:10px">
           <div><label class="big-label sm" for="stOrder">次の点の選び方</label>
             <select id="stOrder"><option value="near">いまの点から近い順</option><option value="name">点名順</option><option value="file">拾った順</option></select></div>
@@ -625,6 +701,177 @@
       </div>
     </div>
 
+
+    <!-- メニュー(TopLayout のホームと同じ並び) -->
+    <div class="ovl" id="menuOvl" hidden>
+      <div class="ovl-card">
+        <div class="ovl-head"><b>メニュー</b><span class="sub" id="menuSite"></span><button class="ghost ovl-x" type="button" data-close="menuOvl">閉じる</button></div>
+        <div class="tiles" id="menuTiles">
+          <button type="button" class="tile" data-go="site"><i>🏗</i>現場<small>選ぶ・新しく作る</small></button>
+          <button type="button" class="tile" data-go="setup"><i>📐</i>器械設置<small>既知点2点で位置決め</small></button>
+          <button type="button" class="tile" data-go="radial"><i>📡</i>放射観測<small>測って座標を取る</small></button>
+          <button type="button" class="tile" data-go="stake"><i>📍</i>杭打ち<small>設計の点を出す</small></button>
+          <button type="button" class="tile" data-go="input"><i>📥</i>入力<small>座標値設定・点ファイル</small></button>
+          <button type="button" class="tile" data-go="output"><i>📤</i>出力<small>CSV・SIMA・照合</small></button>
+          <button type="button" class="tile" data-go="settings"><i>⚙</i>設定<small>プリズム・単位・接続</small></button>
+          <button type="button" class="tile" data-go="precheck"><i>✅</i>始業前点検<small>既知点を測って確かめる</small></button>
+          <button type="button" class="tile wide" data-go="connect"><i>🔗</i>杭ナビにつなぐ<small id="tileConn">未接続</small></button>
+        </div>
+        <!-- 現場 -->
+        <div class="ovl-sub" data-sub="site" hidden>
+          <label class="big-label" for="siteSel">いまの現場</label>
+          <select id="siteSel"></select>
+          <div class="field2" style="margin-top:8px">
+            <div><input id="siteNew" type="text" placeholder="新しい現場名(半角英数)" maxlength="20" autocomplete="off" /></div>
+            <button id="siteAdd" type="button">新規作成</button>
+          </div>
+          <button class="ghost warnbtn" id="siteDel" type="button" style="margin-top:8px">この現場を一覧から消す</button>
+          <p class="step-note">現場名は書き出すファイル名にも使います(TopLayout の現場名と同じにしておくと分かりやすい)。現場名は半角英数がおすすめです。</p>
+        </div>
+        <!-- 設定 -->
+        <div class="ovl-sub" data-sub="settings" hidden>
+          <div class="field2">
+            <div><label class="big-label sm" for="cfgPrism">プリズム</label>
+              <select id="cfgPrism"><option>ATP2/ATP2S</option><option>ATP1</option><option>ATP1S</option><option>ミラー(反射シート)</option><option>その他</option></select></div>
+            <div><label class="big-label sm" for="cfgMirror">ミラー高 (m)</label><input id="cfgMirror" type="number" step="0.001" inputmode="decimal" value="0.100" /></div>
+          </div>
+          <div class="field2">
+            <div><label class="big-label sm" for="cfgUnit">距離の単位</label><select id="cfgUnit"><option value="m">m</option><option value="mm">mm</option></select></div>
+            <div><label class="big-label sm" for="cfgTol">杭打ちの OK 範囲 (mm)</label><input id="cfgTol" type="number" step="1" inputmode="decimal" value="10" /></div>
+          </div>
+          <div class="field2">
+            <div><label class="big-label sm" for="cfgModel">器械</label><select id="cfgModel"><option>LN-150</option><option>LN-100</option><option>LN-160</option></select></div>
+            <div><label class="big-label sm" for="cfgLink">つなぎ方</label><select id="cfgLink"><option value="bt">Bluetooth</option><option value="wifi">無線LAN</option></select></div>
+          </div>
+          <div class="field2">
+            <div><label class="big-label sm" for="cfgBar">操作ボタンの位置</label><select id="cfgBar"><option value="bottom">下(片手で押しやすい)</option><option value="top">上</option></select></div>
+            <div><label class="big-label sm" for="cfgSearch">サーチのしかた</label><select id="cfgSearch"><option value="h">横サーチ</option><option value="v">縦サーチ(杭ナビ向き)</option></select></div>
+          </div>
+          <div class="field2">
+            <div><label class="big-label sm" for="cfgSigma">器械設置の誤差の目安 (mm)</label><input id="cfgSigma" type="number" step="1" inputmode="decimal" value="5" /></div>
+            <div><label class="big-label sm" for="cfgPre">始業前点検の許容 (mm)</label><input id="cfgPre" type="number" step="1" inputmode="decimal" value="10" /></div>
+          </div>
+          <p class="step-note">設定はこのスマホに覚えておきます。いまは操作盤の表示に使うだけで、杭ナビには送りません。</p>
+        </div>
+        <!-- 準備中 -->
+        <div class="ovl-sub" data-sub="soon" hidden>
+          <div class="msg warn" id="soonMsg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 杭ナビ操作盤(まだ杭ナビとはつながらない見本) -->
+    <div class="ovl ctl" id="ctlOvl" hidden>
+      <div class="ovl-card">
+        <div class="ovl-head"><b>🎛 杭ナビ操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ghost ovl-x" type="button" data-close="ctlOvl">閉じる</button></div>
+        <div class="msg warn" style="margin:0 0 10px">準備中です。ボタンは押せますが、まだ杭ナビには何も送りません(下の「操作の記録」に残るだけ)。いまの操作は TopLayout でしてください。</div>
+        <div class="ctl-tabs seg-toggle" id="ctlTabs">
+          <button type="button" data-t="setup" aria-pressed="true">器械設置</button>
+          <button type="button" data-t="stake" aria-pressed="false">杭打ち</button>
+          <button type="button" data-t="radial" aria-pressed="false">放射観測</button>
+          <button type="button" data-t="precheck" aria-pressed="false">始業前点検</button>
+        </div>
+        <!-- 器械の状態 -->
+        <div class="ctl-status">
+          <div><small>器械</small><b id="csModel">LN-150</b></div>
+          <div><small>電池</small><b id="csBatt">--%</b></div>
+          <div><small>整準</small><b id="csLevel">--</b></div>
+          <div><small>レーザー</small><b id="csLaser">OFF</b></div>
+          <div><small>プリズム</small><b id="csPrism">ATP2/ATP2S</b></div>
+          <div><small>ミラー高</small><b id="csMirror">0.100 m</b></div>
+        </div>
+        <!-- 器械設置 -->
+        <div class="ctl-pane" data-pane="setup">
+          <div class="chips" id="ctMethod">
+            <button type="button" data-m="free" aria-pressed="true">任意点設置(後方交会)</button>
+            <button type="button" data-m="known" aria-pressed="false">既知点設置</button>
+            <button type="button" data-m="bm" aria-pressed="false">BM測定</button>
+            <button type="button" data-m="last" aria-pressed="false">前回の設置</button>
+          </div>
+          <div class="chips" id="ctDim">
+            <button type="button" data-d="3d" aria-pressed="true">3D(後視点の標高で高さも)</button>
+            <button type="button" data-d="2d" aria-pressed="false">2D(高さは BM で)</button>
+          </div>
+          <p class="step-note" id="ctMethodNote" style="margin:0 0 8px"></p>
+          <div class="ctl-known">
+            <button type="button" class="kbtn" data-act="measK1"><small>既知点1</small><b id="ck1">未選択</b><span id="ck1s">未測定</span></button>
+            <button type="button" class="kbtn" data-act="measK2"><small>既知点2</small><b id="ck2">未選択</b><span id="ck2s">未測定</span></button>
+          </div>
+          <button type="button" class="big" data-act="setInst" style="margin-top:8px">器械点を決める(2点の測定から)</button>
+          <div class="ctl-result" id="ctlInst">器械点:まだ決まっていません</div>
+          <div class="ctl-sigma">
+            <div><small>標準偏差 X</small><b>--- mm</b></div><div><small>Y</small><b>--- mm</b></div><div><small>Z</small><b>--- mm</b></div>
+          </div>
+          <p class="step-note" id="ctSigmaNote" style="margin:4px 0 10px"></p>
+        </div>
+        <!-- 杭打ち -->
+        <div class="ctl-pane" data-pane="stake" hidden>
+          <div class="ctl-target">
+            <button type="button" class="ghost tnav" data-act="prevPt" aria-label="前の点">◀</button>
+            <div><small>出す点</small><b id="ctTarget">--</b></div>
+            <button type="button" class="ghost tnav" data-act="nextPt" aria-label="次の点">▶</button>
+          </div>
+          <div class="guide">
+            <div class="garrow" id="gArrow">↑</div>
+            <div class="gnums">
+              <div><small>前へ</small><b id="gFwd">--- m</b></div>
+              <div><small>右へ</small><b id="gRight">--- m</b></div>
+              <div><small>下へ(切り)</small><b id="gDown">--- m</b></div>
+              <div class="grem"><small>残り</small><b id="gRemain">---</b></div>
+            </div>
+          </div>
+          <div class="ctl-design" id="ctDesign"></div>
+          <div class="field2" style="margin-top:8px">
+            <button type="button" class="big" data-act="guideToPt">この点の方向へ回す</button>
+            <button type="button" class="big primary" data-act="stakeDone">✓ 杭を打った</button>
+          </div>
+        </div>
+        <!-- 放射観測 -->
+        <div class="ctl-pane" data-pane="radial" hidden>
+          <div class="field2"><div><label class="big-label sm" for="ctName">点名</label><input id="ctName" type="text" value="M001" maxlength="16" autocomplete="off" /></div>
+            <button type="button" class="big primary" data-act="record" style="align-self:end">記録</button></div>
+        </div>
+        <!-- 始業前点検 -->
+        <div class="ctl-pane" data-pane="precheck" hidden>
+          <label class="big-label sm" for="ctPre">確かめる既知点(前の日に打った杭でも可)</label>
+          <select id="ctPre"></select>
+          <div class="ctl-sigma" style="margin-top:8px">
+            <div><small>ΔX</small><b>--- mm</b></div><div><small>ΔY</small><b>--- mm</b></div><div><small>ΔZ</small><b>--- mm</b></div>
+          </div>
+          <p class="step-note" id="ctPreNote" style="margin:4px 0 8px"></p>
+          <button type="button" class="big primary" data-act="precheck">この点を測って確かめる</button>
+        </div>
+        <!-- 測った値(共通) -->
+        <div class="ctl-meas">
+          <div><small>方向角</small><b id="cmAz">---°--′--″</b></div>
+          <div><small>水平距離</small><b id="cmHd">---.--- m</b></div>
+          <div><small>比高</small><b id="cmVd">---.--- m</b></div>
+        </div>
+        <div class="ctl-ctrls" id="ctlCtrls">
+        <div class="ctl-line" id="ctlLine">状態:杭ナビにつながっていません</div>
+        <!-- 回す -->
+        <div class="ctl-rot">
+          <button type="button" data-act="rotL2" aria-label="左へ大きく">◁◁</button>
+          <button type="button" data-act="rotL1" aria-label="左へ少し">◁</button>
+          <button type="button" class="stop" data-act="stop" aria-label="止める">■</button>
+          <button type="button" data-act="rotR1" aria-label="右へ少し">▷</button>
+          <button type="button" data-act="rotR2" aria-label="右へ大きく">▷▷</button>
+        </div>
+        <label class="big-label sm" for="ctSpeed">回す速さ <span id="ctSpeedV">3</span></label>
+        <input id="ctSpeed" type="range" min="1" max="5" step="1" value="3" />
+        <div class="ctl-acts">
+          <button type="button" class="big" data-act="search">🔍 サーチ</button>
+          <button type="button" class="big" data-act="measure">📏 測定</button>
+          <button type="button" class="big tgl2" data-act="track" aria-pressed="false">追尾</button>
+          <button type="button" class="big tgl2" data-act="guide" aria-pressed="false">ガイド光</button>
+          <button type="button" class="big tgl2" data-act="laser" aria-pressed="false">レーザー</button>
+          <button type="button" class="big ghost" data-act="level">整準</button>
+        </div>
+        </div>
+        <details class="adv" style="margin-top:10px"><summary>操作の記録(<span id="ctlLogN">0</span>)</summary><div class="adv-body"><pre id="ctlLog" class="ctl-log"></pre>
+          <button class="ghost" type="button" id="ctlLogClear">記録を消す</button></div></details>
+      </div>
+    </div>
     <div class="help-overlay" id="help">
       <div class="help-card">
         <h2>くるくる回し太郎 ― 使い方</h2>
@@ -640,6 +887,8 @@
           <li><b>② 杭打ち</b> … 次に打つ点を大きく出します(杭ナビからの距離・方向角、既知点1から右回りの角)。「打った」で印を付け、「次の点」でいまの点から近いまだの点へ。図の点をタップしても選べます。</li>
           <li><b>③ 確認</b> … TopLayout の出力（現場名_stk.csv など）を開いて、設計とのずれ・許容外・まだ打っていない点を出します。</li>
         </ol>
+        <h3>メニュー・操作盤(準備中)</h3>
+        <p>右上の「メニュー」は TopLayout のホームと同じ並び(現場・器械設置・放射観測・杭打ち・入力・出力・設定・点検)です。🎛 は杭ナビの操作盤です。杭ナビとのつなぎ方が分かったら、ここから杭ナビを動かせるようにする予定で、いまはボタンを押しても杭ナビには何も送りません。</p>
         <h3>注意</h3>
         <ul>
           <li class="warn">点名は半角英数（SIMA・杭ナビで全角が困ります）。同じ点名を杭ナビに入れ直すと上書きされず追加されます。</li>
@@ -3620,7 +3869,9 @@
           let d = Math.abs(Math.atan2(A.y - P.y, A.x - P.x) - Math.atan2(B.y - P.y, B.x - P.x)) * 180 / Math.PI;
           return d > 180 ? 360 - d : d;
         }
+        // 2点の開き(夾角):70〜110° が理想、30〜150° なら使える、それより狭い・一直線に近いと位置がぶれる
         const angleGrade = (a) => (a >= 30 && a <= 150 ? "good" : a >= 15 && a <= 165 ? "caution" : "bad");
+        const angleIdeal = (a) => a >= 70 && a <= 110;
         function pairScore(P, A, B, r) {
           const dA = dm(P, A), dB = dm(P, B);
           if (!inRange(dA, r) || !inRange(dB, r)) return -1;
@@ -3672,7 +3923,7 @@
           if (A && B) {
             const a = angleAt(inst, A, B), g = angleGrade(a);
             h += `<span>2点の開き</span><b class="${g}">${a.toFixed(1)}°</b><span>2点の間</span><b>${dm(A, B).toFixed(2)} m</b>`;
-            if (g === "good") ms.push({ c: "ok", t: `開きが ${a.toFixed(1)}° でよい形です(30〜150° を目安。90° に近いほど位置が安定)。` });
+            if (g === "good") ms.push({ c: "ok", t: angleIdeal(a) ? `開きが ${a.toFixed(1)}° でとてもよい形です(70〜110° が理想)。` : `開きが ${a.toFixed(1)}° で使えます(30〜150°)。70〜110° に近づけられるともっと安定します。` });
             else if (g === "caution") ms.push({ c: "warn", t: `開きが ${a.toFixed(1)}° と${a < 90 ? "せまい" : "一直線に近い"}ので、位置がぶれやすくなります。ほかの2点か置く場所を考えてください。` });
             else ms.push({ c: "ng", t: `開きが ${a.toFixed(1)}° で、2点と杭ナビがほぼ一直線です。位置がうまく決まらないので、2点か置く場所を変えてください。` });
           }
@@ -4042,7 +4293,8 @@
         function renderNaviBar() {
           const ds = designs(), done = ds.filter((p) => p.done).length, A = byName(k1), B = byName(k2);
           const chip = (c, t) => `<span class="nchip ${c}">${t}</span>`;
-          let h = chip(view ? "ok" : "ng", view ? "図面 ○" : "図面 未");
+          let h = (typeof site === "string" && site ? chip("ok", "現場 " + esc(site)) : "") + chip("", "杭ナビ 未接続");
+          h += chip(view ? "ok" : "ng", view ? "図面 ○" : "図面 未");
           h += chip(picks.length ? "ok" : "ng", `点 ${ds.length}・既知 ${knowns().length}`);
           h += chip(inst ? "ok" : "ng", inst ? "杭ナビ 位置○" : "杭ナビ 位置未");
           if (A && B && inst) { const g = angleGrade(angleAt(inst, A, B)); h += chip(g === "good" ? "ok" : g === "caution" ? "warn" : "ng", `${esc(A.name)}・${esc(B.name)} ${angleAt(inst, A, B).toFixed(0)}°`); }
@@ -4099,6 +4351,7 @@
         }
         function afterChange() {
           renderTable(); renderSetup(); renderOut(); renderChk(); renderStake(); renderNaviBar();
+          if (typeof renderCtl === "function" && !$("ctlOvl").hidden) renderCtl();
           saveState();
           draw();
           $("tUndo").disabled = !picks.length && !meas.length;
@@ -4241,10 +4494,163 @@
           } finally { ev.target.value = ""; }
         });
 
+
+        // ================================================================ メニュー・操作盤(準備中)
+        // 杭ナビ(TopLayout)とのつなぎ方が分かったら KuiNavi の中だけを書けば、操作盤のボタンがそのまま動くようにしてある。
+        const ACT = {
+          rotL2: "左へ大きく回す", rotL1: "左へ少し回す", stop: "止める", rotR1: "右へ少し回す", rotR2: "右へ大きく回す",
+          search: "サーチ", measure: "測定", track: "追尾", guide: "ガイド光", laser: "レーザー", level: "整準",
+          measK1: "既知点1を測る", measK2: "既知点2を測る", setInst: "器械点を決める", precheck: "始業前点検の測定", method: "器械設置のしかた",
+          guideToPt: "点の方向へ回す", record: "記録", stakeDone: "杭を打った", prevPt: "前の点", nextPt: "次の点",
+        };
+        const ctlLog = [];
+        const KuiNavi = {
+          connected: false,
+          // TODO: TopLayout / 杭ナビの通信の作りが分かったらここに書く(いまは何もしない)
+          async connect() { throw new Error("杭ナビにつなぐ方法はまだ準備中です。いまは TopLayout でつないでください。"); },
+          async send(cmd, args) {
+            const t = new Date(), p2 = (v) => String(v).padStart(2, "0");
+            ctlLog.push(`${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}  ${ACT[cmd] || cmd}${args ? "  " + JSON.stringify(args) : ""}  (未送信)`);
+            if (ctlLog.length > 300) ctlLog.shift();
+            $("ctlLog").textContent = ctlLog.slice().reverse().join("\n"); $("ctlLogN").textContent = String(ctlLog.length);
+            return null;
+          },
+        };
+        const openOvl = (id) => { $(id).hidden = false; };
+        const closeOvl = (id) => { $(id).hidden = true; };
+        document.addEventListener("click", (e) => { const c = e.target.closest && e.target.closest("[data-close]"); if (c) closeOvl(c.dataset.close); });
+        for (const id of ["menuOvl", "ctlOvl"]) $(id).addEventListener("click", (e) => { if (e.target.id === id) closeOvl(id); });
+
+        // ---- 現場
+        let sites = [], site = "";
+        try { sites = JSON.parse(load("kr.sites") || "[]") || []; } catch (e) { sites = []; }
+        site = load("kr.site") || "";
+        function renderSites() {
+          $("siteSel").innerHTML = (sites.length ? "" : `<option value="">(まだありません)</option>`) + sites.map((n) => `<option ${n === site ? "selected" : ""}>${esc(n)}</option>`).join("");
+          $("menuSite").textContent = site ? `現場:${site}` : "現場:未選択";
+        }
+        function setSite(n) { site = n; store("kr.site", n); if (n) $("fname").value = n; renderSites(); renderNaviBar(); renderOut(); saveState(); }
+        $("siteSel").addEventListener("change", () => setSite($("siteSel").value));
+        $("siteAdd").addEventListener("click", () => {
+          const n = $("siteNew").value.trim();
+          if (!/^[A-Za-z0-9_-]{1,20}$/.test(n)) { alert("現場名は半角英数(と - _)で20文字までにしてください。"); return; }
+          if (!sites.includes(n)) sites.push(n);
+          store("kr.sites", JSON.stringify(sites)); $("siteNew").value = ""; setSite(n);
+        });
+        $("siteDel").addEventListener("click", () => {
+          if (!site || !confirm(`現場「${site}」を一覧から消します(点や図面は消えません)。よろしいですか?`)) return;
+          sites = sites.filter((n) => n !== site); store("kr.sites", JSON.stringify(sites)); setSite(sites[0] || "");
+        });
+
+        // ---- 設定
+        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre"];
+        try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
+        for (const k of CFG) $(k).addEventListener("change", () => { const c = {}; for (const q of CFG) c[q] = $(q).value; store("kr.cfg", JSON.stringify(c)); renderCtl(); });
+
+        // ---- メニューのタイル
+        const SOON = {
+          radial: "放射観測(測って座標を取る)は、杭ナビとつながるようになってから使えます。いまは TopLayout の「放射観測」を使ってください。",
+          precheck: "",
+          connect: "杭ナビにつなぐ方法(TopLayout と杭ナビのやりとりの作り)を調べているところです。分かったらここからつなげるようにします。",
+        };
+        function showSub(name) {
+          for (const d of document.querySelectorAll("#menuOvl .ovl-sub")) d.hidden = d.dataset.sub !== name;
+          for (const b of $("menuTiles").children) b.classList.toggle("on", b.dataset.go === name);
+        }
+        $("menuBtn").addEventListener("click", () => { renderSites(); showSub(""); openOvl("menuOvl"); });
+        $("menuTiles").addEventListener("click", (e) => {
+          const t = e.target.closest(".tile"); if (!t) return;
+          const go = t.dataset.go;
+          const jump = (main, sub) => { closeOvl("menuOvl"); mainMode = main; if (sub) subMode = sub; setMode(main === "coord" ? subMode : main); };
+          if (go === "site" || go === "settings") return showSub(go);
+          if (go === "setup") return jump("setup");
+          if (go === "precheck") { closeOvl("menuOvl"); setCtlTab("precheck"); openOvl("ctlOvl"); return; }
+          if (go === "stake") return jump("stake");
+          if (go === "input") return jump("coord", "pick");
+          if (go === "output") return jump("coord", "list");
+          if (SOON[go]) { $("soonMsg").textContent = SOON[go]; showSub("soon"); KuiNavi.send(go === "connect" ? "connect" : go); }
+        });
+
+        // ---- 操作盤
+        let ctlTab = "setup";
+        function setCtlTab(t) {
+          ctlTab = t;
+          for (const b of $("ctlTabs").children) b.setAttribute("aria-pressed", String(b.dataset.t === t));
+          for (const p of document.querySelectorAll("#ctlOvl .ctl-pane")) p.hidden = p.dataset.pane !== t;
+          renderCtl();
+        }
+        $("ctlTabs").addEventListener("click", (e) => { const t = e.target.dataset.t; if (t) setCtlTab(t); });
+        $("ctlBtn").addEventListener("click", () => { setCtlTab(mode === "stake" ? "stake" : ctlTab); openOvl("ctlOvl"); });
+        for (const b of document.querySelectorAll(".ctlopen")) b.addEventListener("click", () => { setCtlTab(b.dataset.ctl); openOvl("ctlOvl"); });
+        $("ctSpeed").addEventListener("input", () => { $("ctSpeedV").textContent = $("ctSpeed").value; });
+        let ctMethod = load("kr.method") || "free", ctDim = load("kr.dim") || "3d";
+        const METHOD_NOTE = {
+          free: "好きな所に据えて、見える既知点を2点(以上)測ります。杭ナビのふつうのやり方です。",
+          known: "既知点の上に据えて、別の既知点(後視点)を1点測ります。上の「既知点1」が器械点、「既知点2」が後視点です。",
+          bm: "標高の分かる点(BM)を測って、器械の高さだけを決めます。",
+          last: "前回の器械設置をそのまま使います(三脚を動かしていないときだけ)。",
+        };
+        $("ctMethod").addEventListener("click", (e) => { const m = e.target.dataset.m; if (!m) return; ctMethod = m; store("kr.method", m); KuiNavi.send("method", { method: m }); renderCtl(); });
+        $("ctDim").addEventListener("click", (e) => { const d = e.target.dataset.d; if (!d) return; ctDim = d; store("kr.dim", d); renderCtl(); });
+        $("ctlLogClear").addEventListener("click", () => { ctlLog.length = 0; $("ctlLog").textContent = ""; $("ctlLogN").textContent = "0"; });
+        function renderCtl() {
+          $("ctlConn").textContent = KuiNavi.connected ? "接続中" : "未接続";
+          $("ctlConn").className = "badge " + (KuiNavi.connected ? "ok" : "ng");
+          $("tileConn").textContent = KuiNavi.connected ? "接続中" : "未接続(準備中)";
+          $("csModel").textContent = $("cfgModel").value;
+          $("csPrism").textContent = $("cfgPrism").value;
+          $("csMirror").textContent = `${Number($("cfgMirror").value || 0).toFixed(3)} m`;
+          const A = byName(k1), B = byName(k2);
+          $("ck1").textContent = A ? A.name : "未選択"; $("ck2").textContent = B ? B.name : "未選択";
+          $("ctlInst").textContent = inst ? `器械点(目安):${fmtXY(inst.x, inst.y).join(", ")}` + (A && B ? `　開き ${angleAt(inst, A, B).toFixed(0)}°` : "") : "器械点:まだ決まっていません(① 据付 で目安の位置を決められます)";
+          for (const b of $("ctMethod").children) b.setAttribute("aria-pressed", String(b.dataset.m === ctMethod));
+          for (const b of $("ctDim").children) b.setAttribute("aria-pressed", String(b.dataset.d === ctDim));
+          $("ctMethodNote").textContent = METHOD_NOTE[ctMethod];
+          const kl = ctMethod === "known" ? ["器械点", "後視点"] : ["既知点1", "既知点2"];
+          document.querySelector('[data-act="measK1"] small').textContent = kl[0];
+          document.querySelector('[data-act="measK2"] small').textContent = kl[1];
+          $("ctSigmaNote").textContent = `測り終わると誤差(標準偏差)が出ます。${$("cfgSigma").value || 5} mm 以内が目安で、超えたら既知点を測り直します。` + (A && B && inst ? `いまの2点の開き ${angleAt(inst, A, B).toFixed(0)}°(70〜110° が理想)。` : "");
+          const ks = knowns(), pre = $("ctPre").value;
+          $("ctPre").innerHTML = ks.length ? ks.map((q) => `<option ${q.name === pre ? "selected" : ""}>${esc(q.name)}</option>`).join("") : `<option value="">(既知点がありません)</option>`;
+          $("ctPreNote").textContent = `据え付けたら、作業の前に既知点を1点測って、ずれが ${$("cfgPre").value || 10} mm 以内か確かめます。超えたら器械設置をやり直します。`;
+          $("ctlOvl").classList.toggle("bar-top", $("cfgBar").value === "top");
+          const p = byName(target);
+          $("ctTarget").textContent = p ? p.name + (p.done ? " ✓" : "") : "--";
+          if (p) {
+            const [X, Y] = fmtXY(p.x, p.y), [nx, ny] = axisNames();
+            let t = `${nx} ${X}　${ny} ${Y}　H ${fmtH(p.h)}`;
+            if (inst) t += `<br>杭ナビから ${dm(inst, p).toFixed(2)} m・方向角 ${dms(azimuth(inst, p))}`;
+            $("ctDesign").innerHTML = t;
+          } else $("ctDesign").textContent = "杭打ちで出す点がありません。";
+        }
+        $("ctlOvl").addEventListener("click", (e) => {
+          const b = e.target.closest("[data-act]"); if (!b) return;
+          const act = b.dataset.act;
+          if (b.classList.contains("tgl2")) b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+          const args = {};
+          if (/^rot/.test(act)) args.speed = Number($("ctSpeed").value);
+          if (b.classList.contains("tgl2")) args.on = b.getAttribute("aria-pressed") === "true";
+          if (act === "measK1" || act === "measK2") { args.point = (act === "measK1" ? k1 : k2) || null; args.prism = $("cfgPrism").value; args.mirror = Number($("cfgMirror").value); }
+          if (act === "guideToPt") { const p = byName(target); if (p) { args.point = p.name; if (inst) args.azimuth = dms(azimuth(inst, p)); } }
+          if (act === "record") args.name = $("ctName").value;
+          if (act === "search") args.pattern = $("cfgSearch").value === "v" ? "縦" : "横";
+          if (act === "precheck") args.point = $("ctPre").value || null;
+          if (act === "setInst") { args.method = ctMethod; args.dim = ctDim; }
+          if (act === "laser") $("csLaser").textContent = args.on ? "ON" : "OFF";
+          // 杭打ちの点の切り替え・打った印は、このアプリの中のことなので本当に動く
+          if (act === "nextPt" || act === "prevPt") {
+            const list = stakeOrder(null), i = list.findIndex((q) => q.name === target);
+            const q = list[(i + (act === "nextPt" ? 1 : -1) + list.length) % list.length]; if (q) { target = q.name; afterChange(); }
+          }
+          if (act === "stakeDone") { const p = byName(target); if (p) { p.done = true; const n = nextTarget(); if (n) target = n.name; afterChange(); } }
+          KuiNavi.send(act, Object.keys(args).length ? args : null);
+          if (!["nextPt", "prevPt", "stakeDone"].includes(act)) setStatus(`🎛 「${ACT[act] || act}」…杭ナビとはまだつながっていないので、記録だけしました(準備中)。`);
+          renderCtl();
+        });
         window.addEventListener("resize", draw);
         // 入力のあとページ全体がずれたままにならないよう戻す(図のタップ位置がずれるため)
         document.addEventListener("focusout", () => setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) window.scrollTo(0, 0); }, 120));
-        renderSteps();
+        renderSteps(); renderSites(); renderCtl();
         mainMode = load("kr.main") || "setup"; subMode = load("kr.sub") || "pick";
         if (!["setup", "stake", "chk", "coord"].includes(mainMode)) mainMode = "setup";
         if (!["pick", "nige", "meas", "list"].includes(subMode)) subMode = "pick";
