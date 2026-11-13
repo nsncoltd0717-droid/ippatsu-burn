@@ -549,7 +549,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.11.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.11.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -889,7 +889,7 @@
     <div class="ovl ctl" id="ctlOvl" hidden>
       <div class="ovl-card">
         <div class="ovl-head"><b>🎛 操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ctlconn" id="ctlConnBtn" type="button">🔗 つなぐ</button><button class="ghost ovl-x" type="button" data-close="ctlOvl">閉じる</button></div>
-        <div class="msg warn" style="margin:0 0 10px">テスト版です。「🔗 つなぐ」で杭ナビ(Wi-Fi)につながると、回す・止める・サーチ(追尾)・点の方向へ回す・ガイド光・レーザー・向きと距離の読み取りが本物になります。つなぐには、スマホで「くるくる中継」を動かします(Android)。はじめは杭ナビのそばで、すぐ止められるようにして試してください。</div>
+        <div class="msg warn" style="margin:0 0 10px"><span class="browser-only">テスト版です。「🔗 つなぐ」で杭ナビ(Wi-Fi)につながると、回す・止める・サーチ(追尾)・点の方向へ回す・ガイド光・レーザー・向きと距離の読み取りが本物になります。つなぐには、スマホで「くるくる中継」を動かします(Android)。はじめは杭ナビのそばで、すぐ止められるようにして試してください。</span><span class="android-only">テスト版です。「つなぐ」で杭ナビ(Wi-Fi か Bluetooth)につながると、回す・止める・サーチ・点の方向へ回す・ガイド光・レーザー・向きと距離の読み取りが本物になります。つなぎ方を変えるときは、この下の「🔗 つなぎ方」から。はじめは杭ナビのそばで、すぐ止められるようにして試してください。</span></div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
           <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
           <button type="button" data-t="list" aria-pressed="false">📋 座標リスト</button>
@@ -4844,7 +4844,7 @@
             const url = urlBt || ($("cfgRelay").value || "ws://127.0.0.1:8766").trim();
             setStatus(urlBt ? "🔵 Bluetooth で杭ナビにつないでいます…(数秒かかります)" : `🔗 くるくる中継(${url})につないでいます…`);
             let ws;
-            try { ws = new WebSocket(url); } catch (e) { setStatus("🔗 つなげません:" + e.message); return; }
+            try { ws = window.KurukuruAndroid && window.KurukuruAndroid.open ? new NativeWs(url) : new WebSocket(url); } catch (e) { setStatus("🔗 つなげません:" + e.message); return; }
             this.ws = ws; this.buf = ""; ws.binaryType = "arraybuffer"; this.vidNote = ""; this.vidBusy = false; this.heard = 0;
             if (urlBt) { ws.bt = true; this.vidNote = "Bluetooth では映像は来ません(映像は Wi-Fi のときだけ)"; }
             const tmo = setTimeout(() => { if (!this.connected) { setStatus("🔗 くるくる中継が見つかりません。Termux で中継を動かしてから、もう一度「つなぐ」を押してください(操作盤の下の「つなぎ方」)。"); $("connHelp").open = true; this.disconnect(); } }, 8000);
@@ -4967,7 +4967,7 @@
             const sp = Number($("ctSpeed").value || 3);
             switch (cmd) {
               case "rotL1": case "rotL2": case "rotR1": case "rotR2": {
-                const v = { rotL1: -2 * sp, rotL2: -4 * sp, rotR1: 2 * sp, rotR2: 4 * sp }[cmd];
+                const v = { rotL1: 2 * sp, rotL2: 4 * sp, rotR1: -2 * sp, rotR2: -4 * sp }[cmd];   // 実機で左右が逆だったので入れ替え(2026/11/13)
                 this.raw("RSSPD", 0, v); if (!this.holding) setTimeout(() => this.raw("SMOTR"), 500); return null;
               }
               case "stop": case "stopSearch": this.raw("SMOTR"); return null;
@@ -5672,6 +5672,19 @@
           if (KuiNavi.ws) KuiNavi.disconnect();
           KuiNavi.connect();
         });
+        // Android アプリ版: WebSocket の代わりに、アプリの中の中継と直接やりとりする(同じ形の入れ物)
+        function NativeWs(url) {
+          const m = /[?&]bt=([^&]+)/.exec(url), A = window.KurukuruAndroid;
+          this.readyState = 0;
+          window.__kuiNative = {
+            text: (t) => { if (this.onmessage) this.onmessage({ data: t }); },
+            frame: (b64) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); if (this.onmessage) this.onmessage({ data: u.buffer }); },
+            closed: () => { if (this.readyState === 3) return; this.readyState = 3; if (this.onclose) this.onclose(); },
+          };
+          setTimeout(() => { this.readyState = 1; if (this.onopen) this.onopen(); A.open(m ? decodeURIComponent(m[1]) : ""); }, 0);
+        }
+        NativeWs.prototype.send = function (t) { window.KurukuruAndroid.send(t); };
+        NativeWs.prototype.close = function () { window.KurukuruAndroid.close(); if (window.__kuiNative) window.__kuiNative.closed(); };
         function btPick(list, last, go) {   // ペアリング済みの機器から杭ナビを選ぶ
           const old = document.getElementById("btPickOvl"); if (old) old.remove();
           const o = document.createElement("div"); o.id = "btPickOvl"; o.className = "bt-pick";
