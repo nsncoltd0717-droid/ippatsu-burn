@@ -220,7 +220,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>ECP一撃逃墨太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.1.9 11/12</small></h1>
+      <h1>ECP一撃逃墨太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.1.10 11/13</small></h1>
       <button class="help-btn ghost" id="helpBtn" type="button">使い方</button>
     </header>
     <main>
@@ -251,7 +251,7 @@
         <div class="filebtn">
           <button class="big" type="button">📂　図面(DXF・図脳RAPID)か 点(CSV・SIMA)をひらく</button>
           <!-- accept で絞らない(Android は .dxf の種類を知らず、絞ると DXF が選べない)。中身は読んでから確かめる -->
-          <input id="file" type="file" />
+          <input id="file" type="file" accept="*/*" />
         </div>
         <p class="step-note" id="fileInfo" hidden></p>
         <p class="step-note" id="zunouNote" hidden></p>
@@ -386,7 +386,7 @@
         <div class="hbox" id="hb-points" hidden>
           <div class="filebtn">
             <button class="ghost" type="button">📄　点ファイル(CSV・SIMA)をひらく</button>
-            <input id="ptFile" type="file" />
+            <input id="ptFile" type="file" accept="*/*" />
           </div>
           <label class="big-label" for="ptAxis">CSV の座標の向き(SIMA は X=北・Y=東で決まり)</label>
           <select id="ptAxis">

@@ -525,8 +525,8 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.6.0</small></h1>
-      <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" aria-label="図面か点ファイルをひらく" /></div>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.6.1</small></h1>
+      <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
@@ -587,7 +587,7 @@
         </div>
         <button class="big" id="recvBtn" type="button" style="margin-bottom:8px">📥 一発かまし太郎・脳みそバーンから受け取る</button>
         <button class="ghost" id="takeFile" type="button" disabled>開いた点ファイルの点を全部 一覧に入れる</button>
-        <div class="filebtn" style="margin-top:8px"><button class="ghost" type="button">＋ 点ファイル（CSV・SIMA）の点を一覧に足す</button><input id="fileAdd" type="file" accept=".csv,.txt,.sim,.SIM,.CSV" multiple /></div>
+        <div class="filebtn" style="margin-top:8px"><button class="ghost" type="button">＋ 点ファイル（CSV・SIMA）の点を一覧に足す</button><input id="fileAdd" type="file" accept="*/*" multiple /></div>
         <details class="adv" style="margin-top:10px"><summary>事務所でやること(手順)</summary><div class="adv-body"><ul class="steplist" data-steps="coord"></ul></div></details>
         <p class="step-note">足す点ファイルは、SIMA なら X=北・Y=東・m、CSV なら「くわしい設定」の向きと単位で読みます。KBM・BM・KS・T などで始まる点名は既知点にします（一覧で入れ替えられます）。</p>
       </section>
@@ -716,7 +716,7 @@
         <label class="big-label sm" for="nearR">点名が無いとき近い点を探す範囲 (m)</label>
         <input id="nearR" type="number" step="0.1" inputmode="decimal" value="0.5" />
         <div class="field2" style="margin-top:10px">
-          <div class="filebtn"><button type="button">📂 出力ファイルを開く</button><input id="fileStk" type="file" accept=".csv,.txt,.sim,.SIM,.CSV" multiple /></div>
+          <div class="filebtn"><button type="button">📂 出力ファイルを開く</button><input id="fileStk" type="file" accept="*/*" multiple /></div>
           <button class="ghost" id="saveChk" type="button" disabled>⬇ 結果 CSV</button>
         </div>
         <div id="chkSummary"></div>
