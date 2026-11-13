@@ -553,7 +553,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.12.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.12.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -4981,7 +4981,7 @@
               case "laser": if (a.on) this.raw("LLPON", 0, 1); else this.raw("LLPOF"); return null;
               case "live":
                 if (this.ws && this.ws.bt) { if (a.on) ctlLogAdd("映像: Bluetooth では映像は来ません"); return null; }
-                if (a.on && !this.live) { this.raw("CVSON", 50000); this.raw("ICSET", 1, 0, 0, 3000, 0);   // TopLayout と同じ順 this.live = true; this.vidNote = ""; }
+                if (a.on && !this.live) { this.raw("ICSET", 1, 0, 0, 3000, 0); this.raw("CVSON", 50000); this.live = true; this.vidNote = ""; }
                 if (!a.on && this.live) { this.raw("CVSOF"); this.live = false; window.kurukuruLive.off(); }
                 return null;
               case "touchDrive": this.raw("CMPOS", Math.round((a.fx - 0.5) * 1280), Math.round((a.fy - 0.5) * 720), ""); return null;
