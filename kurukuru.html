@@ -501,6 +501,7 @@
       .ck-pick button, [data-clpick] { min-height: 40px; font-size: 13.5px; }
       .cl-pickbar { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-weight: 800; background: #fef3c7; color: #92400e; border-radius: 10px; padding: 8px 10px; }
       .cl-pickbar span { flex: 1; }
+      .cl-pickbar[hidden] { display: none; }
       .cl-pickbar button { width: auto; min-height: 34px; padding: 4px 12px; }
       .conn-help ol { padding-left: 1.3em; margin: 6px 0; }
       .conn-help li { margin: 0 0 8px; font-size: 14px; }
@@ -537,7 +538,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.8.2</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.8.3</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
