@@ -419,7 +419,7 @@ async def main():
     except OSError as e:
         log(f"映像の {VID_PORT} 番を開けません:", e)
     srv = await asyncio.start_server(handle, "127.0.0.1", WS_PORT)
-    log(f"くるくる中継 v{VERSION}: ws://127.0.0.1:{WS_PORT} で待っています(杭ナビ {KUI_HOST if FIXED_HOST else "自動でさがす"}:{KUI_PORT})。止めるときは Ctrl+C")
+    log(f"くるくる中継 v{VERSION}: ws://127.0.0.1:{WS_PORT} で待っています(杭ナビ {KUI_HOST if FIXED_HOST else '自動でさがす'}:{KUI_PORT})。止めるときは Ctrl+C")
     async with srv:
         await srv.serve_forever()
 
