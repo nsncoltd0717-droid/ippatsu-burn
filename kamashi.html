@@ -3411,9 +3411,12 @@
           if (standalone && navigator.canShare) {
             try {
               const file = new File([blob], name, { type: "application/octet-stream" });
-              if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(() => {}); return; }
+              if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch((err) => { if (!err || err.name !== "AbortError") plainDownload(blob, name); }); return; }
             } catch (e) { /* 共有できなければふつうに保存 */ }
           }
+          return plainDownload(blob, name);
+        }
+        function plainDownload(blob, name) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url; a.download = name;
