@@ -576,6 +576,8 @@
       .k-result td:first-child, .k-result th:first-child { text-align: left; }
       .k-result p { margin: 6px 0 0; font-size: 13px; }
       #kDone, #kResult { scroll-margin-top: 130px; }
+      .garrow { transition: transform .2s; } .garrow.ok { color: #16a34a; }
+      .ovl.ctl.is-stake > .ovl-card > .msg.warn { display: none; }   /* 杭打ちでは誘導の表示を大きく見せる */
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -593,7 +595,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.16.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.17.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -952,6 +954,8 @@
           <div class="field2">
             <div><label class="big-label sm" for="cfgSndMeas">測定の音</label><div class="snd-row"><select id="cfgSndMeas"><option value="piron" selected>ピロン</option><option value="pirorin">ピロリン</option><option value="pipi">ピピッ</option><option value="pon">ポーン</option><option value="pii">ピー</option><option value="none">なし</option></select><button type="button" class="ghost" id="sndMeasTest" aria-label="測定の音を鳴らしてみる">▶</button></div></div>
             <div><label class="big-label sm" for="cfgSndSearch">サーチ完了の音</label><div class="snd-row"><select id="cfgSndSearch"><option value="piron">ピロン</option><option value="pirorin" selected>ピロリン</option><option value="pipi">ピピッ</option><option value="pon">ポーン</option><option value="pii">ピー</option><option value="none">なし</option></select><button type="button" class="ghost" id="sndSearchTest" aria-label="サーチ完了の音を鳴らしてみる">▶</button></div></div>
+            <div><label class="big-label sm" for="cfgSndNear">杭打ちの近づき音</label><select id="cfgSndNear"><option value="on" selected>鳴らす(近いほど高く速く)</option><option value="off">鳴らさない</option></select></div>
+            <div><label class="big-label sm" for="cfgGuideView">杭打ちの指示の向き</label><select id="cfgGuideView"><option value="op" selected>杭ナビに向かって立つ人から見て</option><option value="inst">杭ナビから見て</option></select></div>
             <div><label class="big-label sm" for="cfgSndVol">音の大きさ</label><select id="cfgSndVol"><option value="0.3">小</option><option value="0.6" selected>中</option><option value="1">大</option></select></div>
           </div>
           <p class="step-note">設定はこのスマホに覚えておきます。音以外は操作盤の表示に使うだけで、杭ナビには送りません。</p>
@@ -5160,7 +5164,7 @@
             if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
             if (L.h != null) liveHd = norm(L.h * 360 + this.hOff);
             const now = performance.now();
-            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
+            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); renderGuide(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
           },
           azToH(az) { return (norm(az - this.hOff) / 360).toFixed(8); },
           // 操作盤のボタン → 杭ナビの命令
@@ -5222,6 +5226,9 @@
           const id = kind === "meas" ? "cfgSndMeas" : "cfgSndSearch";
           const name = $(id) ? $(id).value : "piron", tones = SOUNDS[name];
           if (!tones) { if (force) setStatus("音は「なし」になっています。"); return; }
+          playTones(tones);
+        }
+        function playTones(tones) {
           const ac = audioCtx(); if (!ac) return;
           const vol = Math.max(0, Math.min(1, Number(($("cfgSndVol") || {}).value || 0.6)));
           const t0 = ac.currentTime + 0.02;
@@ -5233,6 +5240,65 @@
           }
         }
         window.kurukuruBeep = beep;
+
+        // ================================================================ 杭打ちの誘導(プリズムの今の位置 → 出す点までの 前後・左右・上下)と近づき音
+        // プリズムの位置 = 器械点 + 水平距離 ×(方向角 = 杭ナビの水平角 + 向きのずれ hOff)。器械設置で器械点と hOff が決まっていると出る。
+        let guideNow = null;   // { r(残り mm), ok }
+        function prismPos() {
+          const L = KuiNavi.last;
+          if (!KuiNavi.connected || !inst || !L || L.trk !== 2 || L.sd == null || L.v == null || L.h == null || Date.now() - L.t > 3000) return null;
+          const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z), az = norm(L.h * 360 + KuiNavi.hOff);
+          const a = az * Math.PI / 180;
+          return { x: inst.x + hd * 1000 * Math.sin(a), y: inst.y + hd * 1000 * Math.cos(a), az, hd, vd };
+        }
+        const fmtLen = (mm) => (Math.abs(mm) < 1000 ? `${Math.abs(mm).toFixed(0)} mm` : `${(Math.abs(mm) / 1000).toFixed(3)} m`);
+        function renderGuide() {
+          if (!$("gFwd")) return;
+          const p = byName(target), P = p ? prismPos() : null;
+          const lab = (id, t) => { const s = $(id).previousElementSibling; if (s) s.textContent = t; };
+          const opView = ($("cfgGuideView") || {}).value !== "inst";
+          if (!p || !P) {
+            guideNow = null;
+            for (const id of ["gFwd", "gRight", "gDown"]) $(id).textContent = "---";
+            lab("gFwd", opView ? "前へ(杭ナビの方へ)" : "奥へ"); lab("gRight", "右へ"); lab("gDown", "下へ(切り)");
+            $("gRemain").textContent = !p ? "出す点を選んでください" : !inst ? "器械設置をしてください" : !KuiNavi.connected ? "杭ナビにつないでください" : "プリズムを追尾してください";
+            $("gArrow").textContent = "↑"; $("gArrow").style.transform = ""; $("gArrow").classList.remove("ok");
+            return;
+          }
+          const dx = p.x - P.x, dy = p.y - P.y, a = P.az * Math.PI / 180;
+          const along = dx * Math.sin(a) + dy * Math.cos(a);          // 杭ナビから遠ざかる向きが +
+          const side = dx * Math.cos(a) - dy * Math.sin(a);           // 杭ナビから見て右が +
+          const fwd = opView ? -along : along, right = opView ? -side : side;   // 杭ナビに向かって立つ人から見た向き
+          const r = Math.hypot(dx, dy), tol = Number($("cfgTol").value || 10), ok = r <= tol;
+          lab("gFwd", fwd >= 0 ? (opView ? "前へ(杭ナビの方へ)" : "奥へ") : (opView ? "後ろへ" : "手前へ")); $("gFwd").textContent = fmtLen(fwd);
+          lab("gRight", right >= 0 ? "右へ" : "左へ"); $("gRight").textContent = fmtLen(right);
+          const zInst = KuiNavi.zInst, hd = p.h ? p.h * (unitName() === "m" ? 1 : 0.001) : null;
+          if (zInst != null && hd != null && ctDim === "3d") {
+            const cut = (zInst + P.vd - Number($("cfgMirror").value || 0) - hd) * 1000;   // + = 今の地面が高い → 下へ(切り)
+            lab("gDown", cut >= 0 ? "下へ(切り)" : "上へ(盛り)"); $("gDown").textContent = fmtLen(cut);
+          } else { lab("gDown", "下へ(切り)"); $("gDown").textContent = "---"; }
+          $("gRemain").textContent = ok ? `◎ OK(${fmtLen(r)})` : fmtLen(r);
+          $("gArrow").textContent = ok ? "◎" : "↑";
+          $("gArrow").style.transform = ok ? "" : `rotate(${Math.atan2(right, fwd) * 180 / Math.PI}deg)`;
+          $("gArrow").classList.toggle("ok", ok);
+          guideNow = { r, ok };
+        }
+        // 近づき音:残りの距離で音の高さと間隔を変える(遠い:低くゆっくり → 近い:高く速く → 範囲内:ピロリン)
+        const NEAR = [   // [この距離(mm)まで, 音の高さ Hz, 間隔 ms]
+          [100, 2400, 150], [300, 1800, 300], [1000, 1200, 600], [3000, 800, 1100],
+        ];
+        let nearLast = 0, nearOk = false;
+        setInterval(() => {
+          const on = ($("cfgSndNear") || {}).value !== "off";
+          const active = on && guideNow && ((!$("ctlOvl").hidden && ctlTab === "stake") || (typeof mode !== "undefined" && mode === "stake"));
+          if (!active) { nearOk = false; return; }
+          const now = Date.now(), g = guideNow;
+          if (g.ok) { if (!nearOk || now - nearLast > 1500) { nearOk = true; nearLast = now; playTones(SOUNDS.pirorin); } return; }
+          nearOk = false;
+          const band = NEAR.find((b) => g.r <= b[0]); if (!band) return;
+          if (now - nearLast >= band[2]) { nearLast = now; playTones([[band[1], 0, 0.07]]); }
+        }, 50);
+
 
         // ================================================================ 器械設置(後方交会・既知点設置)の計算
         // 流れ:既知点1 を計測 → 既知点2 → (あれば)既知点3・4… → 「終了して計算」
@@ -5564,7 +5630,7 @@
         $("siteImpFile").addEventListener("change", () => { const f = $("siteImpFile").files[0]; if (f) siteImport(f); });
 
         // ---- 設定
-        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol"];
+        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol", "cfgSndNear", "cfgGuideView"];
         try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
         // 操作盤の「プリズム」「ミラー高」はその場で変えられる(設定と同じ値)
         $("csPrism").innerHTML = $("cfgPrism").innerHTML;
@@ -5617,6 +5683,7 @@
           for (const b of $("ctlTabs").children) b.setAttribute("aria-pressed", String(b.dataset.t === t));
           for (const p of document.querySelectorAll("#ctlOvl .ctl-pane")) p.hidden = p.dataset.pane !== t;
           $("ctlOvl").classList.toggle("is-live", t === "live" || t === "list");
+          $("ctlOvl").classList.toggle("is-stake", t === "stake");
           if (t === "live") KuiNavi.send("live", { on: true }); else if (KuiNavi.live) KuiNavi.send("live", { on: false });
           renderCtl();
         }
@@ -5684,6 +5751,7 @@
             if (inst) t += `<br>杭ナビから ${dm(inst, p).toFixed(2)} m・方向角 ${dms(azimuth(inst, p))}`;
             $("ctDesign").innerHTML = t;
           } else $("ctDesign").textContent = "杭打ちで出す点がありません。";
+          renderGuide();
           renderLive();
           renderCList();
         }
