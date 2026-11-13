@@ -556,7 +556,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -3481,7 +3481,7 @@
         let toScreen = (p) => p;
         // 拡大縮小・移動。fit(全体が入る写し方)の上に、倍率 zk と画面の移動量 panX・panY を掛ける
         let zk = 1, panX = 0, panY = 0;
-        const ZMIN = 0.5, ZMAX = 5000;
+        const ZMIN = 0.5, ZMAX = 100000;   // くるくるは公共座標の広い現場もあるので大きく拡大できるように
         let frame = 0;
         const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
         function zoomAt(sx, sy, f) {
@@ -4065,8 +4065,9 @@
           }
           ev.target.value = "";
           if (picks.length) { // 足した点が図の外なら、全部入るように広げる
-            const bb = bboxOf([picks.map((p) => [p.x, p.y]), ...(view ? [[[view.minx, view.miny], [view.maxx, view.maxy]]] : [])]);
-            if (!view || bb.minx < view.minx || bb.miny < view.miny || bb.maxx > view.maxx || bb.maxy > view.maxy) { view = { ...bb }; resetZoom(); }
+            const fb = fitBox(), bb = fb.box;
+            if (bb && (!view || bb.minx < view.minx || bb.miny < view.miny || bb.maxx > view.maxx || bb.maxy > view.maxy)) { view = { ...bb }; resetZoom(); }
+            if (fb.far) msgs.push(farNote(fb.far).trim());
           }
           afterChange();
           setStatus("✓ " + msgs.join("／"));
@@ -4753,14 +4754,25 @@
         let dxfBuf = null, ptOpen = null, filePts = [];
         const scaleDen = () => ($("dScale").value === "custom" ? Number($("dCustom").value) : Number($("dScale").value));
         function drawingK() { try { return TL.drawingFactor($("dUnit").value, scaleDen()); } catch { return null; } }
+        // 「全体」で写す範囲。図面があれば図面に合わせ、図面から大きく離れた点(座標の系が違う点など)は入れない。
+        // (前は点も全部入れていたので、遠くの点があると図面が豆粒になり、拡大しても点が拾いにくかった)
+        function fitBox() {
+          const d = lines.length || filePts.length ? bboxOf([...lines.map((ln) => ln.draw), filePts.map((q) => [q.x, q.y])]) : null;
+          if (!d) return picks.length ? { box: bboxOf([picks.map((p) => [p.x, p.y])]), far: 0 } : { box: null, far: 0 };
+          const m = Math.max(d.maxx - d.minx, d.maxy - d.miny, 1000);
+          const near = picks.filter((p) => p.x > d.minx - m && p.x < d.maxx + m && p.y > d.miny - m && p.y < d.maxy + m);
+          const box = near.length ? bboxOf([[[d.minx, d.miny], [d.maxx, d.maxy]], near.map((p) => [p.x, p.y])]) : d;
+          return { box, far: picks.length - near.length };
+        }
+        function farNote(n) { return n ? `　⚠ 図面から遠く離れた点が ${n} 点あります(座標の系や単位が図面と違うかもしれません)。「寄る」や座標リストで確かめてください。` : ""; }
         function finishLoad(what) {
           if (!lines.length && !filePts.length) { setStatus("線が見つかりません。別の図面をためしてください。", true); view = null; draw(); return; }
-          const bb = bboxOf([...lines.map((ln) => ln.draw), filePts.map((q) => [q.x, q.y]), picks.map((q) => [q.x, q.y])]);
+          const fb = fitBox(), bb = fb.box;
           view = { minx: bb.minx, miny: bb.miny, maxx: bb.maxx, maxy: bb.maxy };
           resetZoom();
           if (!picks.length && mainMode !== "coord") { mainMode = "coord"; setMode(subMode); }
           afterChange();
-          setStatus(`開きました(${what})。` + (picks.length ? ` 前の点 ${picks.length} 点・杭ナビの位置を戻しました。` : " まず ⚙ 座標値設定 で杭を打つ点を作ってください。") + MODE_MSG[mode]);
+          setStatus(`開きました(${what})。` + (picks.length ? ` 前の点 ${picks.length} 点・杭ナビの位置を戻しました。` : " まず ⚙ 座標値設定 で杭を打つ点を作ってください。") + MODE_MSG[mode] + farNote(fb.far));
         }
         function loadLines() {
           hover = null;
