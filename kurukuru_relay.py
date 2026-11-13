@@ -247,6 +247,8 @@ class Video:
             self.note(f"{self.n} 包み・{self.bytes // 1024} KB・1秒に {self.n / sec:.0f} 包み・絵 {self.frames} 枚")
             if self.dump:
                 self.dump.flush()
+        if kind == b"U" and self.rtp(data):   # LN-1000i: RTP で H.264(実機の記録で確認)
+            return
         if kind == b"U":
             soi = data.find(b"\xff\xd8\xff")
             if 0 <= soi < 128:
@@ -286,6 +288,67 @@ class Video:
 
     def reset(self):
         self.buf = bytearray(); self.hdr = None
+        self.au = bytearray(); self.au_ts = None; self.last_seq = None; self.need_key = True; self.au_key = False
+
+    # RTP(H.264)を1コマずつ(Annex B: 00 00 00 01 + NAL …)にまとめてブラウザへ。ページの VideoDecoder が絵にする。
+    def rtp(self, b):
+        if len(b) < 13 or (b[0] & 0xC0) != 0x80 or not (96 <= (b[1] & 0x7F) <= 127):
+            return False
+        if not getattr(self, "rtp_seen", False):
+            self.rtp_seen = True; self.note("H.264(RTP)の映像を受け取りはじめました")
+        if not hasattr(self, "au"):
+            self.reset()
+        mark = b[1] & 0x80
+        seq, ts = struct.unpack(">HI", b[2:8])
+        off, end = 12 + 4 * (b[0] & 15), len(b)
+        if b[0] & 0x10 and off + 4 <= end:
+            off += 4 + 4 * struct.unpack(">H", b[off + 2:off + 4])[0]
+        if b[0] & 0x20:
+            end -= b[-1]
+        if off >= end:
+            return True
+        if self.last_seq is not None and ((seq - self.last_seq) & 0xFFFF) != 1:
+            self.au = bytearray(); self.au_ts = None; self.need_key = True
+        self.last_seq = seq
+        if self.au_ts is not None and ts != self.au_ts:
+            self.flush_au()
+        self.au_ts = ts
+        nh = b[off]; nt = nh & 31
+        if 1 <= nt <= 23:
+            self.au += b"\0\0\0\1" + b[off:end]
+            if nt == 5: self.au_key = True
+        elif nt == 24:
+            i = off + 1
+            while i + 2 <= end:
+                n = struct.unpack(">H", b[i:i + 2])[0]; i += 2
+                if i + n > end: break
+                self.au += b"\0\0\0\1" + b[i:i + n]
+                if b[i] & 31 == 5: self.au_key = True
+                i += n
+        elif nt == 28 and off + 2 <= end:
+            fh = b[off + 1]
+            if fh & 0x80:
+                self.au += b"\0\0\0\1" + bytes([(nh & 0xE0) | (fh & 31)])
+                if fh & 31 == 5: self.au_key = True
+            self.au += b[off + 2:end]
+        if mark:
+            self.flush_au()
+        return True
+
+    def flush_au(self):
+        if self.au:
+            if self.au_key:
+                self.need_key = False
+            if not self.need_key:
+                self.frames += 1
+                if self.frames == 1:
+                    self.note(f"H.264 の1コマ目を受け取りました({len(self.au)} バイト)")
+                if self.client:
+                    try:
+                        self.client.write(ws_frame(bytes(self.au), 2))
+                    except Exception:
+                        pass
+        self.au = bytearray(); self.au_key = False; self.au_ts = None
 
 
 VIDEO = None
