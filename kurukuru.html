@@ -538,7 +538,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.8.3</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.9.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -831,6 +831,13 @@
             <button id="siteAdd" type="button">新規作成</button>
           </div>
           <p class="step-note" id="siteInfo"></p>
+          <div class="field2" style="margin-top:8px">
+            <button type="button" id="siteExp">⬇ この現場を保存(ファイル)</button>
+            <button type="button" id="siteExpAll" class="ghost">⬇ 全部の現場を保存</button>
+          </div>
+          <button type="button" id="siteImp" class="ghost" style="margin-top:8px">⬆ 保存した現場を読み込む</button>
+          <input type="file" id="siteImpFile" accept="*/*" hidden />
+          <p class="step-note">「保存」で、現場の図面・座標リスト・器械点・打った杭・設定を1つのファイル(kurukuru_site_日付.json など)にまとめて、スマホの「ダウンロード」に保存します。バックアップや、別のスマホ・PC へ渡すのに使えます。読み込むと、その現場がこの端末に入ります。</p>
           <button class="ghost warnbtn" id="siteDel" type="button" style="margin-top:8px">この現場を消す(保存した図面・座標も消える)</button>
           <p class="step-note">現場ごとに、図面と座標データ(点・既知点・杭ナビの位置・打った杭)をこの端末に自動で保存します。現場を切り替えると、その現場の図面と点がそのまま開きます。半角英数の現場名は、書き出すファイル名にも使います(TopLayout の現場名と同じにしておくと分かりやすい)。</p>
         </div>
@@ -1090,7 +1097,7 @@
         <h3>🔗 杭ナビにつなぐ(テスト版・Android)</h3>
         <p>杭ナビと TopLayout のやりとりを読み解いて、くるくる回し太郎からも動かせるようにしました。ブラウザは杭ナビに直接つなげないので、スマホで「くるくる中継」(くるくる中継.py)を動かして間に立たせます。くわしい手順は 🎛 操作盤の下の「🔗 杭ナビへのつなぎ方(Android)」にあります(中継のダウンロード・コマンドのコピーもそこから)。◁▷ は押している間だけ回ります。点の方向へ回すには、器械設置で「🧭 向きを合わせる」(既知点1のプリズムを追尾して押す)をしてください。</p>
         <h3>🏗 現場</h3>
-        <p>メニューの「現場」で現場を作ると、図面と座標データ(点・既知点・杭ナビの位置・打った杭)を現場ごとにこの端末へ自動で保存します。アプリを閉じても、別の図面を開いても点は消えません(現場を開いているときに図面を開くと、図面だけ入れ替わります)。現場を切り替えると、その現場の図面と点が開きます。</p>
+        <p>メニューの「現場」で現場を作ると、図面と座標データ(点・既知点・杭ナビの位置・打った杭)を現場ごとにこの端末へ自動で保存します。アプリを閉じても、別の図面を開いても点は消えません(現場を開いているときに図面を開くと、図面だけ入れ替わります)。現場を切り替えると、その現場の図面と点が開きます。「⬇ この現場を保存」で現場を丸ごと1つのファイル(kurukuru_〜.json)にしてダウンロードでき、「⬆ 保存した現場を読み込む」で別のスマホや PC にそのまま入れられます(バックアップにも)。ブラウザのデータを消すと端末の中の現場も消えるので、ときどきファイルに保存しておくと安心です。</p>
         <h3>📋 座標リスト</h3>
         <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・既知点1/2にする・LIVE で見る、ができます。① 据付・器械設置の「📋 リストから選ぶ」から開くと、タップした点がそのまま後方交会の既知点になります。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
         <h3>注意</h3>
@@ -5139,6 +5146,65 @@
           site = ""; store("kr.site", ""); renderSites(); renderNaviBar();
           setStatus(`現場「${n}」を消しました(いま画面に出ている図面と点はそのまま残っています)。`);
         });
+
+        // ---- 現場を丸ごとファイルに保存・読み込み(〜_現場.json)
+        function b64of(bytes) {
+          const u = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes); let out = "";
+          for (let i = 0; i < u.length; i += 0x8000) out += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+          return btoa(out);
+        }
+        function bytesOf(b64) { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+        async function sitePack(n) {
+          const st = await siteGet("state", n), fl = await siteGet("files", n);
+          return { name: n, state: st || null, file: fl && fl.bytes ? { name: fl.name, type: fl.type, lastModified: fl.lastModified, b64: b64of(fl.bytes) } : null };
+        }
+        function ymd() { const d = new Date(), p2 = (v) => String(v).padStart(2, "0"); return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}`; }
+        async function siteExport(all) {
+          try {
+            if (!all && !site) { alert("先に現場を選ぶか、新しく作ってください(いまの図面と点を入れられます)。"); return; }
+            if (all && !sites.length) { alert("保存されている現場がありません。"); return; }
+            await siteSaveNow().catch(() => { });
+            const list = all ? sites : [site], packs = [];
+            for (const n of list) packs.push(await sitePack(n));
+            const pts = packs.reduce((a, q) => a + (q.state && q.state.picks ? q.state.picks.length : 0), 0);
+            const data = JSON.stringify({ kind: "kurukuru-site", v: 1, app: "くるくる回し太郎", at: new Date().toISOString(), sites: packs });
+            const asc = all ? "all" : (String(site).replace(/[^0-9A-Za-z_-]/g, "").slice(0, 20) || "site"), d = new Date();
+            const name = `kurukuru_${asc}_${ymd()}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}.json`;   // 日本語のファイル名は端末によって「download」になるので英数字だけ
+            download(data, name, "application/json");
+            setStatus(`⬇ ${all ? `現場 ${packs.length} 件` : `現場「${site}」`}を「${name}」に保存しました(図面 ${packs.filter((q) => q.file).length}・点 ${pts})。スマホの「ダウンロード」に入っています。`);
+          } catch (e) { setStatus("⚠ 現場を保存できません: " + e.message, true); }
+        }
+        async function siteImport(f) {
+          let o;
+          try { o = JSON.parse(await f.text()); } catch (e) { alert("現場のファイルとして読めません(kurukuru_〜.json を選んでください)。"); return; }
+          if (!o || o.kind !== "kurukuru-site" || !Array.isArray(o.sites) || !o.sites.length) { alert("くるくる回し太郎で保存した現場のファイルではありません。"); return; }
+          await siteSaveNow().catch(() => { });
+          const done = [];
+          try {
+            for (const q of o.sites) {
+              if (!q || !q.name) continue;
+              let n = String(q.name).slice(0, 30);
+              if (sites.includes(n) && !confirm(`現場「${n}」はこの端末にもうあります。ファイルの中身で上書きしますか?\n(キャンセル=別の名前で入れる)`)) {
+                let i = 2; while (sites.includes(`${n}(${i})`)) i++; n = `${n}(${i})`;
+              }
+              if (q.state) await sitePut("state", n, q.state); else await siteDelRec("state", n);
+              if (q.file && q.file.b64) await sitePut("files", n, { name: q.file.name, type: q.file.type || "", lastModified: q.file.lastModified || Date.now(), bytes: bytesOf(q.file.b64) });
+              else await siteDelRec("files", n);
+              if (!sites.includes(n)) sites.push(n);
+              done.push(n);
+            }
+          } catch (e) { setStatus("⚠ 現場を読み込めません(容量が足りないかもしれません): " + e.message, true); }
+          store("kr.sites", JSON.stringify(sites));
+          if (!done.length) { renderSites(); return; }
+          const first = done[0];
+          if (first === site) { await loadSite(site); renderSites(); renderNaviBar(); renderOut(); }
+          else await setSite(first);
+          setStatus(`⬆ 現場 ${done.map((n) => "「" + n + "」").join("")}を読み込みました。いまは「${first}」を開いています(ほかの現場はメニュー › 現場 で切り替え)。`);
+        }
+        $("siteExp").addEventListener("click", () => siteExport(false));
+        $("siteExpAll").addEventListener("click", () => siteExport(true));
+        $("siteImp").addEventListener("click", () => { $("siteImpFile").value = ""; $("siteImpFile").click(); });
+        $("siteImpFile").addEventListener("change", () => { const f = $("siteImpFile").files[0]; if (f) siteImport(f); });
 
         // ---- 設定
         const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre"];
