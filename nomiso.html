@@ -269,7 +269,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーンforRAPID</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.3</small></h1>
+      <h1><span id="appName">脳みそバーンforRAPID</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -382,7 +382,10 @@
             <button type="button" data-a="v" aria-pressed="false">垂直</button>
             <button type="button" data-a="ang" aria-pressed="false">角度</button>
             <button type="button" data-a="par" aria-pressed="false">平行</button>
+            <button type="button" data-a="perp" aria-pressed="false">垂線</button>
+            <button type="button" data-a="bis" aria-pressed="false">中心線</button>
             <button type="button" data-a="circ" aria-pressed="false">補助円</button>
+            <button type="button" data-a="erase" aria-pressed="false">消す</button>
           </div>
           <div id="eAuxAngBox" hidden>
             <label class="big-label sm" for="eAuxAng" id="eAuxAngL">角度(°)</label>
@@ -413,6 +416,12 @@
           <button class="big primary" id="eDxf" type="button" disabled>⬇　DXF</button>
           <button class="ghost warnbtn" id="eReset" type="button" disabled>直したのを全部もどす</button>
         </div>
+        <div class="field2">
+          <button class="ghost" id="eSave" type="button" disabled>💾 変更を保存</button>
+          <button class="ghost" id="eLoad" type="button">📂 変更を読み込む</button>
+          <input id="eLoadFile" type="file" accept=".json,application/json" hidden />
+        </div>
+        <p class="step-note">「変更を保存」で、直した内容を<b>ファイル(.json)</b>にします。別のスマホや PC で<b>同じ図面を開いてから</b>「変更を読み込む」で続きができます(他の人にも渡せます)。<span class="warn">図面そのものは入りません(図面は別に開いてください)。</span></p>
         <p class="step-note">直した図面は <b>DXF</b> で書き出します(図脳RAPID の「DXF 読み込み」で開けます)。直したところはこのスマホに覚えておき、同じ図面を開き直すと戻ります。<span class="warn">元の図脳ファイル(.zrd など)は書き換えません。</span></p>
       </section>
 
@@ -457,7 +466,8 @@
         <h3>座標</h3>
         <ul><li>点をタップすると座標が一覧に入る。図面に公共座標(座標の原点)が設定されていれば X=北・Y=東。</li><li>一覧はコピー・CSV で書き出せる。</li></ul>
         <h3>直す</h3>
-        <ul><li><b>えらぶ</b> → 消す・数字で動かす・2 点で動かす・文字を直す(コピーもできる)。</li><li><b>線</b>：点を順にタップ →「ここで終わる」。</li><li><b>補助線</b>：水平・垂直・角度は、通る点をタップ。平行は、元の線をタップ → 距離を入れてその側をタップ(距離 0 なら通る点をタップ。円・円弧なら同じ中心の補助円)。補助円は、中心をタップ → 半径を入れておくか、2 回目のタップで半径。補助線は点線で出て、交点・線の上に吸い付く。えらぶ で消す・動かす。DXF には、チェックしたときだけ入る。</li><li><b>× 記号</b>：大きさを入れて、置く所をタップ。図面の × も えらぶ で消す・動かす・写すができる。</li><li><b>文字</b>：文字と高さを入れて、置く所をタップ。</li><li>まちがえたら左上の「↶ 戻す」。</li><li>直した図面は <b>DXF</b> で書き出す(元の図脳ファイルは書き換えない)。</li></ul>
+        <ul><li><b>えらぶ</b> → 消す・数字で動かす・2 点で動かす・文字を直す(コピーもできる)。</li><li><b>線</b>：点を順にタップ →「ここで終わる」。</li><li><b>補助線</b>：水平・垂直・角度は、通る点をタップ。平行は、元の線をタップ → 距離を入れてその側をタップ(距離 0 なら通る点をタップ。円・円弧なら同じ中心の補助円)。<b>垂線</b>は、もとにする線(または円・円弧)をタップ → 通る点をタップ(その線に直角。円・円弧は中心へ向かう線)。<b>中心線</b>は、2 点をタップ(2 点のまん中を通り、2 点を結ぶ線に直角)。補助円は、中心をタップ → 半径を入れておくか、2 回目のタップで半径。補助線は点線で出て、交点・線の上に吸い付く。<b>消す</b>で補助線を 1 本タップして消す、「補助線を全部消す」でまとめて消す(えらぶ でも消せる)。DXF には、チェックしたときだけ入る。</li>
+          <li><b>変更の保存・読み込み</b>：「💾 変更を保存」で直した内容をファイル(.json)にして、別のスマホ・PC で<b>同じ図面を開いてから</b>「📂 変更を読み込む」で続きができます(図面そのものは入りません)。</li><li><b>× 記号</b>：大きさを入れて、置く所をタップ。図面の × も えらぶ で消す・動かす・写すができる。</li><li><b>文字</b>：文字と高さを入れて、置く所をタップ。</li><li>まちがえたら左上の「↶ 戻す」。</li><li>直した図面は <b>DXF</b> で書き出す(元の図脳ファイルは書き換えない)。</li></ul>
         <h3>注意</h3>
         <ul><li class="warn">ドライブの「プレビュー」では動きません。ブラウザで開いてください。</li><li>線の種類(点線など)と色は区別せず、同じ線で描きます。</li><li>これは<b>テスト版</b>です。</li></ul>
         <button class="ghost close" id="helpClose" type="button">閉じる</button>
@@ -3498,7 +3508,7 @@
           }
         }
         // ---- 補助線
-        const AUXN = { h: "水平", v: "垂直", ang: "角度", par: "平行", circ: "補助円" };
+        const AUXN = { h: "水平", v: "垂直", ang: "角度", par: "平行", perp: "垂線", bis: "中心線", circ: "補助円", erase: "消す" };
         const uf = () => (unitName() === "m" ? 1000 : 1);
         // 角度の入れ方: 公共座標なら方向角(北から右回り)、図面のままなら横から左回り
         function angDir(deg) { const t = deg * Math.PI / 180; return axis() === "northEast" ? [Math.sin(t), Math.cos(t)] : [Math.cos(t), Math.sin(t)]; }
@@ -3517,6 +3527,18 @@
           });
           return bd <= r ? best : null;
         }
+        // 指のそばの補助線(いちばん近い補助線)のキー
+        function auxAt(sx, sy) {
+          if (!view) return null;
+          const R = 24, m = baseMap(), r = R / m.a, [cx, cy] = toDrawing(sx, sy);
+          let best = null, bd = Infinity;
+          query(cx - r, cy - r, cx + r, cy + r, (i) => {
+            const e = vis[i]; if (!e.aux) return;
+            const pts = e.draw, nn = e.closed ? pts.length : pts.length - 1;
+            for (let k = 0; k < nn; k++) { const a = pts[k], b = pts[(k + 1) % pts.length], d = distToSeg(cx, cy, a[0], a[1], b[0], b[1]); if (d < bd) { bd = d; best = e.key; } }
+          });
+          return bd <= r ? best : null;
+        }
         function auxNote() {
           const ne = axis() === "northEast";
           $("eAuxAngL").textContent = ne ? "方向角(°・北から右回り)" : "角度(°・横から左回り)";
@@ -3525,7 +3547,14 @@
           $("eAuxAngBox").hidden = aKind !== "ang"; $("eAuxParBox").hidden = aKind !== "par"; $("eAuxCircBox").hidden = aKind !== "circ";
           $("eAuxCancel").disabled = !auxSt && !auxPickAng;
           $("eAuxClear").disabled = !lines.some((l) => l.aux);
-          return aKind === "par" ? "① 元にする線(または円)をタップしてください。" : aKind === "circ" ? "① 補助円の中心をタップしてください(吸い付きます)。" : `${AUXN[aKind]}の補助線が通る点をタップしてください(吸い付きます)。`;
+          const NOTE1 = {
+            par: "① 元にする線(または円)をタップしてください。",
+            circ: "① 補助円の中心をタップしてください(吸い付きます)。",
+            perp: "① 直角のもとにする線(または円・円弧)をタップしてください。",
+            bis: "① 1 点目をタップしてください(2 点のまん中を通る中心線)。",
+            erase: "消したい補助線をタップしてください(1 本ずつ消えます)。",
+          };
+          return NOTE1[aKind] || `${AUXN[aKind]}の補助線が通る点をタップしてください(吸い付きます)。`;
         }
         function addAux(op, msg) { auxSt = null; addOp({ t: "aux", ...op, layer: "補助線" }); setStatus(msg + " 続けて引けます(↶ 戻す で消せます)。"); auxNote(); }
         function auxTap(sx, sy) {
@@ -3540,6 +3569,39 @@
             const s = snapAt(sx, sy); hover = s;
             const d = aKind === "h" ? [1, 0] : aKind === "v" ? [0, 1] : angDir(Number($("eAuxAng").value) || 0);
             addAux({ a: "line", x: s.x, y: s.y, dx: d[0], dy: d[1] }, `✓ ${AUXN[aKind]}の補助線を引きました(${KIND[s.kind]}を通る)。`);
+            return;
+          }
+          if (aKind === "perp") {
+            if (!auxSt) {
+              const sg = segAt(sx, sy);
+              if (!sg) { setStatus("そばに線・円がありません。拡大してからタップしてください。", true); return; }
+              if (sg.ent.arc) { auxSt = { arc: sg.ent.arc, ent: sg.ent, center: sg.ent.arc.center }; setStatus("② 円の中心へ向かう線を通す点をタップしてください(吸い付きます)。"); }
+              else { const a = sg.a, b = sg.b, L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; auxSt = { seg: sg, dir: [-u[1], u[0]] }; setStatus("② 垂線が通る点をタップしてください(吸い付きます)。"); }
+              auxNote(); return;
+            }
+            const s = snapAt(sx, sy); hover = s;
+            if (auxSt.center) {
+              const c = auxSt.center, dx = c[0] - s.x, dy = c[1] - s.y, L = Math.hypot(dx, dy);
+              if (!(L > 0)) { setStatus("⚠ 中心と同じ点です。別の点をタップしてください。", true); return; }
+              addAux({ a: "line", x: s.x, y: s.y, dx: dx / L, dy: dy / L }, `✓ 中心へ向かう垂線を引きました(${KIND[s.kind]}を通る)。`);
+            } else {
+              addAux({ a: "line", x: s.x, y: s.y, dx: auxSt.dir[0], dy: auxSt.dir[1] }, `✓ 垂線を引きました(${KIND[s.kind]}を通る)。`);
+            }
+            return;
+          }
+          if (aKind === "bis") {
+            const s = snapAt(sx, sy); hover = s;
+            if (!auxSt) { auxSt = { c: s }; setStatus("② もう 1 点をタップしてください(2 点のまん中を通ります)。"); auxNote(); return; }
+            const p1 = auxSt.c, dX = s.x - p1.x, dY = s.y - p1.y, L = Math.hypot(dX, dY);
+            if (!(L > 0)) { setStatus("⚠ 同じ点です。別の点をタップしてください。", true); return; }
+            const mx = (p1.x + s.x) / 2, my = (p1.y + s.y) / 2, u = [dX / L, dY / L], nv = [-u[1], u[0]];
+            addAux({ a: "line", x: mx, y: my, dx: nv[0], dy: nv[1] }, `✓ 中心線を引きました(2 点のまん中・直角)。`);
+            return;
+          }
+          if (aKind === "erase") {
+            const k = auxAt(sx, sy);
+            if (!k) { setStatus("そばに補助線がありません。拡大してからタップしてください。", true); return; }
+            addOp({ t: "del", keys: [k] }); sel.delete(k); selChanged(); auxNote(); setStatus("✓ 補助線を 1 本消しました(↶ 戻す で戻せます)。");
             return;
           }
           if (aKind === "par") {
@@ -3612,6 +3674,7 @@
           selChanged();
           $("tUndo").disabled = ops.length === 0;
           $("eReset").disabled = ops.length === 0;
+          $("eSave").disabled = ops.length === 0;
           $("eDxf").disabled = !view;
           const c = { del: 0, move: 0, line: 0, text: 0, edtext: 0, aux: 0, mark: 0 };
           for (const o of ops) c[o.t] = (c[o.t] || 0) + 1;
@@ -3664,6 +3727,27 @@
         });
         function saveOps() { if (fileKey) store("nb.ops:" + fileKey, JSON.stringify(ops)); }
         function loadOps() { ops = []; const s = fileKey && load("nb.ops:" + fileKey); if (s) try { ops = JSON.parse(s) || []; } catch (e) { ops = []; } }
+        // 変更内容をファイルに保存／読み込み(図面は入れない。同じ図面を開いてから読む)
+        $("eSave").addEventListener("click", () => {
+          if (!ops.length) { setStatus("まだ直したところがありません。", true); return; }
+          const data = JSON.stringify({ app: "nomiso", v: 1, file: (lastFile && lastFile.name) || "", key: fileKey || "", at: Date.now(), ops });
+          const base = ((lastFile && lastFile.name) || "図面").replace(/\.[^.]+$/, "");
+          download(data, safeName(base) + "_変更.json", "application/json");
+          setStatus(`✓ 変更を保存しました(${ops.length} 件)。別のスマホ・PC で同じ図面を開いてから読み込めます。`);
+        });
+        $("eLoad").addEventListener("click", () => $("eLoadFile").click());
+        $("eLoadFile").addEventListener("change", async (ev) => {
+          const f = ev.target.files && ev.target.files[0]; ev.target.value = "";
+          if (!f) return;
+          if (!view) { setStatus("先に図面を開いてから、変更を読み込んでください。", true); return; }
+          let data;
+          try { data = JSON.parse(await f.text()); } catch (e) { setStatus("⚠ このファイルは読めません(.json を選んでください)。", true); return; }
+          if (!data || data.app !== "nomiso" || !Array.isArray(data.ops)) { setStatus("⚠ 脳みそバーンの変更ファイルではないようです。", true); return; }
+          if (ops.length && !confirm(`いまの直したところ ${ops.length} 件を、読み込んだ ${data.ops.length} 件で置きかえます。よろしいですか?`)) return;
+          const diff = data.key && fileKey && data.key !== fileKey;
+          ops = data.ops; sel.clear(); rebuild(); saveOps(); afterEdit();
+          setStatus((diff ? "⚠ 別の図面の変更かもしれません。ズレたら「↶ 戻す」や「全部もどす」で戻してください。 " : "") + `✓ 変更を読み込みました(${data.ops.length} 件)。`);
+        });
 
         // ---------------------------------------------------------------- DXF に書き出す(直した図面)
         let SJ = null;
