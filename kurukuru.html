@@ -545,7 +545,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.10.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.10.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -860,7 +860,7 @@
             <div><label class="big-label sm" for="cfgTol">杭打ちの OK 範囲 (mm)</label><input id="cfgTol" type="number" step="1" inputmode="decimal" value="10" /></div>
           </div>
           <div class="field2">
-            <div><label class="big-label sm" for="cfgModel">器械</label><select id="cfgModel"><option>LN-150</option><option>LN-100</option><option>LN-160</option><option>LN-1000i</option></select></div>
+            <div><label class="big-label sm" for="cfgModel">器械</label><select id="cfgModel"><option selected>LN-1000i</option><option>LN-150</option><option>LN-100</option><option>LN-160</option></select></div>
             <div><label class="big-label sm" for="cfgLink">つなぎ方</label><select id="cfgLink"><option value="wifi">無線LAN(くるくる中継)</option><option value="bt">Bluetooth(Chrome から直接・Termux なし・ためし)</option></select></div>
             <div><label class="big-label sm" for="cfgRelay">くるくる中継のアドレス</label><input id="cfgRelay" type="text" value="ws://127.0.0.1:8766" autocomplete="off" spellcheck="false" /></div>
           </div>
@@ -896,7 +896,7 @@
         </div>
         <!-- 器械の状態 -->
         <div class="ctl-status">
-          <div><small>器械</small><b id="csModel">LN-150</b></div>
+          <div><small>器械</small><b id="csModel">LN-1000i</b></div>
           <div><small>電池</small><b id="csBatt">--%</b></div>
           <div><small>整準</small><b id="csLevel">--</b></div>
           <div><small>レーザー</small><b id="csLaser">OFF</b></div>
@@ -1103,7 +1103,7 @@
     <div class="help-overlay" id="help">
       <div class="help-card">
         <h2>くるくる回し太郎 ― 使い方</h2>
-        <p>杭ナビ（LN-150 ＋ TopLayout）で杭を打つための段取りアプリです。図面（DXF・図脳RAPID）か点ファイル（CSV・SIMA）を開いて、杭を打つ点を作り、杭ナビを置く場所と既知点2点を決め、TopLayout 用のファイルを書き出し、打った杭を照らし合わせます。スマホのブラウザだけで動きます（オフライン可）。杭ナビ本体を動かすのは TopLayout です。</p>
+        <p>杭ナビ（LN-1000i・LN-150 など ＋ TopLayout）で杭を打つための段取りアプリです。図面（DXF・図脳RAPID）か点ファイル（CSV・SIMA）を開いて、杭を打つ点を作り、杭ナビを置く場所と既知点2点を決め、TopLayout 用のファイルを書き出し、打った杭を照らし合わせます。スマホのブラウザだけで動きます（オフライン可）。杭ナビ本体を動かすのは TopLayout です。</p>
         <h3>画面</h3>
         <p>ふだんは <b>① 据付 → ② 杭打ち → ③ 確認</b> の順に使います。杭を打つ点(座標値)を作る・直すときだけ <b>⚙ 座標値設定</b> を開きます。</p>
         <ol>
@@ -4924,7 +4924,7 @@
             if (cmd === "PFILD") return this.field(f);
             if (/^E\d+$/.test(f[1]) && f.length === 3) { ctlLogAdd(`← ${ln} ${KERR[f[1]] || "(エラー)"}`); if (f[1] !== "E297") setStatus(`杭ナビ:${cmd} がエラー ${f[1]} ${KERR[f[1]] || ""}`); return; }
             ctlLogAdd(`← ${ln}`);
-            if (cmd === "ONUMB") { this.model = f[1]; $("csModel").textContent = f[1]; if ([...$("cfgModel").options].some((o) => o.text === f[1])) $("cfgModel").value = f[1]; setStatus(`🔗 ${f[1]}(${f[2]})につながりました。`); renderLive(); }
+            if (cmd === "ONUMB") { this.model = f[1]; $("csModel").textContent = f[1]; if ([...$("cfgModel").options].some((o) => o.text === f[1])) { $("cfgModel").value = f[1]; $("cfgModel").dispatchEvent(new Event("change")); } setStatus(`🔗 ${f[1]}(${f[2]})につながりました。`); renderLive(); }
             if (cmd === "MBATT") { this.batt = f[1]; $("csBatt").textContent = `${f[1]}/5`; }
           },
           field(f) {
