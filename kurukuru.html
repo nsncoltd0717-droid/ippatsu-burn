@@ -579,6 +579,9 @@
       #kDone, #kResult { scroll-margin-top: 130px; }
       .garrow { transition: transform .2s; } .garrow.ok { color: #16a34a; }
       .ovl.ctl.is-stake > .ovl-card > .msg.warn { display: none; }   /* 杭打ちでは誘導の表示を大きく見せる */
+
+      #stTable .k { color: var(--known); font-size: 11px; font-weight: 800; margin-left: 3px; }
+      #stTable tr.sub-h td { color: var(--sub); font-size: 12px; font-weight: 700; padding-top: 10px; border-top: 1px solid var(--line, #ccc); }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -596,7 +599,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.18.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.19.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -4009,8 +4012,8 @@
           if (mode === "stake") {
             const s = snapAt(sx, sy, true);
             const p = s && s.kind === "pick" ? byName(s.label) : null;
-            if (p && roleOf(p) === "design") { target = p.name; renderStake(); draw(); }
-            else setStatus("杭を打つ点(オレンジの丸)の近くをタップしてください。", true);
+            if (p) { target = p.name; renderStake(); draw(); if (roleOf(p) === "known") setStatus(`📍 既知点 ${p.name} を出す点にしました(確かめ用。打った数には入りません)。`); }
+            else setStatus("杭を打つ点(オレンジの丸)か既知点(三角)の近くをタップしてください。", true);
             return;
           }
           // ほかのモード：近くの拾った点を選ぶ
@@ -4660,13 +4663,13 @@
         function renderStake() {
           const ds = designs(), done = ds.filter((p) => p.done).length;
           let p = byName(target);
-          if (p && roleOf(p) !== "design") { target = null; p = null; }
           if (!p && ds.length) { const n = nextTarget(); if (n) { target = n.name; p = n; } }
-          $("stDone").disabled = !p; $("stNext").disabled = !ds.length;
+          const pk = !!p && roleOf(p) === "known";   // 既知点(基地点)も出す点に選べる。確かめ用なので「打った」は付けない
+          $("stDone").disabled = !p || pk; $("stNext").disabled = !ds.length;
           $("stDone").textContent = p && p.done ? "↺ 打っていない に戻す" : "✓ 打った";
           $("stProg").textContent = ds.length ? `打った杭 ${done} / ${ds.length} 点(のこり ${ds.length - done} 点)` : "";
-          if (!ds.length) { $("stakeCard").innerHTML = msgHtml([{ c: "warn", t: "杭を打つ点(設計点)がありません。「⚙ 座標値設定」で点を作るか、点ファイルを入れてください。" }]); $("stTable").textContent = ""; return; }
-          if (!p) { $("stakeCard").innerHTML = msgHtml([{ c: "ok", t: `全部(${ds.length} 点)打ちました。③ 確認 で照らし合わせてください。` }]); }
+          if (!ds.length && !pk && !knowns().length) { $("stakeCard").innerHTML = msgHtml([{ c: "warn", t: "杭を打つ点(設計点)がありません。「⚙ 座標値設定」で点を作るか、点ファイルを入れてください。" }]); $("stTable").textContent = ""; return; }
+          if (!p) { $("stakeCard").innerHTML = msgHtml([ds.length ? { c: "ok", t: `全部(${ds.length} 点)打ちました。③ 確認 で照らし合わせてください。` } : { c: "warn", t: "杭を打つ点(設計点)がありません。下の一覧の既知点をタップすると、その点を出せます。" }]); }
           else {
             const [X, Y] = fmtXY(p.x, p.y), [nx, ny] = axisNames();
             let rows = `<span>${nx}</span><b>${X}</b><span>${ny}</span><b>${Y}</b><span>H</span><b>${fmtH(p.h)} ${unitName()}</b>`;
@@ -4680,12 +4683,18 @@
             const prev = picks.filter((q) => q.done && q !== p);
             const near = prev.length ? prev.reduce((a, b) => (dmm(a, p) < dmm(b, p) ? a : b)) : null;
             if (near) rows += `<span>近くの打った杭(${esc(near.name)})から</span><b>${dm(near, p).toFixed(2)} m</b>`;
-            $("stakeCard").innerHTML = `<div class="sc-label">${p.done ? "打った点" : "次に打つ点"}</div><div class="sc-name${p.done ? " isdone" : ""}">${esc(p.name)}${p.done ? " ✓" : ""}</div><div class="kv2">${rows}</div>`;
+            $("stakeCard").innerHTML = `<div class="sc-label">${pk ? "既知点(基地点)" : p.done ? "打った点" : "次に打つ点"}</div><div class="sc-name${p.done ? " isdone" : ""}">${esc(p.name)}${p.done ? " ✓" : ""}</div><div class="kv2">${rows}</div>`;
           }
           const tb = $("stTable"), hide = $("stHide").checked;
           const list = stakeOrder(p || inst).filter((q) => !hide || !q.done || q === p);
           let t = `<tr><th></th><th>点名</th><th>杭ナビから</th><th>打った</th></tr>`;
           for (const q of list.slice(0, 300)) t += `<tr class="${q === p ? "cur" : ""}${q.done ? " dn" : ""}" data-n="${esc(q.name)}"><td>${q === p ? "▶" : ""}</td><td>${esc(q.name)}</td><td>${inst ? dm(inst, q).toFixed(1) + " m" : ""}</td><td><input type="checkbox" data-dn="${esc(q.name)}" ${q.done ? "checked" : ""} /></td></tr>`;
+          const ks = knowns();   // 既知点(基地点)も下に並べて、タップで出す点に選べるようにする
+          if (ks.length) {
+            const ko = $("stOrder").value === "name" ? [...ks].sort((a, b) => a.name.localeCompare(b.name, "ja", { numeric: true })) : $("stOrder").value === "near" && (p || inst) ? [...ks].sort((a, b) => dmm(p || inst, a) - dmm(p || inst, b)) : ks;
+            t += `<tr class="sub-h"><td></td><td colspan="3">既知点(基地点)・確かめ用</td></tr>`;
+            for (const q of ko.slice(0, 300)) t += `<tr class="${q === p ? "cur" : ""} kn" data-n="${esc(q.name)}"><td>${q === p ? "▶" : ""}</td><td>${esc(q.name)} <span class="k">既知</span></td><td>${inst ? dm(inst, q).toFixed(1) + " m" : ""}</td><td></td></tr>`;
+          }
           tb.innerHTML = t;
         }
         $("stDone").addEventListener("click", () => {
@@ -5805,7 +5814,7 @@
             const list = stakeOrder(null), i = list.findIndex((q) => q.name === target);
             const q = list[(i + (act === "nextPt" ? 1 : -1) + list.length) % list.length]; if (q) { target = q.name; afterChange(); }
           }
-          if (act === "stakeDone") { const p = byName(target); if (p) { p.done = true; const n = nextTarget(); if (n) target = n.name; afterChange(); } }
+          if (act === "stakeDone") { const p = byName(target); if (p && roleOf(p) === "known") setStatus(`${p.name} は既知点(確かめ用)なので、打った印は付けません。`); else if (p) { p.done = true; const n = nextTarget(); if (n) target = n.name; afterChange(); } }
           KuiNavi.send(act, Object.keys(args).length ? args : null);
           if (/^rot|^stop$/.test(act)) liveRot(act);
           if (!["nextPt", "prevPt", "stakeDone", "measure"].includes(act) || !KuiNavi.connected) setStatus(KuiNavi.connected ? `🎛 「${ACT[act] || act}」を送りました。` : `🎛 「${ACT[act] || act}」…杭ナビにつながっていないので、記録だけしました(🔗 つなぐ)。`);
