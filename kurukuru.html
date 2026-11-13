@@ -539,6 +539,19 @@
 
       table.pts input.xy { width: 8.5em; min-width: 0; }
       #ptAdd { margin: 6px 0 8px; width: 100%; }
+
+      /* 点の一覧: 1点を2段にして、スマホの幅に収める */
+      table.pts.pts-cards td { padding: 6px 0; text-align: left; white-space: normal; }
+      .pt-card { display: grid; gap: 6px; }
+      .pt-top { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
+      #ptsTable .pt-top input.nm { width: 100%; min-width: 0; text-align: left; font-weight: 700; }
+      .pt-xyz { display: grid; grid-template-columns: 1.25fr 1.25fr 0.7fr; gap: 4px; }
+      .pt-xyz label { display: block; min-width: 0; }
+      .pt-xyz small { display: block; font-size: 11px; color: var(--sub); font-weight: 600; margin: 0 0 2px 2px; }
+      #ptsTable .pt-xyz input { width: 100%; min-width: 0; font-size: 13.5px; padding: 6px 3px; letter-spacing: -0.2px; text-align: right; }
+      table.pts tr.bad .pt-top input.nm { border-color: var(--accent2); color: var(--accent2); }
+      #ptsTable .pt-xyz input::-webkit-inner-spin-button, #ptsTable .pt-xyz input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      #ptsTable .pt-xyz input { -moz-appearance: textfield; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -556,7 +569,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.2</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -4290,17 +4303,23 @@
           if (!picks.length) { $("listNote").textContent = "まだ点がありません。「拾う」「逃げ墨」で点を作るか、点ファイルを足してください。"; return; }
           $("listNote").textContent = `点名・X・Y・H はここで直せます。種類のボタンで 設計⇔既知 を入れ替え、✕ で消します。`;
           const [nx, ny] = axisNames();
-          const hr = tb.insertRow();
-          for (const t of ["点名", "種類", nx, ny, `H(${unitName()})`, ""]) { const th = document.createElement("th"); th.textContent = t; hr.appendChild(th); }
+          // スマホの幅で横にずらさなくても見えるように、1点を2段(点名・種類・✕ / X・Y・H)で出す
+          tb.classList.add("pts-cards");
+          const [hx, hy] = [nx, ny];
           picks.forEach((p, i) => {
             const tr = tb.insertRow();
             if (!NAME_OK.test(p.name)) tr.className = "bad";
             const [X, Y] = fmtXY(p.x, p.y);
-            const c0 = tr.insertCell(); const inN = document.createElement("input"); inN.value = p.name; inN.dataset.i = i; inN.dataset.f = "name"; inN.className = "nm"; c0.appendChild(inN);
-            const c1 = tr.insertCell(); const rb = document.createElement("button"); rb.type = "button"; rb.className = "role " + roleOf(p); rb.textContent = roleOf(p) === "known" ? "既知" : "設計"; rb.dataset.role = i; c1.appendChild(rb);
-            for (const [f, v] of [["dx", X], ["dy", Y]]) { const c = tr.insertCell(); const inp = document.createElement("input"); inp.type = "number"; inp.step = "0.001"; inp.inputMode = "decimal"; inp.value = v; inp.dataset.i = i; inp.dataset.f = f; inp.className = "xy"; c.appendChild(inp); }
-            const c3 = tr.insertCell(); const inH = document.createElement("input"); inH.type = "number"; inH.step = "0.001"; inH.inputMode = "decimal"; inH.value = fmtH(p.h); inH.dataset.i = i; inH.dataset.f = "h"; c3.appendChild(inH);
-            const c4 = tr.insertCell(); const del = document.createElement("button"); del.type = "button"; del.className = "ghost del"; del.textContent = "✕"; del.dataset.del = i; del.setAttribute("aria-label", p.name + " を消す"); c4.appendChild(del);
+            const td = tr.insertCell(); const box = document.createElement("div"); box.className = "pt-card"; td.appendChild(box);
+            const top = document.createElement("div"); top.className = "pt-top"; box.appendChild(top);
+            const inN = document.createElement("input"); inN.value = p.name; inN.dataset.i = i; inN.dataset.f = "name"; inN.className = "nm"; inN.setAttribute("aria-label", "点名"); top.appendChild(inN);
+            const rb = document.createElement("button"); rb.type = "button"; rb.className = "role " + roleOf(p); rb.textContent = roleOf(p) === "known" ? "既知" : "設計"; rb.dataset.role = i; top.appendChild(rb);
+            const del = document.createElement("button"); del.type = "button"; del.className = "ghost del"; del.textContent = "✕"; del.dataset.del = i; del.setAttribute("aria-label", p.name + " を消す"); top.appendChild(del);
+            const row = document.createElement("div"); row.className = "pt-xyz"; box.appendChild(row);
+            for (const [f, v, lab] of [["dx", X, hx], ["dy", Y, hy], ["h", fmtH(p.h), `H(${unitName()})`]]) {
+              const l = document.createElement("label"); const sm = document.createElement("small"); sm.textContent = lab; l.appendChild(sm);
+              const inp = document.createElement("input"); inp.type = "number"; inp.step = "0.001"; inp.inputMode = "decimal"; inp.value = v; inp.dataset.i = i; inp.dataset.f = f; inp.className = f === "h" ? "hh" : "xy"; l.appendChild(inp); row.appendChild(l);
+            }
           });
         }
         // ---- 点の手入力・直す・消す(一覧と操作盤の座標リストから)
@@ -4336,7 +4355,10 @@
           else { p = { name: nm, x, y, h, kind: "hand", role: ptRoleV }; picks.push(p); }
           const isNew = !ptEditing;
           $("ptDlg").hidden = true; ptEditing = null;
-          if (!view) { view = { minx: x - 5000, miny: y - 5000, maxx: x + 5000, maxy: y + 5000 }; resetZoom(); }
+          if (!lines.length && !filePts.length) {   // 図面がないときは、手入力した点が全部入るように写し直す
+            const bb = bboxOf([picks.map((q) => [q.x, q.y])]), pad = 5000;
+            view = { minx: bb.minx - pad, miny: bb.miny - pad, maxx: bb.maxx + pad, maxy: bb.maxy + pad }; resetZoom();
+          }
           afterChange(); if (typeof renderCList === "function") renderCList();
           setStatus(`✓ ${nm}(${p.role === "known" ? "既知点" : "設計点"})を${isNew ? "足しました" : "直しました"}(いま ${picks.length} 点)。`);
         });
