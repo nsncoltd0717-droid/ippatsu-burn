@@ -536,6 +536,9 @@
       .ctl-status .cs-edit { border-color: var(--accent, #0b6bcb); }
       .ctl-status .cs-edit select, .ctl-status .cs-edit input { width: 100%; min-width: 0; font: inherit; font-size: 13.5px; font-weight: 700; padding: 2px 4px; margin: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; }
       .ctl-status .cs-edit input:focus, .ctl-status .cs-edit select:focus { outline: 2px solid var(--accent, #0b6bcb); background: var(--panel, #fff); }
+
+      table.pts input.xy { width: 8.5em; min-width: 0; }
+      #ptAdd { margin: 6px 0 8px; width: 100%; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -553,7 +556,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.12.2</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -688,6 +691,7 @@
         <div class="step-head"><span class="num">1</span>点の一覧と確かめ</div>
         <div id="checkOut"></div>
         <button class="ghost" id="fixNames" type="button" hidden>点名を半角に直す（全角→半角・空白を消す・16文字に切る）</button>
+        <button class="big" id="ptAdd" type="button">＋ 点を手入力で足す(座標を打ち込む)</button>
         <p class="step-note" id="listNote">まだ点がありません。</p>
         <div class="tblwrap"><table class="pts" id="ptsTable"></table></div>
         <div class="field2">
@@ -815,6 +819,34 @@
           <button class="ghost" id="dlgCancel" type="button">やめる</button>
           <button class="big primary" id="dlgSave" type="button">保存</button>
         </div>
+      </div>
+    </div>
+    <!-- 座標の手入力・直す・消す -->
+    <div class="dlg" id="ptDlg" hidden style="z-index:400">
+      <div class="dlg-card">
+        <div class="dlg-title" id="ptTitle">点を手入力で足す</div>
+        <div class="field2">
+          <div><label class="big-label" for="ptName">点名(半角英数)</label>
+            <input id="ptName" type="text" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" /></div>
+          <div><label class="big-label" for="ptH" id="ptHL">高さ H</label>
+            <input id="ptH" type="number" step="0.001" inputmode="decimal" /></div>
+        </div>
+        <div class="field2">
+          <div><label class="big-label" for="ptX" id="ptXL">X</label>
+            <input id="ptX" type="number" step="0.001" inputmode="decimal" /></div>
+          <div><label class="big-label" for="ptY" id="ptYL">Y</label>
+            <input id="ptY" type="number" step="0.001" inputmode="decimal" /></div>
+        </div>
+        <div class="seg-toggle" id="ptRole" style="margin-top:10px">
+          <button type="button" data-r="design" aria-pressed="true">設計点（杭を打つ）</button>
+          <button type="button" data-r="known" aria-pressed="false">既知点</button>
+        </div>
+        <p class="step-note warn" id="ptWarn" hidden></p>
+        <div class="field2" style="margin-top:10px">
+          <button class="ghost" id="ptCancel" type="button">やめる</button>
+          <button class="big primary" id="ptSave" type="button">保存</button>
+        </div>
+        <button class="ghost warnbtn" id="ptDel" type="button" style="margin-top:8px" hidden>🗑 この点を消す</button>
       </div>
     </div>
 
@@ -957,6 +989,7 @@
             <button type="button" data-f="todo" aria-pressed="false">まだ</button>
             <button type="button" data-f="near" aria-pressed="false">近い順</button>
           </div>
+          <button type="button" class="ghost" id="clAdd" style="margin-top:6px">＋ 点を手入力で足す</button>
           <div class="cl-wrap"><table class="cl-tbl"><thead><tr><th>点名</th><th id="clHX">X</th><th id="clHY">Y</th><th>H</th><th>距離 m</th></tr></thead><tbody id="clBody"></tbody></table></div>
           <p class="step-note" id="clNote" style="margin:4px 0 6px"></p>
           <div class="field2 cl-dl">
@@ -974,6 +1007,10 @@
               <button type="button" class="big ghost" id="clK2">既知点2にする</button>
             </div>
             <button type="button" class="big ghost" id="clLive" style="margin-top:6px">📹 LIVE で見る</button>
+            <div class="field2" style="margin-top:6px">
+              <button type="button" class="big ghost" id="clEdit">✎ 座標を直す</button>
+              <button type="button" class="big ghost warnbtn" id="clDel">🗑 消す</button>
+            </div>
           </div>
         </div>
         <!-- 器械設置 -->
@@ -3827,7 +3864,7 @@
 
         // ---------------------------------------------------------------- 吸い付き(かまし太郎と同じ)
         const snapOn = (k) => { const b = $("snaps").querySelector(`[data-snap="${k}"]`); return b && b.getAttribute("aria-pressed") === "true"; };
-        const KIND = { mark: "記号", end: "端・角", center: "円の中心", cross: "交点", mid: "中点", on: "線の上", pick: "拾った点" };
+        const KIND = { mark: "記号", end: "端・角", center: "円の中心", cross: "交点", mid: "中点", on: "線の上", pick: "拾った点", hand: "手入力" };
         function segX(a, b, c, d) {
           const rx = b[0] - a[0], ry = b[1] - a[1], sx = d[0] - c[0], sy = d[1] - c[1];
           const den = rx * sy - ry * sx;
@@ -4250,7 +4287,7 @@
           const tb = $("ptsTable");
           tb.textContent = "";
           if (!picks.length) { $("listNote").textContent = "まだ点がありません。「拾う」「逃げ墨」で点を作るか、点ファイルを足してください。"; return; }
-          $("listNote").textContent = `点名・H はここで直せます。種類のボタンで 設計⇔既知 を入れ替え、✕ で消します。`;
+          $("listNote").textContent = `点名・X・Y・H はここで直せます。種類のボタンで 設計⇔既知 を入れ替え、✕ で消します。`;
           const [nx, ny] = axisNames();
           const hr = tb.insertRow();
           for (const t of ["点名", "種類", nx, ny, `H(${unitName()})`, ""]) { const th = document.createElement("th"); th.textContent = t; hr.appendChild(th); }
@@ -4260,12 +4297,65 @@
             const [X, Y] = fmtXY(p.x, p.y);
             const c0 = tr.insertCell(); const inN = document.createElement("input"); inN.value = p.name; inN.dataset.i = i; inN.dataset.f = "name"; inN.className = "nm"; c0.appendChild(inN);
             const c1 = tr.insertCell(); const rb = document.createElement("button"); rb.type = "button"; rb.className = "role " + roleOf(p); rb.textContent = roleOf(p) === "known" ? "既知" : "設計"; rb.dataset.role = i; c1.appendChild(rb);
-            tr.insertCell().textContent = X;
-            tr.insertCell().textContent = Y;
+            for (const [f, v] of [["dx", X], ["dy", Y]]) { const c = tr.insertCell(); const inp = document.createElement("input"); inp.type = "number"; inp.step = "0.001"; inp.inputMode = "decimal"; inp.value = v; inp.dataset.i = i; inp.dataset.f = f; inp.className = "xy"; c.appendChild(inp); }
             const c3 = tr.insertCell(); const inH = document.createElement("input"); inH.type = "number"; inH.step = "0.001"; inH.inputMode = "decimal"; inH.value = fmtH(p.h); inH.dataset.i = i; inH.dataset.f = "h"; c3.appendChild(inH);
             const c4 = tr.insertCell(); const del = document.createElement("button"); del.type = "button"; del.className = "ghost del"; del.textContent = "✕"; del.dataset.del = i; del.setAttribute("aria-label", p.name + " を消す"); c4.appendChild(del);
           });
         }
+        // ---- 点の手入力・直す・消す(一覧と操作盤の座標リストから)
+        let ptEditing = null, ptRoleV = "design";
+        const setPtRole = (r) => { ptRoleV = r; for (const b of $("ptRole").children) b.setAttribute("aria-pressed", String(b.dataset.r === r)); };
+        $("ptRole").addEventListener("click", (e) => { const r = e.target.dataset.r; if (r) setPtRole(r); });
+        function openPtDlg(p) {
+          ptEditing = p || null;
+          const [nx, ny] = axisNames();
+          $("ptXL").textContent = `${nx}(${unitName()})`; $("ptYL").textContent = `${ny}(${unitName()})`; $("ptHL").textContent = `高さ H(${unitName()})`;
+          $("ptTitle").textContent = p ? `${p.name} を直す` : "点を手入力で足す";
+          if (p) { const [X, Y] = fmtXY(p.x, p.y); $("ptName").value = p.name; $("ptX").value = X; $("ptY").value = Y; $("ptH").value = fmtH(p.h); setPtRole(roleOf(p)); }
+          else { $("ptName").value = nextName(); $("ptX").value = ""; $("ptY").value = ""; $("ptH").value = fmtH(Number($("hConst").value) || 0); setPtRole("design"); }
+          $("ptDel").hidden = !p; $("ptWarn").hidden = true; $("ptDlg").hidden = false;
+          setTimeout(() => { try { (p ? $("ptX") : $("ptName")).focus(); } catch (e) { /* */ } }, 50);
+        }
+        const ptWarn = (t) => { $("ptWarn").textContent = "⚠ " + t; $("ptWarn").hidden = false; };
+        function renamePt(p, nm) {
+          if (k1 === p.name) k1 = nm; if (k2 === p.name) k2 = nm;
+          if (typeof target !== "undefined" && target === p.name) target = nm;
+          if (typeof clSelN !== "undefined" && clSelN === p.name) clSelN = nm;
+          p.name = nm;
+        }
+        $("ptSave").addEventListener("click", () => {
+          const nm = $("ptName").value.trim(), bad = nameProblem(nm, ptEditing);
+          if (bad) return ptWarn(bad);
+          const sx = $("ptX").value.trim(), sy = $("ptY").value.trim(), X = Number(sx), Y = Number(sy), H = Number($("ptH").value);
+          if (!sx || !sy || !Number.isFinite(X) || !Number.isFinite(Y)) return ptWarn("X と Y を数字で入れてください。");
+          const [x, y] = fromDisplay(X, Y, unitName());
+          const h = Number.isFinite(H) && $("ptH").value.trim() !== "" ? H : 0;
+          let p = ptEditing;
+          if (p) { renamePt(p, nm); p.x = x; p.y = y; p.h = h; p.kind = "hand"; p.role = ptRoleV; if (ptRoleV === "design") { if (k1 === nm) k1 = null; if (k2 === nm) k2 = null; } }
+          else { p = { name: nm, x, y, h, kind: "hand", role: ptRoleV }; picks.push(p); }
+          const isNew = !ptEditing;
+          $("ptDlg").hidden = true; ptEditing = null;
+          if (!view) { view = { minx: x - 5000, miny: y - 5000, maxx: x + 5000, maxy: y + 5000 }; resetZoom(); }
+          afterChange(); if (typeof renderCList === "function") renderCList();
+          setStatus(`✓ ${nm}(${p.role === "known" ? "既知点" : "設計点"})を${isNew ? "足しました" : "直しました"}(いま ${picks.length} 点)。`);
+        });
+        $("ptCancel").addEventListener("click", () => { $("ptDlg").hidden = true; ptEditing = null; });
+        $("ptDel").addEventListener("click", () => {
+          const p = ptEditing; if (!p) return;
+          if (!confirm(`${p.name} を消します。よろしいですか?`)) return;
+          deletePt(p); $("ptDlg").hidden = true; ptEditing = null;
+        });
+        function deletePt(p) {
+          const i = picks.indexOf(p); if (i < 0) return;
+          picks.splice(i, 1);
+          if (k1 === p.name) k1 = null; if (k2 === p.name) k2 = null;
+          if (typeof clSelN !== "undefined" && clSelN === p.name) clSelN = null;
+          if (target === p.name) target = null;
+          afterChange(); if (typeof renderCList === "function") renderCList();
+          setStatus(`🗑 ${p.name} を消しました(いま ${picks.length} 点)。`);
+        }
+        for (const id of ["ptName", "ptX", "ptY", "ptH"]) $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("ptSave").click(); } });
+        $("ptAdd").addEventListener("click", () => openPtDlg(null));
         $("ptsTable").addEventListener("change", (ev) => {
           const e = ev.target, p = picks[Number(e.dataset.i)];
           if (!p) return;
@@ -4275,6 +4365,14 @@
             if (k1 === p.name) k1 = nm; if (k2 === p.name) k2 = nm;
             p.name = nm;
           } else if (e.dataset.f === "h") { const v = Number(e.value); if (Number.isFinite(v)) p.h = v; }
+          else if (e.dataset.f === "dx" || e.dataset.f === "dy") {
+            const v = Number(e.value);
+            if (e.value.trim() === "" || !Number.isFinite(v)) { setStatus("⚠ 座標は数字で入れてください。", true); renderTable(); return; }
+            const [X, Y] = fmtXY(p.x, p.y).map(Number);
+            const [x, y] = fromDisplay(e.dataset.f === "dx" ? v : X, e.dataset.f === "dy" ? v : Y, unitName());
+            p.x = x; p.y = y; if (p.kind !== "hand") p.kind = "hand";
+            setStatus(`✎ ${p.name} の座標を直しました。`);
+          }
           afterChange();
         });
         $("ptsTable").addEventListener("click", (ev) => {
@@ -5670,6 +5768,9 @@
           if (clPick) { const w = clPick; clPick = null; setKnown(w, byName(tr.dataset.n)); setCtlTab("setup"); return; }
           clSelN = tr.dataset.n; renderCList();
         });
+        $("clAdd").addEventListener("click", () => openPtDlg(null));
+        $("clEdit").addEventListener("click", () => { const p = byName(clSelN); if (p) openPtDlg(p); });
+        $("clDel").addEventListener("click", () => { const p = byName(clSelN); if (p && confirm(`${p.name} を消します。よろしいですか?`)) deletePt(p); });
         $("clTarget").addEventListener("click", () => { const p = byName(clSelN); if (!p) return; target = p.name; afterChange(); setStatus(`📍 ${p.name} を出す点にしました。`); });
         $("clTurn").addEventListener("click", () => {
           const p = byName(clSelN); if (!p) return;
