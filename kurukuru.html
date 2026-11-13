@@ -508,6 +508,18 @@
       .conn-help code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12.5px; }
       .conn-help .cmd button { width: auto; min-height: 36px; padding: 4px 10px; font-size: 13px; }
       #relayDl { margin-top: 4px; min-height: 42px; font-size: 14px; }
+      .ck-meas { margin: 8px 0 0; gap: 8px; }
+      .ck-meas .big { min-height: 50px; font-size: 15px; }
+      .kseq-wrap { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+      .kseq-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+      .kseq-row b { font-size: 12px; color: var(--known); min-width: 4.2em; }
+      .kseq-row span { font-weight: 800; font-size: 16px; }
+      .kseq-row small { color: var(--sub); font-size: 12px; margin-left: auto; }
+      .kseq-row button { width: auto; min-height: 32px; padding: 2px 10px; margin-left: 4px; }
+      .kseq-row.inst span { margin-right: auto; }
+      .kseq-next { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-weight: 800; }
+      .kseq-next span { flex: 1; color: var(--accent2); }
+      .kseq-next button { width: auto; min-height: 36px; padding: 4px 10px; font-size: 13px; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -525,7 +537,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.7.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.8.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -814,11 +826,12 @@
           <label class="big-label" for="siteSel">いまの現場</label>
           <select id="siteSel"></select>
           <div class="field2" style="margin-top:8px">
-            <div><input id="siteNew" type="text" placeholder="新しい現場名(半角英数)" maxlength="20" autocomplete="off" /></div>
+            <div><input id="siteNew" type="text" placeholder="新しい現場名" maxlength="30" autocomplete="off" /></div>
             <button id="siteAdd" type="button">新規作成</button>
           </div>
-          <button class="ghost warnbtn" id="siteDel" type="button" style="margin-top:8px">この現場を一覧から消す</button>
-          <p class="step-note">現場名は書き出すファイル名にも使います(TopLayout の現場名と同じにしておくと分かりやすい)。現場名は半角英数がおすすめです。</p>
+          <p class="step-note" id="siteInfo"></p>
+          <button class="ghost warnbtn" id="siteDel" type="button" style="margin-top:8px">この現場を消す(保存した図面・座標も消える)</button>
+          <p class="step-note">現場ごとに、図面と座標データ(点・既知点・杭ナビの位置・打った杭)をこの端末に自動で保存します。現場を切り替えると、その現場の図面と点がそのまま開きます。半角英数の現場名は、書き出すファイル名にも使います(TopLayout の現場名と同じにしておくと分かりやすい)。</p>
         </div>
         <!-- 設定 -->
         <div class="ovl-sub" data-sub="settings" hidden>
@@ -953,15 +966,16 @@
             <button type="button" data-d="2d" aria-pressed="false">2D(高さは BM で)</button>
           </div>
           <p class="step-note" id="ctMethodNote" style="margin:0 0 8px"></p>
-          <div class="ctl-known">
-            <button type="button" class="kbtn" data-act="measK1"><small>既知点1</small><b id="ck1">未選択</b><span id="ck1s">未測定</span></button>
-            <button type="button" class="kbtn" data-act="measK2"><small>既知点2</small><b id="ck2">未選択</b><span id="ck2s">未測定</span></button>
+          <div class="kseq-wrap" id="kSeqWrap">
+            <div class="kseq" id="kSeq"></div>
+            <div class="kseq-next"><span id="kNextName">既知点1:未選択</span><button type="button" class="ghost" data-clpick="next">📋 次の既知点を選ぶ</button></div>
+            <button type="button" class="big primary" id="kMeasBtn">📏 計測</button>
+            <div class="field2" style="margin-top:6px">
+              <button type="button" class="big" id="kDone">✓ 終了して計算</button>
+              <button type="button" class="big ghost" id="kReset">はじめから</button>
+            </div>
+            <p class="step-note" style="margin:4px 0 0">既知点のプリズムを追尾して、距離が出たら「📏 計測」。既知点1 → 既知点2 → (あれば3点目・4点目…)と測って、最後に「終了して計算」。下の「📏 測定」でも計測できます。</p>
           </div>
-          <div class="field2 ck-pick">
-            <button type="button" class="ghost" data-clpick="k1">📋 リストから選ぶ</button>
-            <button type="button" class="ghost" data-clpick="k2">📋 リストから選ぶ</button>
-          </div>
-          <button type="button" class="big" data-act="setInst" style="margin-top:8px">器械点を決める(2点の測定から)</button>
           <div class="ctl-result" id="ctlInst">器械点:まだ決まっていません</div>
           <div class="ctl-sigma">
             <div><small>ずれ X</small><b id="sgX">--- mm</b></div><div><small>Y</small><b id="sgY">--- mm</b></div><div><small>Z</small><b id="sgZ">--- mm</b></div>
@@ -1074,6 +1088,8 @@
         <p>メニューの「LIVE」か 🎛 操作盤の「📹 LIVE」で開きます。LN-1000i のカメラ映像を見ながら、映像をタップしてその方へ杭ナビを回す(タッチドライブ)・回転サーチ(全周・±90°・±45°、右回り・左回り)・方位盤をタップしてその方位へ回す、ができるようにする画面です。LIVE の下にも、いつもの操作部(回す・サーチ・測定・追尾など)を置いています。いまは杭ナビとつながっていないので、針の動きは見本です。</p>
         <h3>🔗 杭ナビにつなぐ(テスト版・Android)</h3>
         <p>杭ナビと TopLayout のやりとりを読み解いて、くるくる回し太郎からも動かせるようにしました。ブラウザは杭ナビに直接つなげないので、スマホで「くるくる中継」(くるくる中継.py)を動かして間に立たせます。くわしい手順は 🎛 操作盤の下の「🔗 杭ナビへのつなぎ方(Android)」にあります(中継のダウンロード・コマンドのコピーもそこから)。◁▷ は押している間だけ回ります。点の方向へ回すには、器械設置で「🧭 向きを合わせる」(既知点1のプリズムを追尾して押す)をしてください。</p>
+        <h3>🏗 現場</h3>
+        <p>メニューの「現場」で現場を作ると、図面と座標データ(点・既知点・杭ナビの位置・打った杭)を現場ごとにこの端末へ自動で保存します。アプリを閉じても、別の図面を開いても点は消えません(現場を開いているときに図面を開くと、図面だけ入れ替わります)。現場を切り替えると、その現場の図面と点が開きます。</p>
         <h3>📋 座標リスト</h3>
         <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・既知点1/2にする・LIVE で見る、ができます。① 据付・器械設置の「📋 リストから選ぶ」から開くと、タップした点がそのまま後方交会の既知点になります。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
         <h3>注意</h3>
@@ -4480,7 +4496,7 @@
         function renderNaviBar() {
           const ds = designs(), done = ds.filter((p) => p.done).length, A = byName(k1), B = byName(k2);
           const chip = (c, t) => `<span class="nchip ${c}">${t}</span>`;
-          let h = (typeof site === "string" && site ? chip("ok", "現場 " + esc(site)) : "") + chip("", "杭ナビ 未接続");
+          let h = (typeof site === "string" && site ? chip("ok", "現場 " + esc(site)) : chip("warn", "現場 未選択")) + chip(window.__kuiOn ? "ok" : "", window.__kuiOn ? "杭ナビ 接続中" : "杭ナビ 未接続");
           h += chip(view ? "ok" : "ng", view ? "図面 ○" : "図面 未");
           h += chip(picks.length ? "ok" : "ng", `点 ${ds.length}・既知 ${knowns().length}`);
           h += chip(inst ? "ok" : "ng", inst ? "杭ナビ 位置○" : "杭ナビ 位置未");
@@ -4520,6 +4536,7 @@
 
         // ---------------------------------------------------------------- 覚えておく(図面ごと)
         function saveState() {
+          if (typeof siteSaveSoon === "function") siteSaveSoon();
           if (!fileKey) return;
           store("kr.state:" + fileKey, JSON.stringify({ unit: unitName(), picks, inst, k1, k2, stk, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value }));
         }
@@ -4536,6 +4553,9 @@
           } catch (e) { picks = []; }
           return picks.length;
         }
+        // 現場を開いているときは、図面を開き直しても点・杭ナビの位置を消さない
+        let lastOpened = null;
+        function keepForSite() { suggestions = []; picked = null; meas = []; nige.result = []; }
         function afterChange() {
           renderTable(); renderSetup(); renderOut(); renderChk(); renderStake(); renderNaviBar();
           if (typeof renderCtl === "function" && !$("ctlOvl").hidden) renderCtl();
@@ -4632,6 +4652,7 @@
               $("fileInfo").hidden = false;
             }
             let buf = new Uint8Array(await f.arrayBuffer());
+            const rawBytes = buf.slice(0);
             let zunou = null;
             zMarksRaw = [];
             $("zunouNote").hidden = true; $("ptOpenNote").hidden = true;
@@ -4668,8 +4689,9 @@
                 ptOpen = { name: f.name, text, sima }; dxfBuf = null;
                 if (sima) $("axis").value = "northEast";
                 $("dUnitRow").hidden = true; $("dHint").hidden = true; $("dCustomWrap").hidden = true;
-                restore();
+                if (site) keepForSite(); else restore();
                 loadLines();
+                lastOpened = { f, bytes: rawBytes }; siteSaveFile(f, rawBytes);
                 return;
               }
               setStatus(`⚠ 「${f.name}」は DXF でも点ファイルでもないようです。`, true);
@@ -4677,8 +4699,9 @@
             }
             dxfBuf = buf; ptOpen = null;
             $("dUnitRow").hidden = false; $("dHint").hidden = false;
-            restore();
+            if (site) keepForSite(); else restore();
             loadLines();
+            lastOpened = { f, bytes: rawBytes }; siteSaveFile(f, rawBytes);
           } catch (e) {
             setStatus("⚠ 図面を読めません: " + e.message, true);
           }
@@ -4781,10 +4804,10 @@
               while ((i = this.buf.indexOf("\r")) >= 0) { const ln = this.buf.slice(0, i); this.buf = this.buf.slice(i + 1); if (ln) this.recv(ln); }
             };
             ws.onerror = () => { if (!this.connected) $("connHelp").open = true; };
-            ws.onclose = () => { clearTimeout(tmo); const was = this.connected; this.ws = null; this.connected = false; this.live = false; if (was) setStatus("🔗 杭ナビとの接続が切れました。"); renderCtl(); };
+            ws.onclose = () => { clearTimeout(tmo); const was = this.connected; this.ws = null; this.connected = false; this.live = false; window.__kuiOn = false; renderNaviBar(); if (was) setStatus("🔗 杭ナビとの接続が切れました。"); renderCtl(); };
           },
           hello() {
-            this.connected = true;
+            this.connected = true; window.__kuiOn = true; renderNaviBar();
             this.raw("IWCCS");
             setTimeout(() => {
               for (const c of ["ONUMB", "SBATT", "SFILD", "STILT", "LLPOF", "OCOND", "OINFO"]) this.raw(c);
@@ -4856,10 +4879,16 @@
         };
 
         // ================================================================ 器械設置(後方交会・既知点設置)の計算
-        // 既知点でプリズムを追尾して「測る」→ 直近 1 秒の読み取りを平均して覚える。
-        // 2 点そろったら、杭ナビの水平角・水平距離から作った「杭ナビの向きの座標」を、既知点の座標に回して重ねる(回転+平行移動の最小二乗)。
+        // 流れ:既知点1 を計測 → 既知点2 → (あれば)既知点3・4… → 「終了して計算」
+        // 計測:プリズムを追尾して押すと、直近 1 秒の読み取りを平均して覚える。
+        // 計算:杭ナビの水平角・水平距離で作った「杭ナビの向きの座標」を、既知点の座標へ回して重ねる(回転+平行移動の最小二乗。何点でも)。
         // 方向角 = 杭ナビの水平角 + 向きのずれ(hOff)。杭ナビ本体の角度は書きかえない(IHANG は送らない)。
-        const kObs = {};   // { k1: {name, h(度), hd(m), vd(m), sd, n, t} }
+        let kSeq = [];       // 計測した既知点 [{ name, h(度), hd(m), vd(m), sd, n, t, r?(残差 mm) }]
+        let kNext = null;    // 次に測る既知点の点名
+        function nextKnown() {
+          if (ctMethod === "known") { const bs = [k2].find((n) => n && n !== k1 && !kSeq.some((q) => q.name === n)); return bs || null; }
+          return [k1, k2].find((n) => n && byName(n) && !kSeq.some((q) => q.name === n)) || null;
+        }
         function obsAvg() {
           const H = (KuiNavi.hist || []).filter((q) => Date.now() - q.t < 1200);
           if (!H.length) return null;
@@ -4869,57 +4898,91 @@
           const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
           return { h: norm(Math.atan2(sx, cx) * 180 / Math.PI), hd: avg(hd), vd: avg(vd), sd: avg(sd), n: H.length, t: Date.now() };
         }
-        function measKnown(which) {
-          const nm = which === "k1" ? k1 : k2, p = byName(nm);
-          if (!p) { setStatus(`${which === "k1" ? "既知点1" : "既知点2"}を先に選んでください(📋 リストから選ぶ)。`, true); return; }
-          if (!KuiNavi.connected) { setStatus("既知点を測るには、杭ナビにつないでください(🔗 つなぐ)。", true); return; }
+        function measNext() {
+          const p = byName(kNext);
+          if (!p) { setStatus(kSeq.length >= 2 ? "3点目を測るときは「📋 次の既知点を選ぶ」、終わりなら「✓ 終了して計算」を押してください。" : "次に測る既知点を「📋 次の既知点を選ぶ」で決めてください。", true); return; }
+          if (!KuiNavi.connected) { setStatus("既知点を計測するには、杭ナビにつないでください(🔗 つなぐ)。", true); return; }
           const L = KuiNavi.last;
           if (!L || L.trk !== 2 || L.sd == null) { setStatus(`${p.name} のプリズムを追尾して、距離が出てから押してください(🔍 サーチ)。`, true); return; }
           const o = obsAvg(); if (!o) { setStatus("読み取りが足りません。少し待ってからもう一度押してください。", true); return; }
-          kObs[which] = { name: p.name, ...o };
-          ctlLogAdd(`既知点 ${p.name} を測った  水平角 ${dms(o.h)}・水平距離 ${o.hd.toFixed(4)} m・比高 ${o.vd.toFixed(4)} m(${o.n} 回の平均)`);
-          setStatus(`📐 ${p.name} を測りました(水平距離 ${o.hd.toFixed(3)} m)。` + (kObs.k1 && kObs.k2 ? "「器械点を決める」を押してください。" : ""));
-          renderCtl();
+          kSeq = kSeq.filter((q) => q.name !== p.name).concat([{ name: p.name, ...o }]);
+          if (roleOf(p) !== "known") p.role = "known";
+          if (ctMethod !== "known") { if (kSeq.length === 1) k1 = p.name; else if (kSeq.length === 2 && p.name !== k1) k2 = p.name; }
+          ctlLogAdd(`既知点${kSeq.length} ${p.name} を計測  水平角 ${dms(o.h)}・水平距離 ${o.hd.toFixed(4)} m・比高 ${o.vd.toFixed(4)} m(${o.n} 回の平均)`);
+          kNext = nextKnown();
+          const need = ctMethod === "known" ? 1 : 2;
+          setStatus(`📏 既知点${kSeq.length} ${p.name} を計測しました(水平距離 ${o.hd.toFixed(3)} m)。` +
+            (kNext ? `次は ${kNext} にプリズムを立てて計測してください。` : kSeq.length >= need ? "ほかの既知点も測るなら「📋 次の既知点を選ぶ」、終わりなら「✓ 終了して計算」。" : "次の既知点を「📋 次の既知点を選ぶ」で決めてください。"));
+          afterChange(); renderCtl();
         }
         const hM = (p) => (p.h == null ? null : p.h * (unitName() === "m" ? 1 : 0.001));
         function solveInst() {
           const mirror = Number($("cfgMirror").value || 0), lim = Number($("cfgSigma").value || 5);
-          if (ctMethod === "known") {   // 既知点の上に据えて、既知点2(後視点)を測る
-            const A = byName(k1), B = byName(k2), o = kObs.k2;
-            if (!A || !B || !o || o.name !== B.name) { setStatus("既知点設置:既知点1(器械点)の上に据えて、既知点2(後視点)を測ってください。", true); return; }
-            const hOff = norm(azimuth(A, B) - o.h), e = (o.hd - dm(A, B)) * 1000;
+          const obs = kSeq.map((o) => ({ o, p: byName(o.name) })).filter((q) => q.p);
+          if (ctMethod === "known") {   // 既知点1(器械点)の上に据えて、後視点を測る
+            const A = byName(k1), bs = obs.filter((q) => q.p.name !== k1);
+            if (!A || !bs.length) { setStatus("既知点設置:器械点(既知点1)を決め、その上に据えて、後視点を1点以上計測してください。", true); return; }
+            const offs = bs.map(({ o, p }) => dAng(0, norm(azimuth(A, p) - o.h)));
+            const hOff = norm(Math.atan2(offs.reduce((a, d) => a + Math.sin(d * Math.PI / 180), 0), offs.reduce((a, d) => a + Math.cos(d * Math.PI / 180), 0)) * 180 / Math.PI);
+            for (const q of bs) q.o.r = (q.o.hd - dm(A, q.p)) * 1000;
+            const e = Math.max(...bs.map((q) => Math.abs(q.o.r)));
             inst = { x: A.x, y: A.y }; KuiNavi.instMeas = { ...inst }; KuiNavi.hOff = hOff; store("kr.hoff", String(hOff));
-            $("sgX").textContent = $("sgY").textContent = `${Math.abs(e).toFixed(1)} mm`; $("sgZ").textContent = "--- mm";
-            ctlLogAdd(`器械点を決めた(既知点設置) 器械点 ${A.name}・後視 ${B.name}・距離の較差 ${e.toFixed(1)} mm`);
-            setStatus(`✓ 器械点を ${A.name} にしました(後視 ${B.name}・距離の較差 ${e.toFixed(1)} mm)。` + (Math.abs(e) > lim ? "⚠ 較差が大きいので、据え付け・点名・ミラー高を確かめてください。" : "杭打ちに進めます。"));
-            afterChange(); return;
+            $("sgX").textContent = $("sgY").textContent = `${e.toFixed(1)} mm`; $("sgZ").textContent = "--- mm";
+            ctlLogAdd(`器械点を決めた(既知点設置) 器械点 ${A.name}・後視 ${bs.map((q) => q.p.name).join("・")}・距離の較差 最大 ${e.toFixed(1)} mm`);
+            setStatus(`✓ 器械点を ${A.name} にしました(後視 ${bs.length} 点・距離の較差 最大 ${e.toFixed(1)} mm)。` + (e > lim ? "⚠ 較差が大きいので、据え付け・点名・ミラー高を確かめてください。" : "杭打ちに進めます。"));
+            afterChange(); renderCtl(); return;
           }
-          const o1 = kObs.k1, o2 = kObs.k2, A = byName(k1), B = byName(k2);
-          if (!A || !B || !o1 || !o2 || o1.name !== A.name || o2.name !== B.name) { setStatus("後方交会:既知点1・既知点2の両方を、それぞれ追尾して「測る」を押してください。", true); return; }
-          // 杭ナビの向きの座標(mm)。x=東・y=北、杭ナビの水平角を方向角とみなした形
-          const loc = [o1, o2].map((o) => [o.hd * 1000 * Math.sin(o.h * Math.PI / 180), o.hd * 1000 * Math.cos(o.h * Math.PI / 180)]);
-          const wld = [[A.x, A.y], [B.x, B.y]];
-          const cl = [(loc[0][0] + loc[1][0]) / 2, (loc[0][1] + loc[1][1]) / 2], cw = [(wld[0][0] + wld[1][0]) / 2, (wld[0][1] + wld[1][1]) / 2];
+          if (obs.length < 2) { setStatus("後方交会は既知点を2点以上計測してから「終了して計算」を押してください。", true); return; }
+          const N = obs.length;
+          const loc = obs.map(({ o }) => [o.hd * 1000 * Math.sin(o.h * Math.PI / 180), o.hd * 1000 * Math.cos(o.h * Math.PI / 180)]);
+          const wld = obs.map(({ p }) => [p.x, p.y]);
+          const mean = (a, k) => a.reduce((s, v) => s + v[k], 0) / a.length;
+          const cl = [mean(loc, 0), mean(loc, 1)], cw = [mean(wld, 0), mean(wld, 1)];
           let a = 0, b = 0;
-          for (let i = 0; i < 2; i++) { const lx = loc[i][0] - cl[0], ly = loc[i][1] - cl[1], wx = wld[i][0] - cw[0], wy = wld[i][1] - cw[1]; a += lx * wx + ly * wy; b += lx * wy - ly * wx; }
+          for (let i = 0; i < N; i++) { const lx = loc[i][0] - cl[0], ly = loc[i][1] - cl[1], wx = wld[i][0] - cw[0], wy = wld[i][1] - cw[1]; a += lx * wx + ly * wy; b += lx * wy - ly * wx; }
           const th = Math.atan2(b, a), c = Math.cos(th), sn = Math.sin(th);
           const R = (v) => [c * v[0] - sn * v[1], sn * v[0] + c * v[1]];
           const rc = R(cl), st = { x: cw[0] - rc[0], y: cw[1] - rc[1] };
           const res = loc.map((v, i) => { const q = R(v); return [q[0] + st.x - wld[i][0], q[1] + st.y - wld[i][1]]; });
-          const rms = (k) => Math.sqrt((res[0][k] ** 2 + res[1][k] ** 2) / 2);
-          const e = Math.hypot(loc[0][0] - loc[1][0], loc[0][1] - loc[1][1]) - dmm(A, B);
+          obs.forEach((q, i) => { q.o.r = Math.hypot(res[i][0], res[i][1]); });
+          const dof = Math.max(1, 2 * N - 3);
+          const sg = (k) => Math.sqrt(res.reduce((s, r) => s + r[k] ** 2, 0) / dof);
           const hOff = norm(-th * 180 / Math.PI);
-          // 器械の高さ(既知点の H + ミラー高 − 比高)。H がない点は使わない
-          const zs = [[A, o1], [B, o2]].filter(([p]) => hM(p) != null).map(([p, o]) => hM(p) + mirror - o.vd);
-          const zInst = zs.length ? zs.reduce((x, y) => x + y, 0) / zs.length : null, dz = zs.length === 2 ? Math.abs(zs[0] - zs[1]) * 1000 / 2 : null;
+          const zs = obs.filter(({ p }) => hM(p) != null).map(({ p, o }) => hM(p) + mirror - o.vd);
+          const zInst = zs.length ? zs.reduce((x, y) => x + y, 0) / zs.length : null;
+          const sz = zs.length >= 2 ? Math.sqrt(zs.reduce((s, z) => s + (z - zInst) ** 2, 0) / (zs.length - 1)) * 1000 : null;
           inst = st; KuiNavi.instMeas = { ...st }; KuiNavi.hOff = hOff; KuiNavi.zInst = zInst; store("kr.hoff", String(hOff));
-          $("sgX").textContent = `${rms(0).toFixed(1)} mm`; $("sgY").textContent = `${rms(1).toFixed(1)} mm`; $("sgZ").textContent = dz != null && ctDim === "3d" ? `${dz.toFixed(1)} mm` : "--- mm";
-          const bad = Math.max(rms(0), rms(1)) > lim || (dz != null && ctDim === "3d" && dz > lim);
-          const ang = angleAt(st, A, B);
-          ctlLogAdd(`器械点を決めた(後方交会) ${fmtXY(st.x, st.y).join(", ")}・2点間の較差 ${e.toFixed(1)} mm・開き ${ang.toFixed(0)}°` + (zInst != null ? `・器械の高さ ${zInst.toFixed(3)} m` : ""));
-          setStatus(`✓ 器械点を決めました(2点間の距離の較差 ${e.toFixed(1)} mm・開き ${ang.toFixed(0)}°)。` + (bad ? `⚠ ずれが ${lim} mm を超えています。既知点を測り直してください。` : "杭打ちに進めます。") + (ang < 30 || ang > 150 ? "⚠ 2点の開きが小さすぎ(大きすぎ)です。" : ""));
-          afterChange();
+          $("sgX").textContent = `${sg(0).toFixed(1)} mm`; $("sgY").textContent = `${sg(1).toFixed(1)} mm`; $("sgZ").textContent = sz != null && ctDim === "3d" ? `${sz.toFixed(1)} mm` : "--- mm";
+          const bad = Math.max(sg(0), sg(1)) > lim || (sz != null && ctDim === "3d" && sz > lim);
+          const worst = obs.reduce((w, q) => (q.o.r > w.o.r ? q : w), obs[0]);
+          const ang = angleAt(st, obs[0].p, obs[1].p);
+          ctlLogAdd(`器械点を決めた(後方交会 ${N} 点) ${fmtXY(st.x, st.y).join(", ")}・標準偏差 X ${sg(0).toFixed(1)}・Y ${sg(1).toFixed(1)} mm` + (zInst != null ? `・器械の高さ ${zInst.toFixed(3)} m` : ""));
+          setStatus(`✓ 器械点を決めました(既知点 ${N} 点・標準偏差 X ${sg(0).toFixed(1)} mm・Y ${sg(1).toFixed(1)} mm)。` +
+            (bad ? `⚠ ${lim} mm を超えています。いちばんずれている ${worst.p.name}(${worst.o.r.toFixed(1)} mm)を測り直すか、ほかの既知点を足してください。` : "杭打ちに進めます。") +
+            (N === 2 && (ang < 30 || ang > 150) ? "⚠ 2点の開きが小さすぎ(大きすぎ)です。" : ""));
+          afterChange(); renderCtl();
         }
+        function renderKSeq() {
+          if (!$("kSeq")) return;
+          if (!kNext || kSeq.some((q) => q.name === kNext)) kNext = nextKnown();
+          const need = ctMethod === "known" ? 1 : 2;
+          $("kSeq").innerHTML = (ctMethod === "known" ? `<div class="kseq-row inst"><b>器械点</b><span>${esc(k1 || "未選択")}</span><button type="button" class="ghost" data-clpick="k1">📋 選ぶ</button></div>` : "") +
+            kSeq.map((q, i) => `<div class="kseq-row"><b>${ctMethod === "known" ? "後視" : "既知点"}${i + 1}</b><span>${esc(q.name)}</span><small>${q.hd.toFixed(3)} m${q.r != null ? `・ずれ ${q.r.toFixed(1)} mm` : ""}</small><button type="button" class="ghost" data-kdel="${esc(q.name)}" aria-label="${esc(q.name)} を消す">✕</button></div>`).join("") +
+            (kSeq.length ? "" : `<p class="step-note" style="margin:0">まだ計測していません。</p>`);
+          const lbl = ctMethod === "known" ? `後視${kSeq.filter((q) => q.name !== k1).length + 1}` : `既知点${kSeq.length + 1}`;
+          $("kNextName").textContent = kNext ? `${lbl}:${kNext}` : `${lbl}:未選択`;
+          $("kMeasBtn").textContent = kNext ? `📏 計測(${lbl} ${kNext})` : "📏 計測(先に既知点を選ぶ)";
+          $("kMeasBtn").disabled = !kNext;
+          $("kDone").disabled = kSeq.filter((q) => ctMethod !== "known" || q.name !== k1).length < need;
+          $("kDone").textContent = `✓ 終了して計算(${kSeq.length} 点)`;
+        }
+        $("kSeqWrap").addEventListener("click", (e) => {
+          const d = e.target.closest("[data-kdel]"); if (!d) return;
+          kSeq = kSeq.filter((q) => q.name !== d.dataset.kdel); kNext = d.dataset.kdel; renderCtl();
+        });
+        $("kMeasBtn").addEventListener("click", measNext);
+        $("kDone").addEventListener("click", solveInst);
+        $("kReset").addEventListener("click", () => { if (kSeq.length && !confirm("計測した既知点を全部消して、はじめから測り直しますか?")) return; kSeq = []; kNext = null; renderCtl(); });
         function renderKMeas() {
           const L = KuiNavi.last;
           if (!KuiNavi.connected || !L) { $("cmAz").textContent = "---°--′--″"; $("cmHd").textContent = "---.--- m"; $("cmVd").textContent = "---.--- m"; }
@@ -4943,25 +5006,124 @@
         document.addEventListener("click", (e) => { const c = e.target.closest && e.target.closest("[data-close]"); if (c) closeOvl(c.dataset.close); });
         for (const id of ["menuOvl", "ctlOvl"]) $(id).addEventListener("click", (e) => { if (e.target.id === id) closeOvl(id); });
 
-        // ---- 現場
-        let sites = [], site = "";
+        // ---- 現場(図面と座標データを現場ごとにまとめて、この端末の中に保存する)
+        // IndexedDB「kurukuru-sites」: state(現場名 → 点・杭ナビの位置・設定)、files(現場名 → 図面ファイルの中身)
+        let sites = [], site = "", siteBusy = false, siteTimer = null;
         try { sites = JSON.parse(load("kr.sites") || "[]") || []; } catch (e) { sites = []; }
         site = load("kr.site") || "";
-        function renderSites() {
-          $("siteSel").innerHTML = (sites.length ? "" : `<option value="">(まだありません)</option>`) + sites.map((n) => `<option ${n === site ? "selected" : ""}>${esc(n)}</option>`).join("");
-          $("menuSite").textContent = site ? `現場:${site}` : "現場:未選択";
+        function sdb() {
+          return new Promise((ok, ng) => {
+            if (!window.indexedDB) return ng(new Error("この端末では現場の保存が使えません"));
+            const rq = indexedDB.open("kurukuru-sites", 1);
+            rq.onupgradeneeded = () => { rq.result.createObjectStore("state"); rq.result.createObjectStore("files"); };
+            rq.onsuccess = () => ok(rq.result); rq.onerror = () => ng(rq.error || new Error("現場の保存場所を開けません"));
+          });
         }
-        function setSite(n) { site = n; store("kr.site", n); if (n) $("fname").value = n; renderSites(); renderNaviBar(); renderOut(); saveState(); }
+        async function sdo(storeName, mode, fn) {
+          const db = await sdb();
+          try {
+            return await new Promise((ok, ng) => {
+              const tx = db.transaction(storeName, mode), st = tx.objectStore(storeName); let out;
+              const rq = fn(st); if (rq) rq.onsuccess = () => { out = rq.result; };
+              tx.oncomplete = () => ok(out); tx.onerror = () => ng(tx.error); tx.onabort = () => ng(tx.error || new Error("保存できませんでした"));
+            });
+          } finally { db.close(); }
+        }
+        const siteGet = (s, n) => sdo(s, "readonly", (st) => st.get(n));
+        const sitePut = (s, n, v) => sdo(s, "readwrite", (st) => st.put(v, n));
+        const siteDelRec = (s, n) => sdo(s, "readwrite", (st) => st.delete(n));
+        function siteSnapshot() {
+          return { unit: unitName(), axis: $("axis").value, dUnit: $("dUnit").value, dScale: $("dScale").value, dCustom: $("dCustom").value,
+            picks, inst, k1, k2, stk, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value, hOff: KuiNavi.hOff, at: Date.now() };
+        }
+        function siteSaveSoon() {
+          try { if (!site || siteBusy) return; } catch (e) { return; }   // 起動の途中(まだ現場を読んでいない)
+
+          clearTimeout(siteTimer);
+          const n = site;
+          siteTimer = setTimeout(() => { sitePut("state", n, siteSnapshot()).then(renderSiteInfo).catch((e) => setStatus("⚠ 現場に保存できません: " + e.message, true)); }, 400);
+        }
+        async function siteSaveNow() { clearTimeout(siteTimer); if (site) await sitePut("state", site, siteSnapshot()); }
+        async function siteSaveFile(f, bytes) {
+          if (!site || siteBusy) return;
+          try { await sitePut("files", site, { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes }); renderSiteInfo(); }
+          catch (e) { setStatus("⚠ 図面を現場に保存できません(容量が足りないかもしれません): " + e.message, true); }
+        }
+        function clearDrawing() {
+          lines = []; texts = []; zMarks = []; zMarksRaw = []; filePts = []; dxfBuf = null; ptOpen = null; view = null;
+          $("fileInfo").hidden = true; $("zunouNote").hidden = true; $("ptOpenNote").hidden = true;
+        }
+        async function loadSite(n) {
+          siteBusy = true;
+          try {
+            const st = await siteGet("state", n), fl = await siteGet("files", n);
+            suggestions = []; picked = null; meas = []; nige.result = [];
+            if (!st && !fl) {   // まだ何も入っていない現場 → いま開いている図面と点をそのまま入れる
+              siteBusy = false; await siteSaveNow();
+              setStatus(`🏗 現場「${n}」にしました。いま開いている図面と点は、この現場に保存されます。`);
+              return;
+            }
+            const o = st || {};
+            for (const k of ["axis", "dUnit", "dScale", "dCustom", "fname", "rMax", "rMin"]) if (o[k] != null) $(k).value = o[k];
+            if (o.unit && $("unit").value !== undefined && o.unit !== unitName()) { /* 単位は端末の設定のまま。H は下で直す */ }
+            const f = o.unit && o.unit !== unitName() ? (o.unit === "m" ? 1000 : 0.001) : 1;
+            picks = (o.picks || []).map((p) => ({ ...p, h: (Number(p.h) || 0) * f }));
+            inst = o.inst || null; k1 = o.k1 || null; k2 = o.k2 || null; stk = o.stk || []; target = o.target || null;
+            if (o.hOff != null) { KuiNavi.hOff = o.hOff; store("kr.hoff", String(o.hOff)); }
+            clearDrawing();
+            if (fl && fl.bytes) { await openFile(new File([fl.bytes], fl.name, { type: fl.type, lastModified: fl.lastModified })); if (o.fname != null) $("fname").value = o.fname; }
+            else {
+              if (picks.length) { const bb = bboxOf([picks.map((p) => [p.x, p.y])]); view = { ...bb }; resetZoom(); }
+              afterChange();
+            }
+            setStatus(`🏗 現場「${n}」を開きました(${fl ? "図面「" + fl.name + "」・" : "図面なし・"}点 ${picks.length})。`);
+          } catch (e) { setStatus("⚠ 現場を開けません: " + e.message, true); }
+          finally { siteBusy = false; renderSiteInfo(); draw(); }
+        }
+        async function renderSiteInfo() {
+          if (!$("siteInfo")) return;
+          if (!site) { $("siteInfo").textContent = "現場を選ぶと、図面と座標データ(点・杭ナビの位置・打った杭)をこの端末に現場ごとに保存します。アプリを閉じても、別の図面を開いても消えません。"; return; }
+          try {
+            const st = await siteGet("state", site), fl = await siteGet("files", site);
+            const d = st && st.at ? new Date(st.at) : null, p2 = (v) => String(v).padStart(2, "0");
+            $("siteInfo").textContent = `現場「${site}」:図面 ${fl ? `「${fl.name}」(${(fl.bytes.byteLength / 1048576).toFixed(1)} MB)` : "なし"}・点 ${st && st.picks ? st.picks.length : 0}` + (d ? `・保存 ${d.getMonth() + 1}/${d.getDate()} ${p2(d.getHours())}:${p2(d.getMinutes())}` : "") + "。自動で保存しています。";
+          } catch (e) { $("siteInfo").textContent = "現場の保存場所を読めません: " + e.message; }
+        }
+        function renderSites() {
+          $("siteSel").innerHTML = `<option value="">(現場を選ばない)</option>` + sites.map((n) => `<option ${n === site ? "selected" : ""}>${esc(n)}</option>`).join("");
+          $("menuSite").textContent = site ? `現場:${site}` : "現場:未選択";
+          renderSiteInfo();
+        }
+        async function setSite(n, carry, saved) {
+          if (n === site) return;
+          if (!saved) await siteSaveNow().catch(() => { });
+          site = n; store("kr.site", n);
+          if (n && /^[A-Za-z0-9_-]{1,20}$/.test(n)) $("fname").value = n;
+          renderSites(); renderNaviBar();
+          if (n && !carry) await loadSite(n);
+          else if (n) { await siteSaveNow(); const fl = lastOpened; if (fl) await siteSaveFile(fl.f, fl.bytes); setStatus(`🏗 現場「${n}」を作って、いま開いている図面と点を入れました。`); }
+          renderSites(); renderOut();
+        }
         $("siteSel").addEventListener("change", () => setSite($("siteSel").value));
-        $("siteAdd").addEventListener("click", () => {
+        $("siteAdd").addEventListener("click", async () => {
           const n = $("siteNew").value.trim();
-          if (!/^[A-Za-z0-9_-]{1,20}$/.test(n)) { alert("現場名は半角英数(と - _)で20文字までにしてください。"); return; }
-          if (!sites.includes(n)) sites.push(n);
-          store("kr.sites", JSON.stringify(sites)); $("siteNew").value = ""; setSite(n);
+          if (!n || n.length > 30 || /[\\/:*?"<>|]/.test(n)) { alert("現場名は30文字までで、 \\ / : * ? \" < > | は使えません。"); return; }
+          if (sites.includes(n)) { alert(`現場「${n}」はもうあります。`); return; }
+          const has = picks.length || view;
+          const carry = has && confirm(`いま開いている図面と点(${picks.length} 点)を、新しい現場「${n}」に入れますか?\n(キャンセル=空の現場を作る)`);
+          sites.push(n); store("kr.sites", JSON.stringify(sites)); $("siteNew").value = "";
+          await siteSaveNow().catch(() => { });   // 今の現場を先に保存してから空にする
+          if (!carry) { lastOpened = null; picks = []; inst = null; k1 = k2 = null; stk = []; target = null; clearDrawing(); }
+          await setSite(n, true, true);
+          afterChange();
         });
-        $("siteDel").addEventListener("click", () => {
-          if (!site || !confirm(`現場「${site}」を一覧から消します(点や図面は消えません)。よろしいですか?`)) return;
-          sites = sites.filter((n) => n !== site); store("kr.sites", JSON.stringify(sites)); setSite(sites[0] || "");
+        $("siteDel").addEventListener("click", async () => {
+          if (!site || !confirm(`現場「${site}」と、この端末に保存した図面・座標データを消します。元に戻せません。よろしいですか?`)) return;
+          const n = site;
+          try { await siteDelRec("state", n); await siteDelRec("files", n); } catch (e) { /* */ }
+          sites = sites.filter((x) => x !== n); store("kr.sites", JSON.stringify(sites));
+          site = ""; store("kr.site", ""); renderSites(); renderNaviBar();
+          setStatus(`現場「${n}」を消しました(いま画面に出ている図面と点はそのまま残っています)。`);
         });
 
         // ---- 設定
@@ -5048,15 +5210,13 @@
           $("csPrism").textContent = $("cfgPrism").value;
           $("csMirror").textContent = `${Number($("cfgMirror").value || 0).toFixed(3)} m`;
           const A = byName(k1), B = byName(k2);
-          $("ck1").textContent = A ? A.name : "未選択"; $("ck2").textContent = B ? B.name : "未選択";
-          for (const [w, id] of [["k1", "ck1s"], ["k2", "ck2s"]]) { const o = kObs[w], nm = w === "k1" ? k1 : k2; $(id).textContent = o && o.name === nm ? `測定済 ${o.hd.toFixed(3)} m` : "未測定"; }
+          renderKSeq();
           $("ctlInst").textContent = inst ? `器械点(${KuiNavi.instMeas && KuiNavi.instMeas.x === inst.x && KuiNavi.instMeas.y === inst.y ? "測って決めた" : "目安"}):${fmtXY(inst.x, inst.y).join(", ")}` + (A && B ? `　開き ${angleAt(inst, A, B).toFixed(0)}°` : "") : "器械点:まだ決まっていません(① 据付 で目安の位置を決められます)";
           for (const b of $("ctMethod").children) b.setAttribute("aria-pressed", String(b.dataset.m === ctMethod));
           for (const b of $("ctDim").children) b.setAttribute("aria-pressed", String(b.dataset.d === ctDim));
           $("ctMethodNote").textContent = METHOD_NOTE[ctMethod];
           const kl = ctMethod === "known" ? ["器械点", "後視点"] : ["既知点1", "既知点2"];
-          document.querySelector('[data-act="measK1"] small').textContent = kl[0];
-          document.querySelector('[data-act="measK2"] small').textContent = kl[1];
+
           $("ctSigmaNote").textContent = `測り終わると誤差(標準偏差)が出ます。${$("cfgSigma").value || 5} mm 以内が目安で、超えたら既知点を測り直します。` + (A && B && inst ? `いまの2点の開き ${angleAt(inst, A, B).toFixed(0)}°(70〜110° が理想)。` : "");
           const ks = knowns(), pre = $("ctPre").value;
           $("ctPre").innerHTML = ks.length ? ks.map((q) => `<option ${q.name === pre ? "selected" : ""}>${esc(q.name)}</option>`).join("") : `<option value="">(既知点がありません)</option>`;
@@ -5082,8 +5242,7 @@
           const args = {};
           if (/^rot/.test(act)) args.speed = Number($("ctSpeed").value);
           if (b.classList.contains("tgl2")) args.on = b.getAttribute("aria-pressed") === "true";
-          if (KuiNavi.connected && (act === "measK1" || act === "measK2")) { measKnown(act === "measK1" ? "k1" : "k2"); return; }
-          if (KuiNavi.connected && act === "setInst") { solveInst(); return; }
+          if (act === "measure" && ctlTab === "setup" && kNext) { measNext(); return; }
           if (act === "measK1" || act === "measK2") { args.point = (act === "measK1" ? k1 : k2) || null; args.prism = $("cfgPrism").value; args.mirror = Number($("cfgMirror").value); }
           if (act === "guideToPt") { const p = byName(target); if (p) { args.point = p.name; if (inst) { args.azimuth = dms(azimuth(inst, p)); args.az = azimuth(inst, p); args.dist = dm(inst, p); } } }
           if (act === "record") args.name = $("ctName").value;
@@ -5238,6 +5397,7 @@
         function setKnown(which, p) {
           if (!p) return;
           if (roleOf(p) !== "known") p.role = "known";
+          if (which === "next") { kNext = p.name; afterChange(); renderCtl(); setStatus(`📐 次に計測する既知点を ${p.name} にしました。プリズムを立てて追尾し「📏 計測」を押してください。`); return; }
           if (which === "k1") { k1 = p.name; if (k2 === k1) k2 = null; } else { k2 = p.name; if (k1 === k2) k1 = null; }
           afterChange();
           setStatus(`📐 ${p.name} を${which === "k1" ? "既知点1" : "既知点2"}にしました(後方交会)。` + (k1 && k2 ? `既知点1 ${k1}・既知点2 ${k2}。` : ""));
@@ -5247,7 +5407,7 @@
           if (knowns().length) { clF = "known"; for (const b of $("clF").children) b.setAttribute("aria-pressed", String(b.dataset.f === "known")); }
           setCtlTab("list"); openOvl("ctlOvl");
         }
-        for (const b of document.querySelectorAll("[data-clpick]")) b.addEventListener("click", () => startPick(b.dataset.clpick));
+        document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-clpick]"); if (b) startPick(b.dataset.clpick); });
         $("clPickCancel").addEventListener("click", () => { clPick = null; renderCList(); });
         $("clK1").addEventListener("click", () => { setKnown("k1", byName(clSelN)); renderCList(); });
         $("clK2").addEventListener("click", () => { setKnown("k2", byName(clSelN)); renderCList(); });
@@ -5291,7 +5451,7 @@
             return `<tr data-n="${esc(p.name)}" class="${p.name === clSelN ? "sel" : ""} ${p.name === target ? "tgt" : ""}"><td><b>${esc(p.name)}</b>${p.name === k1 ? '<span class="k">既知1</span>' : p.name === k2 ? '<span class="k">既知2</span>' : kn ? '<span class="k">既知</span>' : ""}${p.done ? '<span class="dn">✓</span>' : ""}</td><td>${X}</td><td>${Y}</td><td>${fmtH(p.h)}</td><td>${inst ? dm(inst, p).toFixed(2) : "--"}</td></tr>`;
           }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
           $("clPickBar").hidden = !clPick;
-          if (clPick) $("clPickMsg").textContent = `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
+          if (clPick) $("clPickMsg").textContent = clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
           const ds = picks.filter((p) => roleOf(p) !== "known");
           $("clCsv").disabled = $("clSima").disabled = !list.length;
           $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。⬇ は表示している点をそのまま書き出します。";
@@ -5342,6 +5502,7 @@
         setMode(mainMode === "coord" ? subMode : mainMode);
         afterChange();
         draw();
+        if (site) { if (!sites.includes(site)) { sites.push(site); store("kr.sites", JSON.stringify(sites)); } loadSite(site).then(renderSites); }
       })();
     </script>
     <script>
