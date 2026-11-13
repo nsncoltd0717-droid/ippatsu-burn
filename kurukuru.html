@@ -560,7 +560,8 @@
       /* 操作盤の中にも「いまの知らせ」を出す(下の画面の知らせは操作盤に隠れて見えないため) */
       .ovl.ctl .ovl-head { flex-wrap: wrap; }
       .ovl.ctl .ovl-head > .ctl-msg { flex: 1 0 100%; order: 9; min-width: 0; max-width: 100%; box-sizing: border-box; white-space: normal; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; color: var(--ink, #111); background: var(--bg); border-left: 4px solid #2563eb; border-radius: 8px; padding: 6px 8px; min-height: 1.4em; }
-      .ctl-msg:empty { display: none; }
+      .ovl.ctl .ovl-head > .ctl-msg { height: 2.8em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* 高さを決めておく(知らせで画面がずれて、映像のタップ位置が狂わないように) */
+      .ovl.ctl.is-live .ovl-head > .ctl-msg { height: 1.4em; -webkit-line-clamp: 1; }
       .ctl-msg.warn { border-left-color: #dc2626; color: #b91c1c; }
       .k-result { margin-top: 8px; border: 2px solid #16a34a; border-radius: 12px; padding: 8px 10px; background: #f0fdf4; font-variant-numeric: tabular-nums; }
       .k-result.ng { border-color: #dc2626; background: #fef2f2; }
@@ -595,7 +596,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.17.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.18.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -5001,7 +5002,9 @@
         const KERR = { E297: "(レーザーがもう消えている)", E114: "(回転中で角度が出ない)", E115: "(回転中で角度が出ない)" };
         const KuiNavi = {
           connected: false, ws: null, buf: "", last: null, model: "", batt: null, live: false, holding: false,
-          hOff: Number(load("kr.hoff") || 0),        // 方向角 = 杭ナビの水平角 + hOff(「向きを合わせる」で決める)
+          hOff: Number(load("kr.hoff") || 0),        // 方向角 = hSign × 杭ナビの水平角 + hOff(器械設置で決める)
+          hSign: Number(load("kr.hsign") || 1),      // 杭ナビの水平角の回りと座標の回りが同じなら 1、逆(X・Y の向きが鏡写し)なら -1。後方交会(3点以上)で自動で決める
+          az(h01) { return norm(this.hSign * h01 * 360 + this.hOff); },
           raw(cmd, ...a) {
             const body = `@${cmd},` + (a.length ? a.join(",") + "," : "");
             const line = body + kcs(body);
@@ -5162,11 +5165,11 @@
             const L = this.last;
             if (was === 3 && L.trk === 2) { beep("search"); ctlLogAdd("サーチ完了(プリズムを捕まえた)"); }
             if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
-            if (L.h != null) liveHd = norm(L.h * 360 + this.hOff);
+            if (L.h != null) liveHd = this.az(L.h);
             const now = performance.now();
             if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); renderGuide(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
           },
-          azToH(az) { return (norm(az - this.hOff) / 360).toFixed(8); },
+          azToH(az) { return (norm(this.hSign * (az - this.hOff)) / 360).toFixed(8); },
           // 操作盤のボタン → 杭ナビの命令
           async send(cmd, args) {
             const a = args || {};
@@ -5196,8 +5199,8 @@
                 if (!L || L.sd == null) { setStatus("📏 距離が出ていません。プリズムを追尾(サーチ)してから押してください。"); return null; }
                 const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z);
                 beep("meas");
-                ctlLogAdd(`測定  斜距離 ${L.sd.toFixed(4)} m・水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(norm(L.h * 360 + this.hOff))}`);
-                setStatus(`📏 水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(norm(L.h * 360 + this.hOff))}`);
+                ctlLogAdd(`測定  斜距離 ${L.sd.toFixed(4)} m・水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(this.az(L.h))}`);
+                setStatus(`📏 水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(this.az(L.h))}`);
                 return L;
               }
               default:
@@ -5247,7 +5250,7 @@
         function prismPos() {
           const L = KuiNavi.last;
           if (!KuiNavi.connected || !inst || !L || L.trk !== 2 || L.sd == null || L.v == null || L.h == null || Date.now() - L.t > 3000) return null;
-          const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z), az = norm(L.h * 360 + KuiNavi.hOff);
+          const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z), az = KuiNavi.az(L.h);
           const a = az * Math.PI / 180;
           return { x: inst.x + hd * 1000 * Math.sin(a), y: inst.y + hd * 1000 * Math.cos(a), az, hd, vd };
         }
@@ -5353,7 +5356,7 @@
           if (ctMethod === "known") {   // 既知点1(器械点)の上に据えて、後視点を測る
             const A = byName(k1), bs = obs.filter((q) => q.p.name !== k1);
             if (!A || !bs.length) { const m = "既知点設置:器械点(既知点1)を決め、その上に据えて、後視点を1点以上計測してください。"; setStatus(m, true); showKResult("info", `<p>⚠ ${m}</p>`); return; }
-            const offs = bs.map(({ o, p }) => dAng(0, norm(azimuth(A, p) - o.h)));
+            const offs = bs.map(({ o, p }) => dAng(0, norm(azimuth(A, p) - KuiNavi.hSign * o.h)));
             const hOff = norm(Math.atan2(offs.reduce((a, d) => a + Math.sin(d * Math.PI / 180), 0), offs.reduce((a, d) => a + Math.cos(d * Math.PI / 180), 0)) * 180 / Math.PI);
             for (const q of bs) q.o.r = (q.o.hd - dm(A, q.p)) * 1000;
             const e = Math.max(...bs.map((q) => Math.abs(q.o.r)));
@@ -5369,20 +5372,40 @@
           }
           if (obs.length < 2) { const m = `後方交会は既知点を2点以上計測してから「終了して計算」を押してください(いま ${obs.length} 点)。「📋 次の既知点を選ぶ」で点を選び、「📏 計測」で測ります。`; setStatus(m, true); showKResult("info", `<p>⚠ ${m}</p>`); return; }
           const N = obs.length;
-          const loc = obs.map(({ o }) => [o.hd * 1000 * Math.sin(o.h * Math.PI / 180), o.hd * 1000 * Math.cos(o.h * Math.PI / 180)]);
+          // 2次元ヘルマート変換(回転+平行移動・最小二乗)。トータルステーションの後方交会(既知点の観測値から器械点を出す)と同じ考え方。
+          // 杭ナビの水平角の回り(sgn)が座標と逆のとき(X・Y の向きが鏡写しのとき)は合わないので、3点以上なら両方で解いて合う方を使う。
           const wld = obs.map(({ p }) => [p.x, p.y]);
           const mean = (a, k) => a.reduce((s, v) => s + v[k], 0) / a.length;
-          const cl = [mean(loc, 0), mean(loc, 1)], cw = [mean(wld, 0), mean(wld, 1)];
-          let a = 0, b = 0;
-          for (let i = 0; i < N; i++) { const lx = loc[i][0] - cl[0], ly = loc[i][1] - cl[1], wx = wld[i][0] - cw[0], wy = wld[i][1] - cw[1]; a += lx * wx + ly * wy; b += lx * wy - ly * wx; }
-          const th = Math.atan2(b, a), c = Math.cos(th), sn = Math.sin(th);
-          const R = (v) => [c * v[0] - sn * v[1], sn * v[0] + c * v[1]];
-          const rc = R(cl), st = { x: cw[0] - rc[0], y: cw[1] - rc[1] };
-          const res = loc.map((v, i) => { const q = R(v); return [q[0] + st.x - wld[i][0], q[1] + st.y - wld[i][1]]; });
+          const cw = [mean(wld, 0), mean(wld, 1)];
+          const fit = (sgn) => {
+            const loc = obs.map(({ o }) => [o.hd * 1000 * Math.sin(sgn * o.h * Math.PI / 180), o.hd * 1000 * Math.cos(sgn * o.h * Math.PI / 180)]);
+            const cl = [mean(loc, 0), mean(loc, 1)];
+            let a = 0, b = 0;
+            for (let i = 0; i < N; i++) { const lx = loc[i][0] - cl[0], ly = loc[i][1] - cl[1], wx = wld[i][0] - cw[0], wy = wld[i][1] - cw[1]; a += lx * wx + ly * wy; b += lx * wy - ly * wx; }
+            const th = Math.atan2(b, a), c = Math.cos(th), sn = Math.sin(th);
+            const R = (v) => [c * v[0] - sn * v[1], sn * v[0] + c * v[1]];
+            const rc = R(cl), st = { x: cw[0] - rc[0], y: cw[1] - rc[1] };
+            const res = loc.map((v, i) => { const q = R(v); return [q[0] + st.x - wld[i][0], q[1] + st.y - wld[i][1]]; });
+            return { sgn, th, st, res, rms: Math.sqrt(res.reduce((s, r) => s + r[0] ** 2 + r[1] ** 2, 0) / N) };
+          };
+          const fA = fit(KuiNavi.hSign), fB = fit(-KuiNavi.hSign);
+          const F = N >= 3 && fB.rms < fA.rms * 0.5 ? fB : fA;
+          const flipped = F.sgn !== KuiNavi.hSign;
+          const { th, st, res } = F;
           obs.forEach((q, i) => { q.o.r = Math.hypot(res[i][0], res[i][1]); });
+          // 既知点どうしの距離:観測(2点の水平距離と挟む角)から出した距離と、座標から出した距離の差。点名・座標・単位のまちがいが分かる
+          const pairs = [];
+          for (let i = 0; i < N; i++) for (let k = i + 1; k < N; k++) {
+            const A = obs[i], B = obs[k], dh = (B.o.h - A.o.h) * Math.PI / 180;
+            const dObs = Math.sqrt(Math.max(0, A.o.hd ** 2 + B.o.hd ** 2 - 2 * A.o.hd * B.o.hd * Math.cos(dh))) * 1000;
+            const dCrd = dmm(A.p, B.p);
+            pairs.push({ a: A.p.name, b: B.p.name, dObs, dCrd, e: dObs - dCrd });
+          }
+          const pairBad = pairs.filter((q) => Math.abs(q.e) > Math.max(30, 3 * lim));
           const dof = Math.max(1, 2 * N - 3);
           const sg = (k) => Math.sqrt(res.reduce((s, r) => s + r[k] ** 2, 0) / dof);
           const hOff = norm(-th * 180 / Math.PI);
+          if (flipped) { KuiNavi.hSign = F.sgn; store("kr.hsign", String(F.sgn)); ctlLogAdd(`後方交会: 杭ナビの角度の回りと座標の向きが逆だったので合わせた(hSign=${F.sgn}・合わない方の平均ずれ ${fA.rms.toFixed(0)} mm)`); }
           const zs = obs.filter(({ p }) => hM(p) != null).map(({ p, o }) => hM(p) + mirror - o.vd);
           const zInst = zs.length ? zs.reduce((x, y) => x + y, 0) / zs.length : null;
           const sz = zs.length >= 2 ? Math.sqrt(zs.reduce((s, z) => s + (z - zInst) ** 2, 0) / (zs.length - 1)) * 1000 : null;
@@ -5402,7 +5425,11 @@
             `<table><tr><th>既知点</th><th>水平距離</th><th>ずれ(平面)</th><th>高さ</th></tr>` +
             obs.map((q, i) => `<tr><td>${esc(q.p.name)}</td><td>${q.o.hd.toFixed(3)} m</td><td${q.o.r > lim ? ' style="color:#dc2626;font-weight:700"' : ""}>${q.o.r.toFixed(1)} mm</td><td>${zi[i] == null || ctDim !== "3d" ? "---" : zi[i].toFixed(1) + " mm"}</td></tr>`).join("") + `</table>` +
             `<p>目安 ${lim} mm 以内(設定で変えられます)。` + (badXY ? `いちばんずれている ${esc(worst.p.name)} を測り直すか、ほかの既知点を足してください。` : badZ ? "高さがばらついています。既知点の H とミラー高を確かめてください(2D なら高さは使いません)。" : "杭打ちに進めます。") +
-            (N === 2 ? "2点だけだと誤差の確かめができないので、できれば3点目も測ってください。" : "") + (N === 2 && (ang < 30 || ang > 150) ? "⚠ 2点の開きが小さすぎ(大きすぎ)です。" : "") + `</p>`);
+            (N === 2 ? "2点だけだと誤差の確かめができないので、できれば3点目も測ってください。" : "") + (N === 2 && (ang < 30 || ang > 150) ? "⚠ 2点の開きが小さすぎ(大きすぎ)です。" : "") + `</p>` +
+            (flipped ? `<p>ℹ 座標の X・Y の向き(「座標の向き」の設定)と、杭ナビの角度の回りが逆になっていたので、自動で合わせて計算しました(逆のままだと平均 ${(fA.rms / 1000).toFixed(2)} m ずれていました)。</p>` : "") +
+            `<table><tr><th>既知点どうし</th><th>観測から</th><th>座標から</th><th>差</th></tr>` +
+            pairs.map((q) => `<tr><td>${esc(q.a)}–${esc(q.b)}</td><td>${(q.dObs / 1000).toFixed(3)} m</td><td>${(q.dCrd / 1000).toFixed(3)} m</td><td${Math.abs(q.e) > Math.max(30, 3 * lim) ? ' style="color:#dc2626;font-weight:700"' : ""}>${q.e.toFixed(1)} mm</td></tr>`).join("") + `</table>` +
+            (pairBad.length ? `<p>⚠ 既知点どうしの距離が座標と合いません(${pairBad.map((q) => `${esc(q.a)}–${esc(q.b)} ${(q.e / 1000).toFixed(3)} m`).join("、")})。点名の取りちがい・座標の打ちまちがい・単位(m と mm)・別のプリズムを測った、のどれかです。合わない組に入っている点を確かめて測り直してください。</p>` : `<p>既知点どうしの距離は座標と合っています(観測は正常)。</p>`));
           afterChange(); renderCtl();
         }
         function renderKSeq() {
@@ -5431,7 +5458,7 @@
           const L = KuiNavi.last;
           if (!KuiNavi.connected || !L) { $("cmAz").textContent = "---°--′--″"; $("cmHd").textContent = "---.--- m"; $("cmVd").textContent = "---.--- m"; }
           else {
-            $("cmAz").textContent = L.h != null ? dms(norm(L.h * 360 + KuiNavi.hOff)) : "回転中";
+            $("cmAz").textContent = L.h != null ? dms(KuiNavi.az(L.h)) : "回転中";
             if (L.sd != null && L.v != null) { const z = L.v * 2 * Math.PI; $("cmHd").textContent = `${(L.sd * Math.sin(z)).toFixed(3)} m`; $("cmVd").textContent = `${(L.sd * Math.cos(z)).toFixed(3)} m`; }
             else { $("cmHd").textContent = "---.--- m"; $("cmVd").textContent = "---.--- m"; }
           }
@@ -5478,7 +5505,7 @@
         const siteDelRec = (s, n) => sdo(s, "readwrite", (st) => st.delete(n));
         function siteSnapshot() {
           return { unit: unitName(), axis: $("axis").value, dUnit: $("dUnit").value, dScale: $("dScale").value, dCustom: $("dCustom").value,
-            picks, inst, k1, k2, stk, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value, hOff: KuiNavi.hOff, at: Date.now() };
+            picks, inst, k1, k2, stk, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value, hOff: KuiNavi.hOff, hSign: KuiNavi.hSign, at: Date.now() };
         }
         function siteSaveSoon() {
           try { if (!site || siteBusy) return; } catch (e) { return; }   // 起動の途中(まだ現場を読んでいない)
@@ -5514,6 +5541,7 @@
             picks = (o.picks || []).map((p) => ({ ...p, h: (Number(p.h) || 0) * f }));
             inst = o.inst || null; k1 = o.k1 || null; k2 = o.k2 || null; stk = o.stk || []; target = o.target || null;
             if (o.hOff != null) { KuiNavi.hOff = o.hOff; store("kr.hoff", String(o.hOff)); }
+            if (o.hSign) { KuiNavi.hSign = o.hSign; store("kr.hsign", String(o.hSign)); }
             clearDrawing();
             if (fl && fl.bytes) { await openFile(new File([fl.bytes], fl.name, { type: fl.type, lastModified: fl.lastModified })); if (o.fname != null) $("fname").value = o.fname; }
             else {
@@ -5705,7 +5733,7 @@
           const A = byName(k1), L = KuiNavi.last;
           if (!KuiNavi.connected || !L || L.h == null) { setStatus("向きを合わせるには、杭ナビにつないで、既知点1のプリズムを追尾してください。"); return; }
           if (!inst || !A) { setStatus("向きを合わせるには、① 据付 で杭ナビの位置と既知点1を決めてください。"); return; }
-          KuiNavi.hOff = norm(azimuth(inst, A) - L.h * 360); store("kr.hoff", String(KuiNavi.hOff));
+          KuiNavi.hOff = norm(azimuth(inst, A) - KuiNavi.hSign * L.h * 360); store("kr.hoff", String(KuiNavi.hOff));
           ctlLogAdd(`向きを合わせた  既知点1 ${A.name} の方向角 ${dms(azimuth(inst, A))}`);
           setStatus(`🧭 向きを合わせました(既知点1 ${A.name} の方向角 ${dms(azimuth(inst, A))})。これで「点の方向へ回す」が使えます。`);
           renderCtl();
@@ -5865,31 +5893,34 @@
         }
         $("lsRange").addEventListener("click", (e) => { const r = e.target.dataset.r; if (!r) return; lsRange = Number(r); for (const b of $("lsRange").children) b.setAttribute("aria-pressed", String(b.dataset.r === r)); renderLive(); });
         $("lsDir").addEventListener("click", (e) => { const d = e.target.dataset.d; if (!d) return; lsDir = d; for (const b of $("lsDir").children) b.setAttribute("aria-pressed", String(b.dataset.d === d)); renderLive(); });
-        // スワイプ:映像をつかんで動かす向き(左へなぞる → 映像が左へ流れる → 杭ナビは右へ回る)。タップは今までどおりその点へ回す。
-        let lvSw = null, lvSwEnd = 0;
-        $("liveView").addEventListener("pointerdown", (e) => { lvSw = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+        // 映像のタップ・スワイプ。指を離したところで判断する(click は指が少し動くと来ないことがあるので使わない)
+        //   タップ:その場所が真ん中に来るように杭ナビを回す(CMPOS = 映像 1280x720 の真ん中からの画素)
+        //   スワイプ:映像をつかんで動かす向き(左へなぞる → 映像が左へ流れる → 杭ナビは右へ回る)
+        let lvSw = null;
+        function liveImgRect() {   // 映像は枠の中に縦横比を保って描いているので、その絵の部分の位置と大きさ
+          const r = $("liveView").getBoundingClientRect(), k = Math.min(r.width / 1280, r.height / 720), w = 1280 * k, h = 720 * k;
+          return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h, box: r };
+        }
+        function liveDrive(fx, fy, how) {
+          fx = Math.max(0, Math.min(1, fx)); fy = Math.max(0, Math.min(1, fy));
+          const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * 720 / 1280;
+          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3) });
+          if (!KuiNavi.connected) { const h = liveHome(); liveAnimate([h, h + dH], "turn"); }   // つながっているときは本物の針(杭ナビの向き)だけを出す
+          setStatus(how === "tap" ? `👆 タップしたところ(横 ${Math.round((fx - 0.5) * 1280)}・縦 ${Math.round((fy - 0.5) * 720)})を真ん中へ` + (KuiNavi.connected ? "" : "(見本)")
+            : `👉 スワイプ:${dH >= 0 ? "右" : "左"}・${dV >= 0 ? "上" : "下"}へ` + (KuiNavi.connected ? "" : "(見本)"));
+        }
+        $("liveView").addEventListener("pointerdown", (e) => { lvSw = { x: e.clientX, y: e.clientY, id: e.pointerId }; try { $("liveView").setPointerCapture(e.pointerId); } catch (er) { /* */ } });
         $("liveView").addEventListener("pointercancel", () => { lvSw = null; });
         $("liveView").addEventListener("pointerup", (e) => {
           const s = lvSw; lvSw = null;
           if (!s || s.id !== e.pointerId) return;
-          const dx = e.clientX - s.x, dy = e.clientY - s.y;
-          if (Math.hypot(dx, dy) < 24) return;   // 短いのはタップ(click の方で扱う)
-          lvSwEnd = Date.now();
-          const r = $("liveView").getBoundingClientRect();
-          const fx = Math.max(0, Math.min(1, 0.5 - dx / r.width)), fy = Math.max(0, Math.min(1, 0.5 - dy / r.height));
-          const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * r.height / r.width;
-          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3), swipe: true });
-          const h = liveHome(); liveAnimate([h, h + dH], "turn");
-          setStatus(`👉 スワイプ:${dH >= 0 ? "右" : "左"}へ ${Math.abs(dH).toFixed(1)}°・${dV >= 0 ? "上" : "下"}へ ${Math.abs(dV).toFixed(1)}°` + (KuiNavi.connected ? "" : "(見本)"));
-        });
-        $("liveView").addEventListener("click", (e) => {   // タッチドライブ
-          if (Date.now() - lvSwEnd < 500) return;   // スワイプの後の click は無視
-          const r = $("liveView").getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
-          const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * r.height / r.width;
-          const t = $("liveTap"); t.hidden = true; t.style.left = `${fx * 100}%`; t.style.top = `${fy * 100}%`; void t.offsetWidth; t.hidden = false;
-          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3) });
-          const h = liveHome(); liveAnimate([h, h + dH], "turn");
-          setStatus(`👆 タッチドライブ:${dH >= 0 ? "右" : "左"}へ ${Math.abs(dH).toFixed(1)}°・${dV >= 0 ? "上" : "下"}へ ${Math.abs(dV).toFixed(1)}°(見本)`);
+          const R = liveImgRect(), dx = e.clientX - s.x, dy = e.clientY - s.y;
+          if (Math.hypot(dx, dy) < 48) {   // タップ(指が少しずれてもタップ):指を置いたところを使う
+            const fx = (s.x - R.left) / R.width, fy = (s.y - R.top) / R.height;
+            const t = $("liveTap"); t.hidden = true; t.style.left = `${((s.x - R.box.left) / R.box.width) * 100}%`; t.style.top = `${((s.y - R.box.top) / R.box.height) * 100}%`; void t.offsetWidth; t.hidden = false;
+            liveDrive(fx, fy, "tap"); return;
+          }
+          liveDrive(0.5 - dx / R.width, 0.5 - dy / R.height, "swipe");
         });
         $("liveDial").addEventListener("click", (e) => {   // 方位盤をタップした方位へ回す
           const r = $("liveDial").getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);

@@ -1,5 +1,5 @@
 // 一発バーン脳みそforRAPID(ホーム画面アプリ)。電波があるときは新しい版を取りに行き、無いときは覚えている版で開く
-const CACHE = "ippatsu-b5857c6ba1";
+const CACHE = "ippatsu-80fa16f024";
 const FILES = ["./", "index.html", "sumi.html", "kamashi.html", "nomiso.html", "kurukuru.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
