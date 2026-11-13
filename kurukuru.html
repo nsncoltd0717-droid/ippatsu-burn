@@ -532,6 +532,10 @@
       .bt-pick-box { background: var(--card, #fff); color: var(--ink, #111); border-radius: 14px; padding: 14px; width: 100%; max-width: 420px; max-height: 80vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
       .bt-pick-box > button { text-align: left; display: flex; flex-direction: column; align-items: flex-start; }
       .bt-pick-box button small { font-weight: 400; opacity: .7; }
+
+      .ctl-status .cs-edit { border-color: var(--accent, #0b6bcb); }
+      .ctl-status .cs-edit select, .ctl-status .cs-edit input { width: 100%; min-width: 0; font: inherit; font-size: 13.5px; font-weight: 700; padding: 2px 4px; margin: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; }
+      .ctl-status .cs-edit input:focus, .ctl-status .cs-edit select:focus { outline: 2px solid var(--accent, #0b6bcb); background: var(--panel, #fff); }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -549,7 +553,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.11.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.12.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -904,8 +908,8 @@
           <div><small>電池</small><b id="csBatt">--%</b></div>
           <div><small>整準</small><b id="csLevel">--</b></div>
           <div><small>レーザー</small><b id="csLaser">OFF</b></div>
-          <div><small>プリズム</small><b id="csPrism">ATP2/ATP2S</b></div>
-          <div><small>ミラー高</small><b id="csMirror">0.100 m</b></div>
+          <div class="cs-edit"><small>プリズム ▾</small><select id="csPrism" aria-label="プリズム"></select></div>
+          <div class="cs-edit"><small>ミラー高 (m) ✎</small><input id="csMirror" type="number" step="0.001" min="0" inputmode="decimal" value="0.100" aria-label="ミラー高 (m)" /></div>
         </div>
         <!-- LIVE(LN-1000i のカメラ映像・タッチドライブ・回転サーチ) -->
         <div class="ctl-pane" data-pane="live" hidden>
@@ -5309,6 +5313,14 @@
         // ---- 設定
         const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre"];
         try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
+        // 操作盤の「プリズム」「ミラー高」はその場で変えられる(設定と同じ値)
+        $("csPrism").innerHTML = $("cfgPrism").innerHTML;
+        $("csPrism").addEventListener("change", () => { $("cfgPrism").value = $("csPrism").value; $("cfgPrism").dispatchEvent(new Event("change")); setStatus(`プリズムを ${$("csPrism").value} にしました。`); });
+        $("csMirror").addEventListener("change", () => {
+          const v = Number($("csMirror").value);
+          if (!isFinite(v) || v < 0 || v > 10) { $("csMirror").value = Number($("cfgMirror").value || 0).toFixed(3); setStatus("ミラー高は 0〜10 m の数字で入れてください。", true); return; }
+          $("cfgMirror").value = v.toFixed(3); $("cfgMirror").dispatchEvent(new Event("change")); setStatus(`ミラー高を ${v.toFixed(3)} m にしました。`);
+        });
         for (const k of CFG) $(k).addEventListener("change", () => { const c = {}; for (const q of CFG) c[q] = $(q).value; store("kr.cfg", JSON.stringify(c)); renderCtl(); });
 
         // ---- メニューのタイル
@@ -5387,8 +5399,8 @@
           $("ctOrientNote").textContent = KuiNavi.hOff ? `向き:合わせ済み(ずれ ${dms(KuiNavi.hOff)})` : "向き:まだ合わせていません(杭ナビの水平角をそのまま方向角として使います)";
           renderKMeas();
           $("csModel").textContent = $("cfgModel").value;
-          $("csPrism").textContent = $("cfgPrism").value;
-          $("csMirror").textContent = `${Number($("cfgMirror").value || 0).toFixed(3)} m`;
+          if (document.activeElement !== $("csPrism")) $("csPrism").value = $("cfgPrism").value;
+          if (document.activeElement !== $("csMirror")) $("csMirror").value = Number($("cfgMirror").value || 0).toFixed(3);
           const A = byName(k1), B = byName(k2);
           renderKSeq();
           $("ctlInst").textContent = inst ? `器械点(${KuiNavi.instMeas && KuiNavi.instMeas.x === inst.x && KuiNavi.instMeas.y === inst.y ? "測って決めた" : "目安"}):${fmtXY(inst.x, inst.y).join(", ")}` + (A && B ? `　開き ${angleAt(inst, A, B).toFixed(0)}°` : "") : "器械点:まだ決まっていません(① 据付 で目安の位置を決められます)";
@@ -5455,9 +5467,14 @@
         function liveHome() { if (liveHd != null) return liveHd; const A = byName(k1); if (!inst || !A) return 0; liveHd = azimuth(inst, A); return liveHd; }
         function liveFrame(img) {   // 杭ナビの映像の1枚(ImageBitmap・img・video)を出す
           const c = $("liveImg"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-          c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
-          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); liveConnected = true; renderLive();
+          const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+          if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }   // 毎回大きさを決め直すと遅いので、変わったときだけ
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          const now = performance.now(); liveTimes.push(now); while (liveTimes.length && now - liveTimes[0] > 2000) liveTimes.shift();
+          if (!liveConnected || now - liveFpsAt > 1000) { liveFpsAt = now; liveConnected = true; renderLive(); }
         }
+        let liveTimes = [], liveFpsAt = 0;
+        const liveFps = () => (liveTimes.length > 1 ? (liveTimes.length - 1) / ((liveTimes[liveTimes.length - 1] - liveTimes[0]) / 1000) : 0);
         function liveHeading(az) { liveHd = norm(az); renderLive(); }
         function liveOff() { liveConnected = false; const c = $("liveImg"); c.getContext("2d").clearRect(0, 0, c.width, c.height); renderLive(); }
         window.kurukuruLive = { frame: liveFrame, heading: liveHeading, off: liveOff };
@@ -5558,7 +5575,7 @@
           $("liveDial").innerHTML = g;
           // 映像の上の表示
           const lv = $("cfgModel").value === "LN-1000i";
-          $("liveSt").textContent = liveConnected ? "LIVE" : "映像なし"; $("liveSt").className = "badge " + (liveConnected ? "ok" : "ng");
+          $("liveSt").textContent = liveConnected ? `LIVE ${liveFps().toFixed(1)}コマ/秒` : "映像なし"; $("liveSt").className = "badge " + (liveConnected ? "ok" : "ng");
           $("liveTgt").textContent = p ? `出す点 ${p.name}` : "出す点 --";
           $("liveMsg").textContent = liveConnected ? "" : KuiNavi.connected && lv ? (KuiNavi.vidNote ? "映像を待っています… 中継より:" + KuiNavi.vidNote : "映像を待っています…(中継 v2 以降が必要です。来ないときは Termux の画面の「映像:」の行と、ダウンロードの kurukuru_video.bin を送ってください)") : lv
             ? "杭ナビ(LN-1000i)につながると、ここにカメラ映像が出ます。映像をタップするとその方へ回ります(タッチドライブ)。"
@@ -5678,6 +5695,13 @@
           this.readyState = 0;
           window.__kuiNative = {
             text: (t) => { if (this.onmessage) this.onmessage({ data: t }); },
+            tick: () => {   // アプリが新しい1枚を受け取った合図。絵そのものは https://kurukuru.app/__live.jpg から取る(base64 にしないので速い)
+              if (this.pull) { this.again = true; return; }
+              this.pull = true; this.again = false;
+              fetch("/__live.jpg?" + Date.now()).then((r) => (r.ok ? r.arrayBuffer() : null))
+                .then((b) => { if (b && b.byteLength && this.onmessage) this.onmessage({ data: b }); })
+                .catch(() => {}).finally(() => { this.pull = false; if (this.again) window.__kuiNative.tick(); });
+            },
             frame: (b64) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); if (this.onmessage) this.onmessage({ data: u.buffer }); },
             closed: () => { if (this.readyState === 3) return; this.readyState = 3; if (this.onclose) this.onclose(); },
           };
