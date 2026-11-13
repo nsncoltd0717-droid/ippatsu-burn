@@ -430,7 +430,7 @@
       .tile.live small { color: #cbd5e1; }
       .ovl.ctl.is-live .ctl-status { display: none; }
       .ovl.ctl.is-live > .ovl-card > .msg.warn { display: none; }
-      .live-view { position: relative; width: 100%; aspect-ratio: 16 / 9;   /* LN-1000i のカメラは 1280x720 */ max-height: 34dvh; background: radial-gradient(ellipse at center, #334155 0%, #0f172a 75%); border-radius: 12px; overflow: hidden; touch-action: manipulation; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+      .live-view { position: relative; width: 100%; aspect-ratio: 16 / 9;   /* LN-1000i のカメラは 1280x720 */ max-height: 34dvh; background: radial-gradient(ellipse at center, #334155 0%, #0f172a 75%); border-radius: 12px; overflow: hidden; touch-action: none;   /* スワイプで杭ナビを回すので、映像の上ではページを動かさない */ cursor: crosshair; user-select: none; -webkit-user-select: none; }
       .live-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
       .live-band { position: absolute; top: 0; bottom: 0; left: 50%; width: 16%; transform: translateX(-50%); background: rgba(34,197,94,0.14); border-left: 1px dashed rgba(134,239,172,0.8); border-right: 1px dashed rgba(134,239,172,0.8); pointer-events: none; }
       .live-cross { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%,-50%); pointer-events: none;
@@ -552,6 +552,11 @@
       table.pts tr.bad .pt-top input.nm { border-color: var(--accent2); color: var(--accent2); }
       #ptsTable .pt-xyz input::-webkit-inner-spin-button, #ptsTable .pt-xyz input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
       #ptsTable .pt-xyz input { -moz-appearance: textfield; }
+
+      .snd-row { display: flex; gap: 6px; } .snd-row select { flex: 1; min-width: 0; } .snd-row button { flex: 0 0 auto; padding: 0 12px; }
+      /* 長押ししても文字の選択・コピーのメニューを出さない(操作盤の ◁ ▷ を押し続けるため) */
+      button, .chips, #ctlOvl .ctl-rot, .live-view, .live-dial, #liveDial { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+      .ctl-rot button { touch-action: none; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -569,7 +574,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.14.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.15.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -925,7 +930,12 @@
             <div><label class="big-label sm" for="cfgSigma">器械設置の誤差の目安 (mm)</label><input id="cfgSigma" type="number" step="1" inputmode="decimal" value="5" /></div>
             <div><label class="big-label sm" for="cfgPre">始業前点検の許容 (mm)</label><input id="cfgPre" type="number" step="1" inputmode="decimal" value="10" /></div>
           </div>
-          <p class="step-note">設定はこのスマホに覚えておきます。いまは操作盤の表示に使うだけで、杭ナビには送りません。</p>
+          <div class="field2">
+            <div><label class="big-label sm" for="cfgSndMeas">測定の音</label><div class="snd-row"><select id="cfgSndMeas"><option value="piron" selected>ピロン</option><option value="pirorin">ピロリン</option><option value="pipi">ピピッ</option><option value="pon">ポーン</option><option value="pii">ピー</option><option value="none">なし</option></select><button type="button" class="ghost" id="sndMeasTest" aria-label="測定の音を鳴らしてみる">▶</button></div></div>
+            <div><label class="big-label sm" for="cfgSndSearch">サーチ完了の音</label><div class="snd-row"><select id="cfgSndSearch"><option value="piron">ピロン</option><option value="pirorin" selected>ピロリン</option><option value="pipi">ピピッ</option><option value="pon">ポーン</option><option value="pii">ピー</option><option value="none">なし</option></select><button type="button" class="ghost" id="sndSearchTest" aria-label="サーチ完了の音を鳴らしてみる">▶</button></div></div>
+            <div><label class="big-label sm" for="cfgSndVol">音の大きさ</label><select id="cfgSndVol"><option value="0.3">小</option><option value="0.6" selected>中</option><option value="1">大</option></select></div>
+          </div>
+          <p class="step-note">設定はこのスマホに覚えておきます。音以外は操作盤の表示に使うだけで、杭ナビには送りません。</p>
         </div>
         <!-- 準備中 -->
         <div class="ovl-sub" data-sub="soon" hidden>
@@ -5123,8 +5133,10 @@
           },
           field(f) {
             const num = (v) => (v === "" || /^E/.test(v) ? null : Number(v));
+            const was = this.last ? this.last.trk : null;
             this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]), trk: Number(f[5]), t: Date.now() };
             const L = this.last;
+            if (was === 3 && L.trk === 2) { beep("search"); ctlLogAdd("サーチ完了(プリズムを捕まえた)"); }
             if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
             if (L.h != null) liveHd = norm(L.h * 360 + this.hOff);
             const now = performance.now();
@@ -5159,6 +5171,7 @@
                 const L = this.last;
                 if (!L || L.sd == null) { setStatus("📏 距離が出ていません。プリズムを追尾(サーチ)してから押してください。"); return null; }
                 const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z);
+                beep("meas");
                 ctlLogAdd(`測定  斜距離 ${L.sd.toFixed(4)} m・水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(norm(L.h * 360 + this.hOff))}`);
                 setStatus(`📏 水平距離 ${hd.toFixed(3)} m・比高 ${vd.toFixed(3)} m・方向角 ${dms(norm(L.h * 360 + this.hOff))}`);
                 return L;
@@ -5169,6 +5182,37 @@
             }
           },
         };
+
+        // ================================================================ 音(測定・サーチ完了)
+        // 設定の「測定の音」「サーチ完了の音」で別々に選ぶ。WebAudio で鳴らす(音のファイルはいらない)。
+        const SOUNDS = {
+          piron: [[880, 0, 0.09], [1320, 0.09, 0.22]],          // ピロン
+          pipi: [[2000, 0, 0.07], [2000, 0.12, 0.07]],          // ピピッ
+          pon: [[660, 0, 0.35]],                                // ポーン
+          pirorin: [[988, 0, 0.08], [1319, 0.08, 0.08], [1976, 0.16, 0.2]],   // ピロリン
+          pii: [[2400, 0, 0.3]],                                // ピー
+        };
+        let actx = null;
+        function audioCtx() {
+          try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) { actx = null; }
+          return actx;
+        }
+        document.addEventListener("pointerdown", audioCtx, { capture: true, passive: true });   // 最初に触ったときに音を使えるようにしておく(あとでサーチ完了でも鳴るように)
+        function beep(kind, force) {
+          const id = kind === "meas" ? "cfgSndMeas" : "cfgSndSearch";
+          const name = $(id) ? $(id).value : "piron", tones = SOUNDS[name];
+          if (!tones) { if (force) setStatus("音は「なし」になっています。"); return; }
+          const ac = audioCtx(); if (!ac) return;
+          const vol = Math.max(0, Math.min(1, Number(($("cfgSndVol") || {}).value || 0.6)));
+          const t0 = ac.currentTime + 0.02;
+          for (const [f, at, len] of tones) {
+            const o = ac.createOscillator(), g = ac.createGain();
+            o.type = "sine"; o.frequency.value = f;
+            g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(0.5 * vol + 0.0001, t0 + at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
+            o.connect(g); g.connect(ac.destination); o.start(t0 + at); o.stop(t0 + at + len + 0.02);
+          }
+        }
+        window.kurukuruBeep = beep;
 
         // ================================================================ 器械設置(後方交会・既知点設置)の計算
         // 流れ:既知点1 を計測 → 既知点2 → (あれば)既知点3・4… → 「終了して計算」
@@ -5200,6 +5244,7 @@
           kSeq = kSeq.filter((q) => q.name !== p.name).concat([{ name: p.name, ...o }]);
           if (roleOf(p) !== "known") p.role = "known";
           if (ctMethod !== "known") { if (kSeq.length === 1) k1 = p.name; else if (kSeq.length === 2 && p.name !== k1) k2 = p.name; }
+          beep("meas");
           ctlLogAdd(`既知点${kSeq.length} ${p.name} を計測  水平角 ${dms(o.h)}・水平距離 ${o.hd.toFixed(4)} m・比高 ${o.vd.toFixed(4)} m(${o.n} 回の平均)`);
           kNext = nextKnown();
           const need = ctMethod === "known" ? 1 : 2;
@@ -5478,7 +5523,7 @@
         $("siteImpFile").addEventListener("change", () => { const f = $("siteImpFile").files[0]; if (f) siteImport(f); });
 
         // ---- 設定
-        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre"];
+        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol"];
         try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
         // 操作盤の「プリズム」「ミラー高」はその場で変えられる(設定と同じ値)
         $("csPrism").innerHTML = $("cfgPrism").innerHTML;
@@ -5489,6 +5534,9 @@
           $("cfgMirror").value = v.toFixed(3); $("cfgMirror").dispatchEvent(new Event("change")); setStatus(`ミラー高を ${v.toFixed(3)} m にしました。`);
         });
         for (const k of CFG) $(k).addEventListener("change", () => { const c = {}; for (const q of CFG) c[q] = $(q).value; store("kr.cfg", JSON.stringify(c)); renderCtl(); });
+
+        $("sndMeasTest").addEventListener("click", () => beep("meas", true));
+        $("sndSearchTest").addEventListener("click", () => beep("search", true));
 
         // ---- メニューのタイル
         const SOON = {
@@ -5532,6 +5580,9 @@
         $("ctlBtn").addEventListener("click", () => { setCtlTab(mode === "stake" ? "stake" : ctlTab); openOvl("ctlOvl"); });
         for (const b of document.querySelectorAll(".ctlopen")) b.addEventListener("click", () => { setCtlTab(b.dataset.ctl); openOvl("ctlOvl"); });
         $("ctSpeed").addEventListener("input", () => { $("ctSpeedV").textContent = $("ctSpeed").value; });
+        // ボタン・映像を長押ししたときの「コピー・貼り付け」などのメニューを出さない
+        document.addEventListener("contextmenu", (e) => { if (e.target.closest && e.target.closest("button, .live-view, #liveDial, .ctl-rot")) e.preventDefault(); });
+        document.addEventListener("selectstart", (e) => { const t = e.target.nodeType === 3 ? e.target.parentElement : e.target; if (t && t.closest && t.closest("button, .ctl-rot, .live-view")) e.preventDefault(); });
         // つながっているときの ◁◁ ◁ ▷ ▷▷ は「押している間だけ回る」(TopLayout と同じ:回す速さ → 離すと止める)
         for (const b of document.querySelectorAll(".ctl-rot [data-act^=rot]")) {
           const up = () => { if (!KuiNavi.holding) return; KuiNavi.holding = false; KuiNavi.raw("SMOTR"); };
@@ -5702,7 +5753,25 @@
         }
         $("lsRange").addEventListener("click", (e) => { const r = e.target.dataset.r; if (!r) return; lsRange = Number(r); for (const b of $("lsRange").children) b.setAttribute("aria-pressed", String(b.dataset.r === r)); renderLive(); });
         $("lsDir").addEventListener("click", (e) => { const d = e.target.dataset.d; if (!d) return; lsDir = d; for (const b of $("lsDir").children) b.setAttribute("aria-pressed", String(b.dataset.d === d)); renderLive(); });
+        // スワイプ:映像をつかんで動かす向き(左へなぞる → 映像が左へ流れる → 杭ナビは右へ回る)。タップは今までどおりその点へ回す。
+        let lvSw = null, lvSwEnd = 0;
+        $("liveView").addEventListener("pointerdown", (e) => { lvSw = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+        $("liveView").addEventListener("pointercancel", () => { lvSw = null; });
+        $("liveView").addEventListener("pointerup", (e) => {
+          const s = lvSw; lvSw = null;
+          if (!s || s.id !== e.pointerId) return;
+          const dx = e.clientX - s.x, dy = e.clientY - s.y;
+          if (Math.hypot(dx, dy) < 24) return;   // 短いのはタップ(click の方で扱う)
+          lvSwEnd = Date.now();
+          const r = $("liveView").getBoundingClientRect();
+          const fx = Math.max(0, Math.min(1, 0.5 - dx / r.width)), fy = Math.max(0, Math.min(1, 0.5 - dy / r.height));
+          const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * r.height / r.width;
+          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3), swipe: true });
+          const h = liveHome(); liveAnimate([h, h + dH], "turn");
+          setStatus(`👉 スワイプ:${dH >= 0 ? "右" : "左"}へ ${Math.abs(dH).toFixed(1)}°・${dV >= 0 ? "上" : "下"}へ ${Math.abs(dV).toFixed(1)}°` + (KuiNavi.connected ? "" : "(見本)"));
+        });
         $("liveView").addEventListener("click", (e) => {   // タッチドライブ
+          if (Date.now() - lvSwEnd < 500) return;   // スワイプの後の click は無視
           const r = $("liveView").getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
           const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * r.height / r.width;
           const t = $("liveTap"); t.hidden = true; t.style.left = `${fx * 100}%`; t.style.top = `${fy * 100}%`; void t.offsetWidth; t.hidden = false;
@@ -5772,7 +5841,11 @@
         }
         function startPick(which) {
           clPick = which; clSelN = null;
-          if (knowns().length) { clF = "known"; for (const b of $("clF").children) b.setAttribute("aria-pressed", String(b.dataset.f === "known")); }
+          // まだ使っていない既知点があるときだけ「既知点」に絞る(2点目以降は計測済みの点しか出なくなっていた)
+          const used = new Set(kSeq.map((q) => q.name).concat(which === "k2" ? [k1] : which === "k1" ? [k2] : [k1, k2, kNext]));
+          clF = knowns().some((p) => !used.has(p.name)) ? "known" : "all";
+          $("clQ").value = "";
+          for (const b of $("clF").children) b.setAttribute("aria-pressed", String(b.dataset.f === clF));
           setCtlTab("list"); openOvl("ctlOvl");
         }
         document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-clpick]"); if (b) startPick(b.dataset.clpick); });
@@ -5820,6 +5893,7 @@
           }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
           $("clPickBar").hidden = !clPick;
           if (clPick) $("clPickMsg").textContent = clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
+          if (clPick && clF !== "all") $("clPickMsg").textContent += "(ほかの点は上の「全部」で出ます)";
           const ds = picks.filter((p) => roleOf(p) !== "known");
           $("clCsv").disabled = $("clSima").disabled = !list.length;
           $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。⬇ は表示している点をそのまま書き出します。";
