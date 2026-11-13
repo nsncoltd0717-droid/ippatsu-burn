@@ -582,6 +582,16 @@
 
       #stTable .k { color: var(--known); font-size: 11px; font-weight: 800; margin-left: 3px; }
       #stTable tr.sub-h td { color: var(--sub); font-size: 12px; font-weight: 700; padding-top: 10px; border-top: 1px solid var(--line, #ccc); }
+
+      /* プリズムのいまの位置 */
+      .prm { fill: rgba(225, 29, 72, 0.18); stroke: #e11d48; stroke-width: 2.5; }
+      .prx { stroke: #e11d48; stroke-width: 2.5; stroke-linecap: round; }
+      .prc { fill: #e11d48; }
+      .prl { stroke: #e11d48; stroke-width: 1.2; stroke-dasharray: 2 4; opacity: 0.7; }
+      .prt { stroke: #e11d48; stroke-width: 2; stroke-dasharray: 6 4; }
+      .prm.lost, .prx.lost, .prc.lost { opacity: 0.4; }
+      .prlbl { fill: #e11d48; font-weight: 800; }
+      .prlbl.lost { opacity: 0.6; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -599,7 +609,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.19.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.20.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -949,6 +959,7 @@
           </div>
           <div class="field2">
             <div><label class="big-label sm" for="cfgBar">操作ボタンの位置</label><select id="cfgBar"><option value="bottom">下(片手で押しやすい)</option><option value="top">上</option></select></div>
+            <div><label class="big-label sm" for="cfgAutoSearch">追尾が切れたら</label><select id="cfgAutoSearch"><option value="on">自動でサーチし直す</option><option value="off">そのまま(自分でサーチ)</option></select></div>
             <div><label class="big-label sm" for="cfgSearch">サーチのしかた</label><select id="cfgSearch"><option value="h">横サーチ</option><option value="v">縦サーチ(杭ナビ向き)</option></select></div>
           </div>
           <div class="field2">
@@ -3911,7 +3922,21 @@
             if (mode === "chk") for (const c of chkRows) if (c.d && !c.ok) { const s = toScreen([c.d.x, c.d.y]); el("circle", { cx: s[0], cy: s[1], r: 12 }, "ngring"); }
           }
           if (hover) { const s = toScreen([hover.x, hover.y]); el("circle", { cx: s[0], cy: s[1], r: 13 }, "hov"); }
+          // プリズムのいまの位置(杭ナビが追尾していて、器械設置が済んでいるとき)。追尾が切れたら、最後の位置を薄く出す
+          let P = null; try { P = prismPos(); } catch (e) { P = null; }
+          if (P) lastPrism = { x: P.x, y: P.y, t: Date.now() };
+          const Q = P || (lastPrism && Date.now() - lastPrism.t < 60000 ? lastPrism : null);
+          if (Q && view) {
+            const s = toScreen([Q.x, Q.y]), lost = !P;
+            if (P && inst) { const a = toScreen([inst.x, inst.y]); el("line", { x1: a[0], y1: a[1], x2: s[0], y2: s[1] }, "prl"); }
+            if (P && tgt) { const q = toScreen([tgt.x, tgt.y]); el("line", { x1: s[0], y1: s[1], x2: q[0], y2: q[1] }, "prt"); }
+            el("circle", { cx: s[0], cy: s[1], r: 11 }, "prm" + (lost ? " lost" : ""));
+            el("path", { d: `M${s[0] - 16},${s[1]}H${s[0] - 5}M${s[0] + 5},${s[1]}H${s[0] + 16}M${s[0]},${s[1] - 16}V${s[1] - 5}M${s[0]},${s[1] + 5}V${s[1] + 16}` }, "prx" + (lost ? " lost" : ""));
+            el("circle", { cx: s[0], cy: s[1], r: 2.5 }, "prc" + (lost ? " lost" : ""));
+            label(s[0] + 14, s[1] + 18, lost ? "プリズム(切れた所)" : "プリズム", "prlbl" + (lost ? " lost" : ""));
+          }
         }
+        let lastPrism = null;
 
         // ---------------------------------------------------------------- 吸い付き(かまし太郎と同じ)
         const snapOn = (k) => { const b = $("snaps").querySelector(`[data-snap="${k}"]`); return b && b.getAttribute("aria-pressed") === "true"; };
@@ -5173,10 +5198,32 @@
             this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]), trk: Number(f[5]), t: Date.now() };
             const L = this.last;
             if (was === 3 && L.trk === 2) { beep("search"); ctlLogAdd("サーチ完了(プリズムを捕まえた)"); }
+            if (was === 2 && L.trk !== 2) ctlLogAdd("追尾が切れました");
+            this.autoSearch(was, L);
             if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
             if (L.h != null) liveHd = this.az(L.h);
             const now = performance.now();
-            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); renderGuide(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
+            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); renderGuide(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); if (inst && (L.trk === 2 || was === 2)) draw(); }
+          },
+          // サーチ:誘導(RLAYO)や回転のあとだと RTRCK を受け付けないことがあるので、いったん止めて(SMOTR)から送る
+          startSearch(why) {
+            this.noAuto = false; this.lostAt = 0; this.searchAt = Date.now();
+            this.raw("SMOTR");
+            setTimeout(() => { if (this.connected) this.raw("RTRCK", 0); }, 300);
+            if (why !== "手動") ctlLogAdd(`自動サーチ(${why})`);
+          },
+          // 追尾が切れたら(捕まえていた → なし)、1.5 秒待ってから自動でサーチし直す。3 回まで。
+          // 自分で回した・止めた・点の方へ回した(誘導)ときは、わざと外したので自動サーチしない
+          autoSearch(was, L) {
+            const now = Date.now();
+            if (L.trk === 2) { this.lostAt = 0; this.autoN = 0; return; }
+            if (L.trk === 3) return;                                       // さがしている
+            if (was === 2 && L.trk === 0) { this.lostAt = now; return; }
+            if (!this.lostAt || this.noAuto || this.holding || L.lay === 2 || L.lay === 3 || !$("cfgAutoSearch") || $("cfgAutoSearch").value !== "on") return;
+            if (now - this.lostAt < 1500 || now - (this.searchAt || 0) < 6000 || (this.autoN || 0) >= 3) return;
+            this.autoN = (this.autoN || 0) + 1;
+            setStatus(`🔍 追尾が切れたので、サーチし直しています(${this.autoN} 回目)…`);
+            this.startSearch(`追尾が切れた・${this.autoN} 回目`);
           },
           azToH(az) { return (norm(this.hSign * (az - this.hOff)) / 360).toFixed(8); },
           // 操作盤のボタン → 杭ナビの命令
@@ -5187,11 +5234,11 @@
             switch (cmd) {
               case "rotL1": case "rotL2": case "rotR1": case "rotR2": {
                 const v = { rotL1: 2 * sp, rotL2: 4 * sp, rotR1: -2 * sp, rotR2: -4 * sp }[cmd];   // 実機で左右が逆だったので入れ替え(2026/11/13)
-                this.raw("RSSPD", 0, v); if (!this.holding) setTimeout(() => this.raw("SMOTR"), 500); return null;
+                this.noAuto = true; this.raw("RSSPD", 0, v); if (!this.holding) setTimeout(() => this.raw("SMOTR"), 500); return null;
               }
-              case "stop": case "stopSearch": this.raw("SMOTR"); return null;
-              case "search": case "rotSearch": this.raw("RTRCK", 0); return null;
-              case "track": if (a.on) this.raw("RTRCK", 0); else this.raw("SMOTR"); return null;
+              case "stop": case "stopSearch": this.noAuto = true; this.raw("SMOTR"); return null;
+              case "search": case "rotSearch": this.startSearch("手動"); return null;
+              case "track": if (a.on) this.startSearch("手動"); else { this.noAuto = true; this.raw("SMOTR"); } return null;
               case "guide": if (a.on) this.raw("LGLON", 0, 2); else this.raw("LGLOF"); return null;
               case "laser": if (a.on) this.raw("LLPON", 0, 1); else this.raw("LLPOF"); return null;
               case "live":
@@ -5199,9 +5246,34 @@
                 if (a.on && !this.live) { this.raw("CVSON", 50000); this.raw("ICSET", 1, 0, 0, 3000, 0); /* TopLayout と同じ順 */ this.live = true; this.vidNote = ""; }
                 if (!a.on && this.live) { this.raw("CVSOF"); this.live = false; window.kurukuruLive.off(); }
                 return null;
-              case "touchDrive": this.raw("CMPOS", Math.round((a.fx - 0.5) * 1280), Math.round((a.fy - 0.5) * 720), ""); return null;
+              case "touchDrive": {
+                // 追尾中・誘導中だと CMPOS で回らないことがあるので、いったん止めてから送る。
+                // 1.5 秒たっても向きが変わらなければ、角度(水平角)を決めて回す(RLAYO)
+                this.noAuto = true;
+                const L0 = this.last, h0 = L0 && L0.h != null ? L0.h : null, dH = a.dH || 0;
+                const busy = L0 && (L0.trk === 2 || L0.trk === 3 || L0.lay === 2 || L0.lay === 3);
+                if (busy) this.raw("SMOTR");
+                clearTimeout(this.tdT1); clearTimeout(this.tdT2);
+                this.tdT1 = setTimeout(() => {
+                  if (!this.connected) return;
+                  this.raw("CMPOS", Math.round((a.fx - 0.5) * 1280), Math.round((a.fy - 0.5) * 720), "");
+                  this.tdT2 = setTimeout(() => {
+                    const L = this.last;
+                    if (!this.connected || h0 == null || Math.abs(dH) < 0.3) return;
+                    let moved = L && L.h != null ? (L.h - h0) * 360 : 0;   // E115(回転中)なら L.h は null = 回っている
+                    if (L && L.h == null) return;
+                    moved = ((moved + 540) % 360) - 180;
+                    if (Math.abs(moved) >= Math.abs(dH) * 0.3) return;
+                    const h1 = ((h0 + dH / 360) % 1 + 1) % 1, dist = L0 && L0.sd ? L0.sd * Math.sin(L0.v * 2 * Math.PI) : 20;
+                    ctlLogAdd(`タッチドライブ:CMPOS で回らなかったので、水平角で回します(${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°)`);
+                    this.raw("RLAYO", h1.toFixed(8), Math.max(1, dist).toFixed(3));
+                  }, 1500);
+                }, busy ? 300 : 0);
+                return null;
+              }
               case "turnTo": case "turnTarget": case "guideToPt":
                 if (a.az == null) return null;
+                this.noAuto = true;
                 this.raw("RLAYO", this.azToH(a.az), (a.dist || 0).toFixed(3)); return null;
               case "measure": {
                 const L = this.last;
@@ -5667,7 +5739,7 @@
         $("siteImpFile").addEventListener("change", () => { const f = $("siteImpFile").files[0]; if (f) siteImport(f); });
 
         // ---- 設定
-        const CFG = ["cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol", "cfgSndNear", "cfgGuideView"];
+        const CFG = ["cfgAutoSearch", "cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol", "cfgSndNear", "cfgGuideView"];
         try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
         // 操作盤の「プリズム」「ミラー高」はその場で変えられる(設定と同じ値)
         $("csPrism").innerHTML = $("cfgPrism").innerHTML;
@@ -5913,7 +5985,7 @@
         function liveDrive(fx, fy, how) {
           fx = Math.max(0, Math.min(1, fx)); fy = Math.max(0, Math.min(1, fy));
           const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * 720 / 1280;
-          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3) });
+          KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3), dH: KuiNavi.hSign * dH });
           if (!KuiNavi.connected) { const h = liveHome(); liveAnimate([h, h + dH], "turn"); }   // つながっているときは本物の針(杭ナビの向き)だけを出す
           setStatus(how === "tap" ? `👆 タップしたところ(横 ${Math.round((fx - 0.5) * 1280)}・縦 ${Math.round((fy - 0.5) * 720)})を真ん中へ` + (KuiNavi.connected ? "" : "(見本)")
             : `👉 スワイプ:${dH >= 0 ? "右" : "左"}・${dV >= 0 ? "上" : "下"}へ` + (KuiNavi.connected ? "" : "(見本)"));
@@ -6165,6 +6237,23 @@
         afterChange();
         draw();
         if (site) { if (!sites.includes(site)) { sites.push(site); store("kr.sites", JSON.stringify(sites)); } loadSite(site).then(renderSites); }
+      })();
+      // キーボードが出たとき:入力中の欄が見えるように、その欄をキーボードのすぐ上へ寄せる(ページ全体は動かさない)
+      (() => {
+        let fEl = null;
+        const fit = () => {
+          if (!fEl || document.activeElement !== fEl) return;
+          const vv = window.visualViewport, H = vv ? vv.height + vv.offsetTop : window.innerHeight;
+          const r = fEl.getBoundingClientRect();
+          if (r.bottom > H - 8 || r.top < 0) { try { fEl.scrollIntoView({ block: "end", inline: "nearest" }); } catch (e) { /* */ } }
+          if (window.scrollY && fEl.closest(".dlg, .ovl")) window.scrollTo(0, 0);   // 固定の画面(点の入力・操作盤)ではページを押し上げない
+        };
+        document.addEventListener("focusin", (e) => {
+          const t = e.target;
+          if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || /^(file|checkbox|radio|button)$/.test(t.type)) return;
+          fEl = t; setTimeout(fit, 300); setTimeout(fit, 700);
+        });
+        (window.visualViewport || window).addEventListener("resize", () => setTimeout(fit, 50));
       })();
     </script>
     <script>
