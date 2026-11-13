@@ -525,7 +525,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.6.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.7.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -964,7 +964,7 @@
           <button type="button" class="big" data-act="setInst" style="margin-top:8px">器械点を決める(2点の測定から)</button>
           <div class="ctl-result" id="ctlInst">器械点:まだ決まっていません</div>
           <div class="ctl-sigma">
-            <div><small>標準偏差 X</small><b>--- mm</b></div><div><small>Y</small><b>--- mm</b></div><div><small>Z</small><b>--- mm</b></div>
+            <div><small>ずれ X</small><b id="sgX">--- mm</b></div><div><small>Y</small><b id="sgY">--- mm</b></div><div><small>Z</small><b id="sgZ">--- mm</b></div>
           </div>
           <p class="step-note" id="ctSigmaNote" style="margin:4px 0 10px"></p>
           <button type="button" class="big" id="ctOrient">🧭 向きを合わせる(既知点1のプリズムを追尾して押す)</button>
@@ -4811,9 +4811,10 @@
             const num = (v) => (v === "" || /^E/.test(v) ? null : Number(v));
             this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]), trk: Number(f[5]), t: Date.now() };
             const L = this.last;
+            if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
             if (L.h != null) liveHd = norm(L.h * 360 + this.hOff);
             const now = performance.now();
-            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderMeas(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
+            if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); }
           },
           azToH(az) { return (norm(az - this.hOff) / 360).toFixed(8); },
           // 操作盤のボタン → 杭ナビの命令
@@ -4853,7 +4854,73 @@
             }
           },
         };
-        function renderMeas() {
+
+        // ================================================================ 器械設置(後方交会・既知点設置)の計算
+        // 既知点でプリズムを追尾して「測る」→ 直近 1 秒の読み取りを平均して覚える。
+        // 2 点そろったら、杭ナビの水平角・水平距離から作った「杭ナビの向きの座標」を、既知点の座標に回して重ねる(回転+平行移動の最小二乗)。
+        // 方向角 = 杭ナビの水平角 + 向きのずれ(hOff)。杭ナビ本体の角度は書きかえない(IHANG は送らない)。
+        const kObs = {};   // { k1: {name, h(度), hd(m), vd(m), sd, n, t} }
+        function obsAvg() {
+          const H = (KuiNavi.hist || []).filter((q) => Date.now() - q.t < 1200);
+          if (!H.length) return null;
+          const z = H.map((q) => q.v * 2 * Math.PI), sd = H.map((q) => q.sd);
+          const hd = sd.map((d, i) => d * Math.sin(z[i])), vd = sd.map((d, i) => d * Math.cos(z[i]));
+          const sx = H.reduce((a, q) => a + Math.sin(q.h * 2 * Math.PI), 0), cx = H.reduce((a, q) => a + Math.cos(q.h * 2 * Math.PI), 0);
+          const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+          return { h: norm(Math.atan2(sx, cx) * 180 / Math.PI), hd: avg(hd), vd: avg(vd), sd: avg(sd), n: H.length, t: Date.now() };
+        }
+        function measKnown(which) {
+          const nm = which === "k1" ? k1 : k2, p = byName(nm);
+          if (!p) { setStatus(`${which === "k1" ? "既知点1" : "既知点2"}を先に選んでください(📋 リストから選ぶ)。`, true); return; }
+          if (!KuiNavi.connected) { setStatus("既知点を測るには、杭ナビにつないでください(🔗 つなぐ)。", true); return; }
+          const L = KuiNavi.last;
+          if (!L || L.trk !== 2 || L.sd == null) { setStatus(`${p.name} のプリズムを追尾して、距離が出てから押してください(🔍 サーチ)。`, true); return; }
+          const o = obsAvg(); if (!o) { setStatus("読み取りが足りません。少し待ってからもう一度押してください。", true); return; }
+          kObs[which] = { name: p.name, ...o };
+          ctlLogAdd(`既知点 ${p.name} を測った  水平角 ${dms(o.h)}・水平距離 ${o.hd.toFixed(4)} m・比高 ${o.vd.toFixed(4)} m(${o.n} 回の平均)`);
+          setStatus(`📐 ${p.name} を測りました(水平距離 ${o.hd.toFixed(3)} m)。` + (kObs.k1 && kObs.k2 ? "「器械点を決める」を押してください。" : ""));
+          renderCtl();
+        }
+        const hM = (p) => (p.h == null ? null : p.h * (unitName() === "m" ? 1 : 0.001));
+        function solveInst() {
+          const mirror = Number($("cfgMirror").value || 0), lim = Number($("cfgSigma").value || 5);
+          if (ctMethod === "known") {   // 既知点の上に据えて、既知点2(後視点)を測る
+            const A = byName(k1), B = byName(k2), o = kObs.k2;
+            if (!A || !B || !o || o.name !== B.name) { setStatus("既知点設置:既知点1(器械点)の上に据えて、既知点2(後視点)を測ってください。", true); return; }
+            const hOff = norm(azimuth(A, B) - o.h), e = (o.hd - dm(A, B)) * 1000;
+            inst = { x: A.x, y: A.y }; KuiNavi.instMeas = { ...inst }; KuiNavi.hOff = hOff; store("kr.hoff", String(hOff));
+            $("sgX").textContent = $("sgY").textContent = `${Math.abs(e).toFixed(1)} mm`; $("sgZ").textContent = "--- mm";
+            ctlLogAdd(`器械点を決めた(既知点設置) 器械点 ${A.name}・後視 ${B.name}・距離の較差 ${e.toFixed(1)} mm`);
+            setStatus(`✓ 器械点を ${A.name} にしました(後視 ${B.name}・距離の較差 ${e.toFixed(1)} mm)。` + (Math.abs(e) > lim ? "⚠ 較差が大きいので、据え付け・点名・ミラー高を確かめてください。" : "杭打ちに進めます。"));
+            afterChange(); return;
+          }
+          const o1 = kObs.k1, o2 = kObs.k2, A = byName(k1), B = byName(k2);
+          if (!A || !B || !o1 || !o2 || o1.name !== A.name || o2.name !== B.name) { setStatus("後方交会:既知点1・既知点2の両方を、それぞれ追尾して「測る」を押してください。", true); return; }
+          // 杭ナビの向きの座標(mm)。x=東・y=北、杭ナビの水平角を方向角とみなした形
+          const loc = [o1, o2].map((o) => [o.hd * 1000 * Math.sin(o.h * Math.PI / 180), o.hd * 1000 * Math.cos(o.h * Math.PI / 180)]);
+          const wld = [[A.x, A.y], [B.x, B.y]];
+          const cl = [(loc[0][0] + loc[1][0]) / 2, (loc[0][1] + loc[1][1]) / 2], cw = [(wld[0][0] + wld[1][0]) / 2, (wld[0][1] + wld[1][1]) / 2];
+          let a = 0, b = 0;
+          for (let i = 0; i < 2; i++) { const lx = loc[i][0] - cl[0], ly = loc[i][1] - cl[1], wx = wld[i][0] - cw[0], wy = wld[i][1] - cw[1]; a += lx * wx + ly * wy; b += lx * wy - ly * wx; }
+          const th = Math.atan2(b, a), c = Math.cos(th), sn = Math.sin(th);
+          const R = (v) => [c * v[0] - sn * v[1], sn * v[0] + c * v[1]];
+          const rc = R(cl), st = { x: cw[0] - rc[0], y: cw[1] - rc[1] };
+          const res = loc.map((v, i) => { const q = R(v); return [q[0] + st.x - wld[i][0], q[1] + st.y - wld[i][1]]; });
+          const rms = (k) => Math.sqrt((res[0][k] ** 2 + res[1][k] ** 2) / 2);
+          const e = Math.hypot(loc[0][0] - loc[1][0], loc[0][1] - loc[1][1]) - dmm(A, B);
+          const hOff = norm(-th * 180 / Math.PI);
+          // 器械の高さ(既知点の H + ミラー高 − 比高)。H がない点は使わない
+          const zs = [[A, o1], [B, o2]].filter(([p]) => hM(p) != null).map(([p, o]) => hM(p) + mirror - o.vd);
+          const zInst = zs.length ? zs.reduce((x, y) => x + y, 0) / zs.length : null, dz = zs.length === 2 ? Math.abs(zs[0] - zs[1]) * 1000 / 2 : null;
+          inst = st; KuiNavi.instMeas = { ...st }; KuiNavi.hOff = hOff; KuiNavi.zInst = zInst; store("kr.hoff", String(hOff));
+          $("sgX").textContent = `${rms(0).toFixed(1)} mm`; $("sgY").textContent = `${rms(1).toFixed(1)} mm`; $("sgZ").textContent = dz != null && ctDim === "3d" ? `${dz.toFixed(1)} mm` : "--- mm";
+          const bad = Math.max(rms(0), rms(1)) > lim || (dz != null && ctDim === "3d" && dz > lim);
+          const ang = angleAt(st, A, B);
+          ctlLogAdd(`器械点を決めた(後方交会) ${fmtXY(st.x, st.y).join(", ")}・2点間の較差 ${e.toFixed(1)} mm・開き ${ang.toFixed(0)}°` + (zInst != null ? `・器械の高さ ${zInst.toFixed(3)} m` : ""));
+          setStatus(`✓ 器械点を決めました(2点間の距離の較差 ${e.toFixed(1)} mm・開き ${ang.toFixed(0)}°)。` + (bad ? `⚠ ずれが ${lim} mm を超えています。既知点を測り直してください。` : "杭打ちに進めます。") + (ang < 30 || ang > 150 ? "⚠ 2点の開きが小さすぎ(大きすぎ)です。" : ""));
+          afterChange();
+        }
+        function renderKMeas() {
           const L = KuiNavi.last;
           if (!KuiNavi.connected || !L) { $("cmAz").textContent = "---°--′--″"; $("cmHd").textContent = "---.--- m"; $("cmVd").textContent = "---.--- m"; }
           else {
@@ -4976,13 +5043,14 @@
           $("ctlConnBtn").textContent = KuiNavi.ws ? "切る" : "🔗 つなぐ";
           $("tileConn").textContent = KuiNavi.connected ? `接続中(${KuiNavi.model || "杭ナビ"})` : "未接続(くるくる中継を使う)";
           $("ctOrientNote").textContent = KuiNavi.hOff ? `向き:合わせ済み(ずれ ${dms(KuiNavi.hOff)})` : "向き:まだ合わせていません(杭ナビの水平角をそのまま方向角として使います)";
-          renderMeas();
+          renderKMeas();
           $("csModel").textContent = $("cfgModel").value;
           $("csPrism").textContent = $("cfgPrism").value;
           $("csMirror").textContent = `${Number($("cfgMirror").value || 0).toFixed(3)} m`;
           const A = byName(k1), B = byName(k2);
           $("ck1").textContent = A ? A.name : "未選択"; $("ck2").textContent = B ? B.name : "未選択";
-          $("ctlInst").textContent = inst ? `器械点(目安):${fmtXY(inst.x, inst.y).join(", ")}` + (A && B ? `　開き ${angleAt(inst, A, B).toFixed(0)}°` : "") : "器械点:まだ決まっていません(① 据付 で目安の位置を決められます)";
+          for (const [w, id] of [["k1", "ck1s"], ["k2", "ck2s"]]) { const o = kObs[w], nm = w === "k1" ? k1 : k2; $(id).textContent = o && o.name === nm ? `測定済 ${o.hd.toFixed(3)} m` : "未測定"; }
+          $("ctlInst").textContent = inst ? `器械点(${KuiNavi.instMeas && KuiNavi.instMeas.x === inst.x && KuiNavi.instMeas.y === inst.y ? "測って決めた" : "目安"}):${fmtXY(inst.x, inst.y).join(", ")}` + (A && B ? `　開き ${angleAt(inst, A, B).toFixed(0)}°` : "") : "器械点:まだ決まっていません(① 据付 で目安の位置を決められます)";
           for (const b of $("ctMethod").children) b.setAttribute("aria-pressed", String(b.dataset.m === ctMethod));
           for (const b of $("ctDim").children) b.setAttribute("aria-pressed", String(b.dataset.d === ctDim));
           $("ctMethodNote").textContent = METHOD_NOTE[ctMethod];
@@ -5014,6 +5082,8 @@
           const args = {};
           if (/^rot/.test(act)) args.speed = Number($("ctSpeed").value);
           if (b.classList.contains("tgl2")) args.on = b.getAttribute("aria-pressed") === "true";
+          if (KuiNavi.connected && (act === "measK1" || act === "measK2")) { measKnown(act === "measK1" ? "k1" : "k2"); return; }
+          if (KuiNavi.connected && act === "setInst") { solveInst(); return; }
           if (act === "measK1" || act === "measK2") { args.point = (act === "measK1" ? k1 : k2) || null; args.prism = $("cfgPrism").value; args.mirror = Number($("cfgMirror").value); }
           if (act === "guideToPt") { const p = byName(target); if (p) { args.point = p.name; if (inst) { args.azimuth = dms(azimuth(inst, p)); args.az = azimuth(inst, p); args.dist = dm(inst, p); } } }
           if (act === "record") args.name = $("ctName").value;
