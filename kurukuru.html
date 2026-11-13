@@ -574,7 +574,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.15.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.15.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -5841,9 +5841,7 @@
         }
         function startPick(which) {
           clPick = which; clSelN = null;
-          // まだ使っていない既知点があるときだけ「既知点」に絞る(2点目以降は計測済みの点しか出なくなっていた)
-          const used = new Set(kSeq.map((q) => q.name).concat(which === "k2" ? [k1] : which === "k1" ? [k2] : [k1, k2, kNext]));
-          clF = knowns().some((p) => !used.has(p.name)) ? "known" : "all";
+          clF = "all";   // 基地点を選ぶときは、いつも全部の点を出す(絞り込みは上のボタンで)
           $("clQ").value = "";
           for (const b of $("clF").children) b.setAttribute("aria-pressed", String(b.dataset.f === clF));
           setCtlTab("list"); openOvl("ctlOvl");
@@ -5893,7 +5891,6 @@
           }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
           $("clPickBar").hidden = !clPick;
           if (clPick) $("clPickMsg").textContent = clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
-          if (clPick && clF !== "all") $("clPickMsg").textContent += "(ほかの点は上の「全部」で出ます)";
           const ds = picks.filter((p) => roleOf(p) !== "known");
           $("clCsv").disabled = $("clSima").disabled = !list.length;
           $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。⬇ は表示している点をそのまま書き出します。";
