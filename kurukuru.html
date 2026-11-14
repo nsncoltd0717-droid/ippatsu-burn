@@ -612,6 +612,16 @@
       .ctl-status2 .cs-pm { flex: 1 1 100%; text-align: left; background: var(--panel); color: var(--ink); border: 1px solid var(--accent, #0b6bcb); border-radius: 10px; padding: 4px 10px; min-height: 0; font-weight: 500; }
       .ctl-status2 .cs-pm small { display: block; font-size: 11px; color: var(--sub); font-weight: 600; }
       .ctl-status2 .cs-pm b { font-size: 14px; }
+
+      .pt-card { cursor: pointer; border: 1px solid var(--line, #ddd); border-radius: 10px; padding: 8px 10px; }
+      .pt-card:active { background: var(--soft, #f2f4f7); }
+      .pt-card .nm { font-size: 16px; }
+      .pt-card .role { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #fde9d9; color: #b54708; }
+      .pt-card .role.known { background: #e7f1fb; color: #175cd3; }
+      .pt-card .pt-ed { color: var(--sub, #667085); font-size: 16px; }
+      .pt-card .pt-xyz { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 6px; }
+      .pt-card .pt-xyz small { display: block; color: var(--sub, #667085); font-size: 11px; }
+      .pt-card .pt-xyz .v { font-variant-numeric: tabular-nums; font-size: 14px; }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -629,7 +639,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.22.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -892,6 +902,10 @@
         <div class="field2" style="margin-top:10px">
           <button class="ghost" id="dlgCancel" type="button">やめる</button>
           <button class="big primary" id="dlgSave" type="button">保存</button>
+        </div>
+        <div class="field2" style="margin-top:8px">
+          <button class="big" id="dlgSaveStake" type="button">💾 保存して杭打ち</button>
+          <button class="big" id="dlgTemp" type="button">📍 保存せず今すぐ杭打ち</button>
         </div>
       </div>
     </div>
@@ -3887,7 +3901,8 @@
         let sMode = "inst", suggestions = [];
         let stk = [], chkRows = [];                  // 打った杭 {name,x,y,H}
         let selName = null;
-        const byName = (n) => picks.find((p) => p.name === n) || null;
+        let tempPt = null;                          // 図面で選んで「保存せず今すぐ杭打ち」にした点(一覧には入れない)
+        const byName = (n) => picks.find((p) => p.name === n) || (tempPt && tempPt.name === n ? tempPt : null);
         const roleOf = (p) => p.role || "design";
 
         // ---------------------------------------------------------------- 描く(上の層)
@@ -4101,7 +4116,7 @@
             const s = snapAt(sx, sy, true);
             const p = s && s.kind === "pick" ? byName(s.label) : null;
             if (p) { target = p.name; renderStake(); draw(); if (roleOf(p) === "known") setStatus(`📍 既知点 ${p.name} を出す点にしました(確かめ用。打った数には入りません)。`); }
-            else setStatus("杭を打つ点(オレンジの丸)か既知点(三角)の近くをタップしてください。", true);
+            else pickPoint(sx, sy);   // 保存していない所 → 「保存する/保存せず今すぐ杭打ち」を選ぶ画面
             return;
           }
           // ほかのモード：近くの拾った点を選ぶ
@@ -4124,7 +4139,7 @@
           const lab = $("useLabel").checked ? (s.label && /^[\x21-\x7e]{1,16}$/.test(s.label) && !s.label.includes(",") ? s.label : labelNear(s.x, s.y)) : null;
           const [X, Y] = fmtXY(s.x, s.y), [nx, ny] = axisNames();
           const hz = $("useZ").checked && s.z !== undefined && s.z !== 0 ? s.z * hk() : Number($("hConst").value) || 0;
-          $("dlgTitle").textContent = `この点を保存(${KIND[s.kind]}に吸い付き)`;
+          $("dlgTitle").textContent = `この点をどうしますか(${KIND[s.kind]}に吸い付き)`;
           $("dlgInfo").textContent = `${nx} ${X}　${ny} ${Y} ${unitName()}` + (dup ? `　⚠ ${dup.name} と同じ所です` : "");
           const nm = lab && !picks.some((p) => p.name === lab) ? lab : nextName();
           $("dlgName").value = nm;
@@ -4143,18 +4158,36 @@
           if (picks.some((p) => p !== self && p.name === nm)) return `「${nm}」はもう使っています。別の名前にしてください。`;
           return "";
         }
-        $("dlgSave").addEventListener("click", () => {
+        // how: "save" 保存だけ / "saveStake" 保存して杭打ち / "temp" 保存せず今すぐ杭打ち
+        function dlgCommit(how) {
           if (!pending) return;
           const nm = $("dlgName").value.trim();
+          const hv = Number($("dlgH").value), h = Number.isFinite(hv) ? hv : 0;
+          if (how === "temp") {
+            const used = (n) => picks.some((p) => p.name === n);
+            let tn = nm && !nameProblem(nm, null) ? nm : "TMP"; for (let i = 2; used(tn); i++) tn = "TMP" + i;
+            tempPt = { name: tn, x: pending.x, y: pending.y, h, kind: pending.kind, role: "design", temp: true };
+            target = tn; closeDlg(); goStake();
+            setStatus(`📍 ${tn} を保存せずに出す点にしました(一覧には入りません。残すときは座標リストから足してください)。`);
+            return;
+          }
           const bad = nameProblem(nm, null);
           if (bad) { $("dlgWarn").textContent = "⚠ " + bad; $("dlgWarn").hidden = false; return; }
-          const hv = Number($("dlgH").value);
-          picks.push({ name: nm, x: pending.x, y: pending.y, h: Number.isFinite(hv) ? hv : 0, kind: pending.kind, role: dlgRole });
+          picks.push({ name: nm, x: pending.x, y: pending.y, h, kind: pending.kind, role: dlgRole });
           const k = KIND[pending.kind];
           closeDlg();
+          if (how === "saveStake") { target = nm; goStake(); setStatus(`✓ ${nm} を保存して、出す点にしました(${k})。`); return; }
           afterChange();
           setStatus(`✓ ${nm}(${dlgRole === "known" ? "既知点" : "設計点"})を保存しました(${k})。続けて点をタップ(いま ${picks.length} 点)。`);
-        });
+        }
+        function goStake() {
+          if (mode !== "stake") { mainMode = "stake"; setMode("stake"); }
+          afterChange();
+          if (typeof setCtlTab === "function" && !$("ctlOvl").hidden) setCtlTab("stake");
+        }
+        $("dlgSave").addEventListener("click", () => dlgCommit("save"));
+        $("dlgSaveStake").addEventListener("click", () => dlgCommit("saveStake"));
+        $("dlgTemp").addEventListener("click", () => dlgCommit("temp"));
         $("dlgCancel").addEventListener("click", () => { closeDlg(); setStatus("やめました。点をタップしてください。"); });
         for (const id of ["dlgName", "dlgH"]) $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("dlgSave").click(); } });
 
@@ -4427,7 +4460,7 @@
           const tb = $("ptsTable");
           tb.textContent = "";
           if (!picks.length) { $("listNote").textContent = "まだ点がありません。「拾う」「逃げ墨」で点を作るか、点ファイルを足してください。"; return; }
-          $("listNote").textContent = `点名・X・Y・H はここで直せます。種類のボタンで 設計⇔既知 を入れ替え、✕ で消します。`;
+          $("listNote").textContent = "点をタップすると、直す・消す画面が開きます。";
           const [nx, ny] = axisNames();
           // スマホの幅で横にずらさなくても見えるように、1点を2段(点名・種類・✕ / X・Y・H)で出す
           tb.classList.add("pts-cards");
@@ -4438,13 +4471,14 @@
             const [X, Y] = fmtXY(p.x, p.y);
             const td = tr.insertCell(); const box = document.createElement("div"); box.className = "pt-card"; td.appendChild(box);
             const top = document.createElement("div"); top.className = "pt-top"; box.appendChild(top);
-            const inN = document.createElement("input"); inN.value = p.name; inN.dataset.i = i; inN.dataset.f = "name"; inN.className = "nm"; inN.setAttribute("aria-label", "点名"); top.appendChild(inN);
-            const rb = document.createElement("button"); rb.type = "button"; rb.className = "role " + roleOf(p); rb.textContent = roleOf(p) === "known" ? "既知" : "設計"; rb.dataset.role = i; top.appendChild(rb);
-            const del = document.createElement("button"); del.type = "button"; del.className = "ghost del"; del.textContent = "✕"; del.dataset.del = i; del.setAttribute("aria-label", p.name + " を消す"); top.appendChild(del);
+            box.dataset.edit = i; box.setAttribute("role", "button"); box.tabIndex = 0;
+            const nmEl = document.createElement("b"); nmEl.className = "nm"; nmEl.textContent = p.name; top.appendChild(nmEl);
+            const rb = document.createElement("span"); rb.className = "role " + roleOf(p); rb.textContent = roleOf(p) === "known" ? "既知" : "設計"; top.appendChild(rb);
+            const ed = document.createElement("span"); ed.className = "pt-ed"; ed.textContent = "✎"; top.appendChild(ed);
             const row = document.createElement("div"); row.className = "pt-xyz"; box.appendChild(row);
-            for (const [f, v, lab] of [["dx", X, hx], ["dy", Y, hy], ["h", fmtH(p.h), `H(${unitName()})`]]) {
-              const l = document.createElement("label"); const sm = document.createElement("small"); sm.textContent = lab; l.appendChild(sm);
-              const inp = document.createElement("input"); inp.type = "number"; inp.step = "0.001"; inp.inputMode = "decimal"; inp.value = v; inp.dataset.i = i; inp.dataset.f = f; inp.className = f === "h" ? "hh" : "xy"; l.appendChild(inp); row.appendChild(l);
+            for (const [v, lab] of [[X, hx], [Y, hy], [fmtH(p.h), `H(${unitName()})`]]) {
+              const l = document.createElement("div"); const sm = document.createElement("small"); sm.textContent = lab; l.appendChild(sm);
+              const vv = document.createElement("span"); vv.className = "v"; vv.textContent = v; l.appendChild(vv); row.appendChild(l);
             }
           });
         }
@@ -4505,39 +4539,11 @@
         }
         for (const id of ["ptName", "ptX", "ptY", "ptH"]) $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("ptSave").click(); } });
         $("ptAdd").addEventListener("click", () => openPtDlg(null));
-        $("ptsTable").addEventListener("change", (ev) => {
-          const e = ev.target, p = picks[Number(e.dataset.i)];
-          if (!p) return;
-          if (e.dataset.f === "name") {
-            const nm = e.value.trim(), bad = nameProblem(nm, p);
-            if (bad) { setStatus("⚠ " + bad, true); e.value = p.name; return; }
-            if (k1 === p.name) k1 = nm; if (k2 === p.name) k2 = nm;
-            p.name = nm;
-          } else if (e.dataset.f === "h") { const v = Number(e.value); if (Number.isFinite(v)) p.h = v; }
-          else if (e.dataset.f === "dx" || e.dataset.f === "dy") {
-            const v = Number(e.value);
-            if (e.value.trim() === "" || !Number.isFinite(v)) { setStatus("⚠ 座標は数字で入れてください。", true); renderTable(); return; }
-            const [X, Y] = fmtXY(p.x, p.y).map(Number);
-            const [x, y] = fromDisplay(e.dataset.f === "dx" ? v : X, e.dataset.f === "dy" ? v : Y, unitName());
-            p.x = x; p.y = y; if (p.kind !== "hand") p.kind = "hand";
-            setStatus(`✎ ${p.name} の座標を直しました。`);
-          }
-          afterChange();
-        });
         $("ptsTable").addEventListener("click", (ev) => {
-          const b = ev.target.closest("button"); if (!b) return;
-          if (b.dataset.role !== undefined) {
-            const p = picks[Number(b.dataset.role)];
-            p.role = roleOf(p) === "known" ? "design" : "known";
-            if (p.role === "design") { if (k1 === p.name) k1 = null; if (k2 === p.name) k2 = null; }
-            afterChange(); return;
-          }
-          if (b.dataset.del !== undefined) {
-            const p = picks.splice(Number(b.dataset.del), 1)[0];
-            if (k1 === p.name) k1 = null; if (k2 === p.name) k2 = null;
-            afterChange(); setStatus(`${p.name} を消しました(いま ${picks.length} 点)。`);
-          }
+          const c = ev.target.closest("[data-edit]"); if (!c) return;
+          const p = picks[Number(c.dataset.edit)]; if (p) openPtDlg(p);
         });
+        $("ptsTable").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.edit !== undefined) ev.target.click(); });
         $("fixNames").addEventListener("click", () => {
           const used = new Set();
           for (const p of picks) {
@@ -4756,7 +4762,7 @@
           $("stDone").disabled = !p || pk; $("stNext").disabled = !ds.length;
           $("stDone").textContent = p && p.done ? "↺ 打っていない に戻す" : "✓ 打った";
           $("stProg").textContent = ds.length ? `打った杭 ${done} / ${ds.length} 点(のこり ${ds.length - done} 点)` : "";
-          if (!ds.length && !pk && !knowns().length) { $("stakeCard").innerHTML = msgHtml([{ c: "warn", t: "杭を打つ点(設計点)がありません。「⚙ 座標値設定」で点を作るか、点ファイルを入れてください。" }]); $("stTable").textContent = ""; return; }
+          if (!ds.length && !p && !knowns().length) { $("stakeCard").innerHTML = msgHtml([{ c: "warn", t: "杭を打つ点(設計点)がありません。「⚙ 座標値設定」で点を作るか、点ファイルを入れてください。" }]); $("stTable").textContent = ""; return; }
           if (!p) { $("stakeCard").innerHTML = msgHtml([ds.length ? { c: "ok", t: `全部(${ds.length} 点)打ちました。③ 確認 で照らし合わせてください。` } : { c: "warn", t: "杭を打つ点(設計点)がありません。下の一覧の既知点をタップすると、その点を出せます。" }]); }
           else {
             const [X, Y] = fmtXY(p.x, p.y), [nx, ny] = axisNames();
@@ -6257,6 +6263,7 @@
           const tr = e.target.closest("tr[data-n]"); if (!tr) return;
           if (clPick === "target") { clPick = null; const p = byName(tr.dataset.n); if (p) { target = p.name; afterChange(); setStatus(`📍 ${p.name} を出す点にしました` + (roleOf(p) === "known" ? "(既知点・確かめ用)。" : "。")); } setCtlTab("stake"); return; }
           if (clPick) { const w = clPick; clPick = null; setKnown(w, byName(tr.dataset.n)); setCtlTab("setup"); return; }
+          if (clSelN === tr.dataset.n) { const p = byName(clSelN); if (p) { openPtDlg(p); return; } }   // 選んである点をもう一度タップ → 直す画面
           clSelN = tr.dataset.n; renderCList();
         });
         $("clAdd").addEventListener("click", () => openPtDlg(null));
