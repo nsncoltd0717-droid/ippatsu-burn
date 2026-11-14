@@ -639,7 +639,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -5287,8 +5287,13 @@
           field(f) {
             const num = (v) => (v === "" || /^E/.test(v) ? null : Number(v));
             const was = this.last ? this.last.trk : null;
-            this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]), trk: Number(f[5]), t: Date.now() };
+            this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]) || 0, trk: Number(f[5]) || 0, t: Date.now() };   // E408 など(サーチ失敗)は 0 = なし
             const L = this.last;
+            // 距離が測れた読み(追尾中、または誘導で点の方を向いているとき)を覚えておく。捕まえ直した直後や一瞬の抜けでも誘導を続けるため
+            if (L.sd != null && L.v != null && L.h != null && (L.trk === 2 || L.lay === 2)) this.fix = { sd: L.sd, v: L.v, h: L.h, t: L.t };
+            if (L.trk === 2) this.trackAt = L.t;
+            if (L.trk === 2 && was != null && was !== 2 && this.lostShown) { this.lostShown = false; setStatus("✓ プリズムを捕まえ直しました。そのまま杭打ちを続けられます。"); }
+            if (was === 2 && L.trk !== 2) this.lostShown = true;
             if (was === 3 && L.trk === 2) { beep("search"); ctlLogAdd("サーチ完了(プリズムを捕まえた)"); }
             if (was === 2 && L.trk !== 2) ctlLogAdd("追尾が切れました");
             this.autoSearch(was, L);
@@ -5311,6 +5316,8 @@
             if (L.trk === 2) { this.lostAt = 0; this.autoN = 0; return; }
             if (L.trk === 3) return;                                       // さがしている
             if (was === 2 && L.trk === 0) { this.lostAt = now; return; }
+            // 杭ナビが自分でさがして(2→3)見つからずに終わった(3→0)ときも、さっきまで追尾していたなら自動でサーチし直す
+            if (was === 3 && L.trk === 0 && !this.lostAt && now - (this.trackAt || 0) < 180000) { this.lostAt = now; return; }
             if (!this.lostAt || this.noAuto || this.holding || L.lay === 2 || L.lay === 3 || !$("cfgAutoSearch") || $("cfgAutoSearch").value !== "on") return;
             if (now - this.lostAt < 1500 || now - (this.searchAt || 0) < 6000 || (this.autoN || 0) >= 3) return;
             this.autoN = (this.autoN || 0) + 1;
@@ -5421,9 +5428,12 @@
         // プリズムの位置 = 器械点 + 水平距離 ×(方向角 = 杭ナビの水平角 + 向きのずれ hOff)。器械設置で器械点と hOff が決まっていると出る。
         let guideNow = null;   // { r(残り mm), ok }
         function prismPos() {
-          const L = KuiNavi.last;
-          if (!KuiNavi.connected || !inst || !L || L.trk !== 2 || L.sd == null || L.v == null || L.h == null || Date.now() - L.t > 3000) return null;
-          const z = L.v * 2 * Math.PI, hd = L.sd * Math.sin(z), vd = L.sd * Math.cos(z), az = KuiNavi.az(L.h);
+          const L = KuiNavi.last, F = KuiNavi.fix;
+          if (!KuiNavi.connected || !inst || !L || Date.now() - L.t > 3000) return null;
+          // 追尾中(trk 2)か、誘導で点の方を向いている(lay 2)ときに使う。距離が一瞬抜けたときは 2 秒前までの読みで続ける
+          if (!(L.trk === 2 || L.lay === 2) || !F || Date.now() - F.t > 2000) return null;
+          const sd = L.sd != null ? L.sd : F.sd, v = L.v != null ? L.v : F.v, hh = L.h != null ? L.h : F.h;
+          const z = v * 2 * Math.PI, hd = sd * Math.sin(z), vd = sd * Math.cos(z), az = KuiNavi.az(hh);
           const a = az * Math.PI / 180;
           const g = hd * gridK();   // 座標の上の距離
           return { x: inst.x + g * 1000 * Math.sin(a), y: inst.y + g * 1000 * Math.cos(a), az, hd, vd };
@@ -5438,7 +5448,7 @@
             guideNow = null;
             for (const id of ["gFwd", "gRight", "gDown"]) $(id).textContent = "---";
             lab("gFwd", opView ? "前へ(杭ナビの方へ)" : "奥へ"); lab("gRight", "右へ"); lab("gDown", "下へ(切り)");
-            $("gRemain").textContent = !p ? "出す点を選んでください" : !inst ? "器械設置をしてください" : !KuiNavi.connected ? "杭ナビにつないでください" : "プリズムを追尾してください";
+            $("gRemain").textContent = !p ? "出す点を選んでください" : !inst ? "器械設置をしてください" : !KuiNavi.connected ? "杭ナビにつないでください" : (() => { const L = KuiNavi.last; return !L ? "プリズムを追尾してください" : L.trk === 3 ? "🔍 プリズムをさがしています…" : L.trk === 2 ? "追尾OK・距離を待っています…" : "プリズムを追尾してください(🔍 サーチ)"; })();
             $("gArrow").textContent = "↑"; $("gArrow").style.transform = ""; $("gArrow").classList.remove("ok");
             return;
           }
