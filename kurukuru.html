@@ -639,7 +639,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.2</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -5139,6 +5139,8 @@
           },
           async connect(urlBt) {
             if (this.ws) { this.disconnect(); return; }
+            if (this.reTimer) { clearTimeout(this.reTimer); this.reTimer = null; }
+            this.byUser = false; this.lastUrl = urlBt;
             if (!urlBt && $("cfgLink").value === "bt") return window.KurukuruAndroid ? this.connectBtApp() : this.connectBt();
             const url = urlBt || ($("cfgRelay").value || "ws://127.0.0.1:8766").trim();
             setStatus(urlBt ? "🔵 Bluetooth で杭ナビにつないでいます…(数秒かかります)" : `🔗 くるくる中継(${url})につないでいます…`);
@@ -5146,7 +5148,8 @@
             try { ws = window.KurukuruAndroid && window.KurukuruAndroid.open ? new NativeWs(url) : new WebSocket(url); } catch (e) { setStatus("🔗 つなげません:" + e.message); return; }
             this.ws = ws; this.buf = ""; ws.binaryType = "arraybuffer"; this.vidNote = ""; this.vidBusy = false; this.heard = 0;
             if (urlBt) { ws.bt = true; this.vidNote = "Bluetooth では映像は来ません(映像は Wi-Fi のときだけ)"; }
-            const tmo = setTimeout(() => { if (!this.connected) { setStatus("🔗 くるくる中継が見つかりません。Termux で中継を動かしてから、もう一度「つなぐ」を押してください(操作盤の下の「つなぎ方」)。"); $("connHelp").open = true; this.disconnect(); } }, 8000);
+            const tmo = setTimeout(() => { if (!this.connected) { if (this.reTry) { try { ws.close(); } catch (e) { /* */ } return; }   // つなぎ直しの途中なら、もう一度ためす(onclose → reconnect)
+setStatus("🔗 くるくる中継が見つかりません。Termux で中継を動かしてから、もう一度「つなぐ」を押してください(操作盤の下の「つなぎ方」)。"); $("connHelp").open = true; this.disconnect(); } }, 8000);
             ws.onmessage = (ev) => {
               if (ev.data instanceof ArrayBuffer) {   // 中継が切り出した映像の1枚(JPEG)か H.264 の1コマ(00 00 00 01 で始まる)
                 const u8 = new Uint8Array(ev.data);
@@ -5171,7 +5174,7 @@
             };
             ws.onopen = () => { clearTimeout(tmo); setStatus(ws.bt ? "🔵 Bluetooth で杭ナビにつないでいます…" : "🔗 くるくる中継につながりました。杭ナビをさがしています…"); };
             ws.onerror = () => { if (!this.connected) $("connHelp").open = true; };
-            ws.onclose = () => { clearTimeout(tmo); try { if (this.vdec) this.vdec.close(); } catch (e) { /* */ } this.vdec = null; const was = this.connected; this.ws = null; this.connected = false; this.live = false; window.__kuiOn = false; try { window.kurukuruLive.off(); } catch (e) { /* */ } renderNaviBar(); if (was) setStatus("🔗 杭ナビとの接続が切れました。"); renderCtl(); };
+            ws.onclose = () => { clearTimeout(tmo); try { if (this.vdec) this.vdec.close(); } catch (e) { /* */ } this.vdec = null; const was = this.connected; this.ws = null; this.connected = false; this.live = false; window.__kuiOn = false; try { window.kurukuruLive.off(); } catch (e) { /* */ } renderNaviBar(); if (!this.byUser && (was || this.reTry)) this.reconnect(was); else if (was) setStatus("🔗 杭ナビとの接続が切れました。"); renderCtl(); };
           },
           connectBtApp() {   // Android アプリ版: ペアリング済みの杭ナビへ、アプリの中の中継から Bluetooth でつなぐ
             const A = window.KurukuruAndroid, r = A.btDevices();
@@ -5259,7 +5262,16 @@
             catch (e) { this.vdSkip = true; }
           },
 
+          // 杭ナビ側から切れたとき(現場の記録で 2 回あった)、3 秒おきに 20 回までつなぎ直す。「つなぐ」で自分で切ったときはしない
+          reconnect(first) {
+            if (first) { this.reTry = 0; ctlLogAdd("杭ナビとの接続が切れました。つなぎ直します"); }
+            if (this.reTry >= 20) { this.reTry = 0; setStatus("🔗 杭ナビとの接続が切れました。つなぎ直せなかったので、Wi-Fi・杭ナビの電源を確かめて「つなぐ」を押してください。", true); return; }
+            this.reTry++;
+            setStatus(`🔗 杭ナビとの接続が切れました。つなぎ直しています…(${this.reTry}回目)`);
+            this.reTimer = setTimeout(() => { this.reTimer = null; if (!this.ws && !this.byUser) this.connect(this.lastUrl); }, 3000);
+          },
           hello() {
+            const again = this.reTry > 0; this.reTry = 0;
             this.connected = true; window.__kuiOn = true; renderNaviBar();
             this.raw("IWCCS");
             setTimeout(() => {
@@ -5267,10 +5279,12 @@
               this.raw("IATMS", Math.round(Number(SI.temp) || 15), Math.round(Number(SI.press) || 1013)); this.raw("ITRGT", 1, 34, -7); this.raw("MBATT", 1); this.raw("PFILD", "", 2);
               try { if (ctlTab === "live" && !$("ctlOvl").hidden) this.send("live", { on: true }); } catch (e) { /* */ }   // LIVE を開いたままつないだとき
             }, 200);
-            setStatus("🔗 杭ナビにつながりました。");
+            setStatus(again ? "🔗 杭ナビにつなぎ直しました。誘導中だった点は、もう一度「この点の方向へ回す」を押してください。" : "🔗 杭ナビにつながりました。");
+            if (again) ctlLogAdd("つなぎ直しました");
             renderCtl();
           },
           disconnect() {
+            this.byUser = true; this.reTry = 0; if (this.reTimer) { clearTimeout(this.reTimer); this.reTimer = null; }
             if (this.ws) { try { if (this.connected) { this.raw("SMOTR"); this.raw("PFILD", "", 0); if (this.live) this.raw("CVSOF"); } this.ws.close(); } catch (e) { /* */ } }
             this.ws = null; this.connected = false; this.live = false; renderCtl();
           },
@@ -5289,6 +5303,10 @@
             const was = this.last ? this.last.trk : null;
             this.last = { sd: num(f[1]), v: num(f[2]), h: num(f[3]), lay: Number(f[4]) || 0, trk: Number(f[5]) || 0, t: Date.now() };   // E408 など(サーチ失敗)は 0 = なし
             const L = this.last;
+            if (/^E4/.test(f[4]) && this.layoArg && !this.layoRetried && Date.now() - this.layoAt < 5000) {
+              this.layoRetried = true; ctlLogAdd(`点の方向へ回すのを断られました(${f[4]})。止めてから送り直します`);
+              const [h, d] = this.layoArg; this.raw("SMOTR"); setTimeout(() => { if (this.connected) this.raw("RLAYO", h, d); }, 500);
+            }
             // 距離が測れた読み(追尾中、または誘導で点の方を向いているとき)を覚えておく。捕まえ直した直後や一瞬の抜けでも誘導を続けるため
             if (L.sd != null && L.v != null && L.h != null && (L.trk === 2 || L.lay === 2)) this.fix = { sd: L.sd, v: L.v, h: L.h, t: L.t };
             if (L.trk === 2) this.trackAt = L.t;
@@ -5301,6 +5319,13 @@
             if (L.h != null) liveHd = this.az(L.h);
             const now = performance.now();
             if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); renderGuide(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); if (inst && (L.trk === 2 || was === 2)) draw(); }
+          },
+          // 点の方向へ回す(RLAYO):回転・タッチドライブ・サーチの最中に送ると E400 で断られる(11/14 現場の記録で 6 回)。
+          // いったん止めて(SMOTR)から 300ms 後に送る。それでも E400 なら 1 回だけ送り直す
+          layo(h, d) {
+            this.layoArg = [h, d]; this.layoAt = Date.now(); this.layoRetried = false;
+            this.raw("SMOTR");
+            setTimeout(() => { if (this.connected) this.raw("RLAYO", h, d); }, 300);
           },
           // サーチ:誘導(RLAYO)や回転のあとだと RTRCK を受け付けないことがあるので、いったん止めて(SMOTR)から送る
           startSearch(why) {
@@ -5373,7 +5398,7 @@
               case "turnTo": case "turnTarget": case "guideToPt":
                 if (a.az == null) return null;
                 this.noAuto = true;
-                this.raw("RLAYO", this.azToH(a.az), ((a.dist || 0) / gridK()).toFixed(3)); return null;   // 杭ナビへは地面の距離で
+                this.layo(this.azToH(a.az), ((a.dist || 0) / gridK()).toFixed(3)); return null;   // 杭ナビへは地面の距離で
               case "measure": {
                 const L = this.last;
                 if (!L || L.sd == null) { setStatus("📏 距離が出ていません。プリズムを追尾(サーチ)してから押してください。"); return null; }
