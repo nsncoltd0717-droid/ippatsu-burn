@@ -639,7 +639,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.2</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.23.3</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -4595,7 +4595,7 @@
             blob.arrayBuffer().then((ab) => {
               const u = new Uint8Array(ab); let t = "";
               for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
-              window.KurukuruAndroid.save(name, type || "application/octet-stream", btoa(t));
+              window.KurukuruAndroid.save(name, blob.type || "application/octet-stream", btoa(t));   // type はこの関数の外の変数なので blob から取る
             });
             return;
           }
