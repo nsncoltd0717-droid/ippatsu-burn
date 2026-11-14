@@ -592,6 +592,8 @@
       .prm.lost, .prx.lost, .prc.lost { opacity: 0.4; }
       .prlbl { fill: #e11d48; font-weight: 800; }
       .prlbl.lost { opacity: 0.6; }
+
+      .tpick { cursor: pointer; border-radius: 10px; } .tpick:active { background: var(--line, #ddd); }
     </style>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -609,7 +611,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.20.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.21.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -1110,7 +1112,7 @@
         <div class="ctl-pane" data-pane="stake" hidden>
           <div class="ctl-target">
             <button type="button" class="ghost tnav" data-act="prevPt" aria-label="前の点">◀</button>
-            <div><small>出す点</small><b id="ctTarget">--</b></div>
+            <div class="tpick" role="button" aria-label="出す点を座標リストから選ぶ"><small>出す点(タップで選ぶ)</small><b id="ctTarget">--</b></div>
             <button type="button" class="ghost tnav" data-act="nextPt" aria-label="次の点">▶</button>
           </div>
           <div class="guide">
@@ -5883,7 +5885,7 @@
           if (act === "laser") $("csLaser").textContent = args.on ? "ON" : "OFF";
           // 杭打ちの点の切り替え・打った印は、このアプリの中のことなので本当に動く
           if (act === "nextPt" || act === "prevPt") {
-            const list = stakeOrder(null), i = list.findIndex((q) => q.name === target);
+            const list = stakeOrder(null).concat(knowns()), i = list.findIndex((q) => q.name === target);   // 設計点のあとに既知点(基地点)も回る
             const q = list[(i + (act === "nextPt" ? 1 : -1) + list.length) % list.length]; if (q) { target = q.name; afterChange(); }
           }
           if (act === "stakeDone") { const p = byName(target); if (p && roleOf(p) === "known") setStatus(`${p.name} は既知点(確かめ用)なので、打った印は付けません。`); else if (p) { p.done = true; const n = nextTarget(); if (n) target = n.name; afterChange(); } }
@@ -6071,6 +6073,7 @@
           setCtlTab("list"); openOvl("ctlOvl");
         }
         document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-clpick]"); if (b) startPick(b.dataset.clpick); });
+        $("ctTarget").closest("div").addEventListener("click", () => startPick("target"));   // 操作盤の「出す点」をタップ → 座標リストから選ぶ(全部の点)
         $("clPickCancel").addEventListener("click", () => { clPick = null; renderCList(); });
         $("clK1").addEventListener("click", () => { setKnown("k1", byName(clSelN)); renderCList(); });
         $("clK2").addEventListener("click", () => { setKnown("k2", byName(clSelN)); renderCList(); });
@@ -6114,7 +6117,7 @@
             return `<tr data-n="${esc(p.name)}" class="${p.name === clSelN ? "sel" : ""} ${p.name === target ? "tgt" : ""}"><td><b>${esc(p.name)}</b>${p.name === k1 ? '<span class="k">既知1</span>' : p.name === k2 ? '<span class="k">既知2</span>' : kn ? '<span class="k">既知</span>' : ""}${p.done ? '<span class="dn">✓</span>' : ""}</td><td>${X}</td><td>${Y}</td><td>${fmtH(p.h)}</td><td>${inst ? dm(inst, p).toFixed(2) : "--"}</td></tr>`;
           }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
           $("clPickBar").hidden = !clPick;
-          if (clPick) $("clPickMsg").textContent = clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
+          if (clPick) $("clPickMsg").textContent = clPick === "target" ? "出す点にする点をタップ(既知点・基地点も選べます)" : clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
           const ds = picks.filter((p) => roleOf(p) !== "known");
           $("clCsv").disabled = $("clSima").disabled = !list.length;
           $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。⬇ は表示している点をそのまま書き出します。";
@@ -6132,6 +6135,7 @@
         $("clF").addEventListener("click", (e) => { const f = e.target.dataset.f; if (!f) return; clF = f; for (const b of $("clF").children) b.setAttribute("aria-pressed", String(b.dataset.f === f)); renderCList(); });
         $("clBody").addEventListener("click", (e) => {
           const tr = e.target.closest("tr[data-n]"); if (!tr) return;
+          if (clPick === "target") { clPick = null; const p = byName(tr.dataset.n); if (p) { target = p.name; afterChange(); setStatus(`📍 ${p.name} を出す点にしました` + (roleOf(p) === "known" ? "(既知点・確かめ用)。" : "。")); } setCtlTab("stake"); return; }
           if (clPick) { const w = clPick; clPick = null; setKnown(w, byName(tr.dataset.n)); setCtlTab("setup"); return; }
           clSelN = tr.dataset.n; renderCList();
         });
