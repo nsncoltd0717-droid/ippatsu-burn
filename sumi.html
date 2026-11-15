@@ -842,7 +842,7 @@
   var APP = window.IPPATSU_APP || "", A = window.KurukuruAndroid || null;
   var NAMES = { menu: "一発バーン", nomiso: "脳みそバーン無敵CAD", sumi: "ECP一撃逃墨太郎", kamashi: "一発かまし太郎", kurukuru: "くるくる回し太郎", utsushi: "こっそり写し太郎" };
   var BANNED = ["中谷行寿", "松本光市", "今村正人"];
-  var ERR = "ipx.err", QUE = "ipx.fbq", DEV = "ipx.dev";
+  var ERR = "ipx.err", QUE = "ipx.fbq", DEV = "ipx.dev", MQ = "ipx.mailq", MLAST = "ipx.mailErrAt";
   var ls = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { /* */ } }
@@ -877,7 +877,8 @@
   window.addEventListener("unhandledrejection", function (e) { var r = e.reason; rec("promise", r && r.message ? r.message : String(r), "", r && r.stack); });
   var ce = console.error; console.error = function () { try { rec("console", [].map.call(arguments, function (a) { return a && a.message ? a.message : typeof a === "string" ? a : (function () { try { return JSON.stringify(a); } catch (x) { return String(a); } })(); }).join(" "), ""); } catch (e) { /* */ } return ce.apply(console, arguments); };
   // ---- 送る(送り先フォルダへ書く。書けなければ貯めておいて次に送る)
-  function queue(x, later) { var q = jget(QUE); x.info = x.info || info(); q.push(x); ls.set(QUE, JSON.stringify(q.slice(-300))); if (later) { clearTimeout(queue.t); queue.t = setTimeout(flush, 4000); } else flush(); }
+  function queue(x, later) { var q = jget(QUE); x.info = x.info || info(); x.id = x.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6); q.push(x); ls.set(QUE, JSON.stringify(q.slice(-300)));
+    if (mailReady()) { var mq = jget(MQ); mq.push(x); ls.set(MQ, JSON.stringify(mq.slice(-300))); clearTimeout(queue.m); queue.m = setTimeout(mailFlush, later ? 4000 : 50); } if (later) { clearTimeout(queue.t); queue.t = setTimeout(flush, 4000); } else flush(); }
   function dirName() { return call("fbDirName"); }
   function flush() {
     var q = jget(QUE); if (!q.length || !dirName()) return q.length;
@@ -891,6 +892,52 @@
       if (r !== "ok") left = left.concat(errs);
     }
     ls.set(QUE, JSON.stringify(left)); badge(); return left.length;
+  }
+  // ---- メールで送る(Android アプリの中から SMTP。要望はすぐ、エラーは10分に1通までまとめて)
+  function mcfg() { try { return JSON.parse(call("mailConfigGet") || "{}"); } catch (e) { return {}; } }
+  function mailReady() { if (!A || !A.mailSend) return false; var c = mcfg(); return !!(c.on !== false && c.hasPass && c.user && c.to); }
+  var mailWait = {}, mailCb = {};
+  function mailFlush(force) {
+    if (!mailReady()) return;
+    var mq = jget(MQ), busyIds = {}; Object.keys(mailWait).forEach(function (k) { mailWait[k].forEach(function (i) { busyIds[i] = 1; }); });
+    mq = mq.filter(function (x) { return !busyIds[x.id]; });
+    mq.filter(function (x) { return x.type !== "エラー"; }).forEach(function (x) {
+      var k = "r" + x.id; mailWait[k] = [x.id];
+      A.mailSend(k, "【改善要望】" + (x.info.name || "") + " " + (x.info.ver || "") + " " + String(x.text || "").split("\n")[0].slice(0, 30), report(x.text, x.info, x.recentErrors));
+    });
+    var errs = mq.filter(function (x) { return x.type === "エラー"; }), last = Number(ls.get(MLAST) || 0);
+    if (errs.length && (force || Date.now() - last > 10 * 60000 || errs.length >= 30)) {
+      var k = "e" + Date.now().toString(36); mailWait[k] = errs.map(function (x) { return x.id; }); ls.set(MLAST, String(Date.now()));
+      var i0 = errs[0].info || info(), apps = {}; errs.forEach(function (x) { apps[(x.info && x.info.name) || ""] = 1; });
+      A.mailSend(k, "【エラー記録】" + Object.keys(apps).join("・") + " " + errs.length + " 件", "一発バーンのアプリで起きたエラーを自動で送ります。\n\n" +
+        errs.map(function (x) { var e = x.item || {}; return new Date(e.t).toLocaleString() + " [" + (e.app || "") + " " + (e.ver || "") + "] " + e.msg + (e.where ? " @" + e.where : "") + (e.n > 1 ? " ×" + e.n : "") + (e.stack ? "\n    " + e.stack.split("\n").slice(0, 4).join("\n    ") : ""); }).join("\n\n") +
+        "\n\n端末：" + i0.device + (i0.apk ? "（APK " + i0.apk + "）" : "") + (i0.site ? "\n現場：" + i0.site : ""));
+    }
+  }
+  window.__mailDone = function (k, r) {
+    var ids = mailWait[k] || []; delete mailWait[k];
+    if (r === "ok") { var set = {}; ids.forEach(function (i) { set[i] = 1; }); ls.set(MQ, JSON.stringify(jget(MQ).filter(function (x) { return !set[x.id]; }))); }
+    if (mailCb[k]) { mailCb[k](r); delete mailCb[k]; }
+    else if (k.charAt(0) === "r") toast(r === "ok" ? "✉ 要望をメールで送りました" : "✉ メールを送れませんでした（あとでもう一度送ります）：" + r);
+    badge();
+  };
+  setInterval(function () { if (jget(MQ).length) mailFlush(); }, 60000);
+  function mailDialog() {
+    var G = window.Genba, esc = G.esc, c = mcfg();
+    var d = G.dialog("✉ メールの設定",
+      '<div class="ipx-fbd"><div class="m">改善要望とエラーの記録を、この端末から自動でメールします。送るのに使うアカウントは、Gmail なら「アプリ パスワード」（Google アカウント › セキュリティ › 2 段階認証 › アプリ パスワード）を入れてください。ふだんのパスワードは使えません。設定はこの端末の中だけに置きます。<\/div>' +
+      '<label class="m">送り先（, で何人でも）<\/label><input id="ipxMto" type="email" data-noipx style="width:100%;box-sizing:border-box;padding:8px" value="' + esc(c.to || "") + '">' +
+      '<label class="m">送るのに使うアドレス<\/label><input id="ipxMuser" type="email" data-noipx style="width:100%;box-sizing:border-box;padding:8px" value="' + esc(c.user || "") + '" placeholder="例: genba.report@gmail.com">' +
+      '<label class="m">アプリ パスワード' + (c.hasPass ? "（入れてあります。変えるときだけ入れる）" : "") + '<\/label><input id="ipxMpass" type="password" data-noipx autocomplete="off" style="width:100%;box-sizing:border-box;padding:8px">' +
+      '<div style="display:flex;gap:8px"><div style="flex:1"><label class="m">サーバー<\/label><input id="ipxMhost" type="text" data-noipx style="width:100%;box-sizing:border-box;padding:8px" value="' + esc(c.host || "smtp.gmail.com") + '"><\/div>' +
+      '<div style="width:90px"><label class="m">ポート<\/label><select id="ipxMport" style="width:100%;padding:8px"><option' + (c.port == 587 ? "" : " selected") + '>465<\/option><option' + (c.port == 587 ? " selected" : "") + '>587<\/option><\/select><\/div><\/div>' +
+      '<label class="m" style="display:block;margin-top:8px"><input type="checkbox" id="ipxMon" style="width:auto;display:inline;vertical-align:middle"' + (c.on === false ? "" : " checked") + '> 自動でメールする<\/label>' +
+      '<div class="m" id="ipxMres"><\/div><\/div>',
+      [{ label: "保存", ok: true, run: function (el) { save(el); toast(mailReady() ? "✉ メールの設定を保存しました" : "✉ 保存しました（足りないところがあります）"); mailFlush(); } },
+       { label: "テスト送信", run: function (el) { save(el); var r = el.querySelector("#ipxMres"); if (!mailReady()) { r.textContent = "送り先・アドレス・アプリ パスワードを入れてください。"; return false; } r.textContent = "送っています…"; var k = "t" + Date.now(); mailCb[k] = function (x) { r.textContent = x === "ok" ? "✓ 送れました。受信箱を見てください。" : "✗ " + x; }; A.mailSend(k, "【テスト】一発バーンの改善要望メール", "これはテストです。\n" + report("（テスト）", info(), [])); return false; } },
+       { label: "閉じる" }]);
+    function save(el) { A.mailConfigSet(JSON.stringify({ to: el.querySelector("#ipxMto").value.trim(), user: el.querySelector("#ipxMuser").value.trim(), pass: el.querySelector("#ipxMpass").value, host: el.querySelector("#ipxMhost").value.trim() || "smtp.gmail.com", port: Number(el.querySelector("#ipxMport").value), on: el.querySelector("#ipxMon").checked })); el.querySelector("#ipxMpass").value = ""; }
+    return d;
   }
   window.__fbDir = function (name) { if (name) { var n = jget(QUE).length, l = flush(); toast(name ? "送り先：" + name + (n ? "（" + (n - l) + " 件送りました）" : "") : ""); } if (dlg) open(); };
   // ---- 画面
@@ -911,7 +958,8 @@
   }
   function state() {
     var d = dirName(), n = unsent(), e = errCount();
-    return (d ? "送り先：📁 " + window.Genba.esc(d) : A && A.fbDirPick ? "送り先フォルダがまだありません（下の「送り先」で共有ドライブの 改善要望 フォルダを選んでください）" : "この画面（ブラウザ）からは自動で送れません。「コピー」して送ってください。") +
+    var mc = mcfg(), ml = mailReady() ? "✉ メール：" + window.Genba.esc(mc.to) + " へ自動で送ります<br>" : A && A.mailSend ? "✉ メールはまだ設定していません（「メールの設定」）<br>" : "";
+    return ml + (d ? "送り先：📁 " + window.Genba.esc(d) : A && A.fbDirPick ? "送り先フォルダがまだありません（下の「送り先」で共有ドライブの 改善要望 フォルダを選んでください）" : "この画面（ブラウザ）からは自動で送れません。「コピー」して送ってください。") +
       "<br>エラーの記録 " + e + " 件" + (n ? "・まだ送っていないもの " + n + " 件" : "");
   }
   function send(text) {
@@ -920,13 +968,14 @@
     if (bad) { toast("「" + bad + "」は書類に入れない名前です。消してから送ってください"); return false; }
     var errs = jget(ERR).slice(-20);
     queue({ type: "要望", text: text, recentErrors: errs });
-    if (dirName()) toast(unsent() ? "送れなかったので、あとでもう一度送ります" : "💡 送りました。ありがとうございます");
+    if (mailReady()) toast("✉ メールで送っています…");
+    else if (dirName()) toast(unsent() ? "送れなかったので、あとでもう一度送ります" : "💡 送りました。ありがとうございます");
     else if (A && A.shareText) { A.shareText("【改善要望】" + (NAMES[APP] || ""), report(text)); }
     else { copy(report(text)); }
     return true;
   }
-  function report(text) {
-    var i = info(), errs = jget(ERR).slice(-10);
+  function report(text, i, errs) {
+    i = i || info(); errs = errs ? errs.slice(-10) : jget(ERR).slice(-10);
     return "【改善要望】" + i.name + " " + i.ver + (i.apk ? "（APK " + i.apk + "）" : "") + (i.site ? "・現場 " + i.site : "") + "\n" + (text || "") + "\n\n" +
       (errs.length ? "― 最近のエラー ―\n" + errs.map(function (x) { return new Date(x.t).toLocaleString() + " [" + x.app + " " + x.ver + "] " + x.msg + (x.where ? " @" + x.where : "") + (x.n > 1 ? " ×" + x.n : ""); }).join("\n") + "\n" : "") + "端末：" + i.device;
   }
@@ -945,6 +994,7 @@
       '<div class="m ipx-fbm2">' + state() + "<\/div>" +
       (errs.length ? "<details><summary>エラーの記録（新しい順 " + errs.length + " 件）<\/summary><pre>" + esc(errs.map(function (x) { return new Date(x.t).toLocaleString() + " [" + x.app + " " + x.ver + "] " + x.msg + (x.where ? " @" + x.where : "") + (x.n > 1 ? " ×" + x.n : ""); }).join("\n")) + "<\/pre><\/details>" : "") + "<\/div>",
       [{ label: "送る", ok: true, run: function (c) { return send(c.querySelector("#ipxFbT").value); } }]
+        .concat(A && A.mailSend ? [{ label: "メールの設定", run: function () { setTimeout(mailDialog, 0); return true; } }] : [])
         .concat(A && A.fbDirPick ? [{ label: dirName() ? "送り先を変える" : "送り先を選ぶ", run: function () { A.fbDirPick(); return false; } }] : [])
         .concat(A && A.shareText ? [{ label: "LINE などで送る", run: function (c) { A.shareText("【改善要望】" + (NAMES[APP] || ""), report(c.querySelector("#ipxFbT").value)); return false; } }] : [{ label: "コピー", run: function (c) { copy(report(c.querySelector("#ipxFbT").value)); return false; } }])
         .concat([{ label: "閉じる" }]));
@@ -956,19 +1006,20 @@
     var flow = APP === "menu" || (cs.overflow !== "hidden" && cs.overflowY !== "hidden" && !document.querySelector("nav.tabs"));
     if (flow) {   // ふつうの長い画面:一番下に箱を置く
       box = document.createElement("section"); box.className = "ipx-fbbox"; box.setAttribute("aria-label", "改善要望");
-      box.innerHTML = "<h4>💡 改善要望<\/h4><textarea placeholder=\"こうしてほしい・使いにくいところ・止まったところなど\"><\/textarea><div class=\"r\"><button type=\"button\" class=\"go\">送る<\/button><button type=\"button\" class=\"s more\">送り先・エラーの記録<\/button><\/div><div class=\"ipx-fbm\" style=\"font-size:12px;color:#666;margin-top:6px\"><\/div>";
+      box.innerHTML = "<h4>💡 改善要望<\/h4><textarea placeholder=\"こうしてほしい・使いにくいところ・止まったところなど\"><\/textarea><div class=\"r\"><button type=\"button\" class=\"go\">送る<\/button><button type=\"button\" class=\"s more\">送り先・エラーの記録<\/button>" + (A && A.mailSend ? "<button type=\"button\" class=\"s mail\">✉ メールの設定<\/button>" : "") + "<\/div><div class=\"ipx-fbm\" style=\"font-size:12px;color:#666;margin-top:6px\"><\/div>";
       b.appendChild(box);
       box.querySelector(".go").onclick = function () { var t = box.querySelector("textarea"); if (send(t.value)) t.value = ""; };
       box.querySelector(".more").onclick = function () { open(box.querySelector("textarea").value); };
+      if (box.querySelector(".mail")) box.querySelector(".mail").onclick = function () { mailDialog(); };
     } else {   // 画面いっぱいのアプリ:左下の小さなボタン(下にタブがあればその上)
       pill = document.createElement("button"); pill.type = "button"; pill.className = "ipx-fb"; pill.setAttribute("aria-label", "改善要望");
       var nav = document.querySelector("nav.tabs"), h = nav ? nav.getBoundingClientRect().height : 0;
       pill.style.bottom = "calc(" + (h + 6) + "px + env(safe-area-inset-bottom, 0px))";
       pill.onclick = function () { open(); }; b.appendChild(pill);
     }
-    badge(); flush();
+    badge(); flush(); mailFlush();
   }
-  window.IpxFeedback = { open: open, flush: flush, errors: function () { return jget(ERR); }, record: rec };
+  window.IpxFeedback = { open: open, flush: flush, mail: function () { return mailDialog(); }, mailFlush: mailFlush, errors: function () { return jget(ERR); }, record: rec };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(place, 300); }); else setTimeout(place, 300);
 })();
 
