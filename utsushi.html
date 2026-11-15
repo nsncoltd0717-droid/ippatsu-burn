@@ -91,7 +91,11 @@
       .cam[hidden] { display: none; }
       .cam .stage { position: relative; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .cam video { max-width: 100%; max-height: 100%; }
-      .cam canvas.bb { position: absolute; pointer-events: none; }
+      .cam .up { position: absolute; pointer-events: none; transform-origin: 50% 50%; transition: transform .25s; }
+      .cam canvas.bb { position: absolute; pointer-events: auto; touch-action: none; cursor: grab; box-shadow: 0 0 0 2px rgba(255,255,255,.35); }
+      .cam canvas.bb.drag { box-shadow: 0 0 0 3px #f2c; }
+      .cam .side button.off { background: #c2255c; }
+      .cam .side button small { display: block; font-size: 10px; line-height: 1; margin-top: 2px; }
       .cam .side { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 8px; width: 88px; background: #000; }
       .cam .side button { border: 0; background: rgba(255, 255, 255, .12); color: #fff; width: 56px; height: 56px; border-radius: 14px; font-size: 22px; cursor: pointer; }
       .cam .side .shot { width: 74px; height: 74px; border-radius: 50%; background: #fff; border: 5px solid #999; box-shadow: 0 0 0 3px #fff; }
@@ -748,7 +752,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.1.0</small></h1>
+      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.0</small></h1>
     </header>
 
     <!-- ホーム -->
@@ -855,13 +859,20 @@
         <h2>🧾 黒板</h2>
         <label class="f">黒板の色</label>
         <div class="chips" id="cfColor"></div>
-        <label class="f" for="cfSize">黒板の大きさ（写真の幅の割合）<span id="cfSizeV"></span></label>
+        <label class="f">黒板の形</label>
+        <div class="chips" id="cfShape"></div>
+        <label class="f" for="cfSize">黒板の大きさ<span id="cfSizeV"></span></label>
         <input type="range" id="cfSize" min="0.17" max="0.45" step="0.01" style="width:100%" />
-        <label class="f">黒板の場所</label>
+        <label class="f">黒板の場所（撮る画面で指でずらせます）</label>
         <div class="chips" id="cfPos"></div>
+        <label class="f">撮るとき</label>
+        <div class="chips" id="cfOn"></div>
+        <label class="f"><input type="checkbox" id="cfRot" /> 端末の向き（縦・横）に合わせて黒板と写真を自動で回す</label>
         <label class="f">写真の大きさ</label>
         <div class="chips" id="cfRes"></div>
-        <p class="note">電子納品の目安は 100〜300 万画素です（1600×1200 で 192 万画素）。</p>
+        <label class="f">画質</label>
+        <div class="chips" id="cfQ"></div>
+        <p class="note">電子納品（デジタル写真管理情報基準）の目安は、黒板の文字が読める 100〜300 万画素程度です。「電子納品」の印の大きさならそのまま出せます。ノーマルはファイルが小さく、ファインは細かいところまできれいです。</p>
       </div>
     </section>
 
@@ -879,13 +890,14 @@
     <div class="cam" id="cam" hidden>
       <div class="stage" id="camStage">
         <video id="camVideo" playsinline muted autoplay></video>
-        <canvas class="bb" id="camBB"></canvas>
+        <div class="up" id="camUp"><canvas class="bb" id="camBB"></canvas></div>
         <div class="info" id="camInfo"></div>
         <div class="flash" id="camFlash"></div>
       </div>
       <div class="side">
         <button type="button" id="camClose" aria-label="カメラを閉じる">✕</button>
-        <button type="button" id="camPos" aria-label="黒板の場所">↘</button>
+        <button type="button" id="camOn" aria-label="黒板を入れる／入れない">🧾<small>ON</small></button>
+        <button type="button" id="camRot" aria-label="黒板の向き">⟳<small>自動</small></button>
         <button type="button" class="shot" id="camShot" aria-label="撮る"></button>
         <button type="button" id="camEdit" aria-label="黒板を直す">📝</button>
         <button type="button" class="last" id="camLast" aria-label="写真帳"></button>
@@ -912,9 +924,13 @@
         const SKIP_UNDER = ["共通仮設", "共通仮設費", "間接工事費", "諸経費"];
         const LVCOL = ["#c2255c", "#2f3a8f", "#2b8a3e", "#c76a00"];
         const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* */ } } };
-        const CFG_DEF = { color: "green", size: 0.24, pos: "br", res: "1600", auto: true };
+        const CFG_DEF = { color: "green", size: 0.24, fx: 1, fy: 1, shape: "yoko", bbOn: true, rotAuto: true, res: "1600", q: "fine", auto: true };
         let CFG = { ...CFG_DEF };
-        try { CFG = { ...CFG_DEF, ...JSON.parse(ls.get("ut.cfg") || "{}") }; } catch (e) { /* */ }
+        try { const o = JSON.parse(ls.get("ut.cfg") || "{}"); if (o.pos && o.fx == null) { o.fx = o.pos.includes("r") ? 1 : 0; o.fy = o.pos.includes("b") ? 1 : 0; } delete o.pos; CFG = { ...CFG_DEF, ...o }; } catch (e) { /* */ }
+        const RES = { 1280: "1280×960（約120万）", 1600: "1600×1200（約190万）", 2048: "2048×1536（約310万）", max: "カメラの最大" };
+        const QUAL = { normal: 0.8, fine: 0.92 };
+        const Q = () => QUAL[CFG.q] || 0.92;
+        const longSide = () => (CFG.res === "max" ? 1e9 : Number(CFG.res) || 1600);
         const saveCfg = () => ls.set("ut.cfg", JSON.stringify(CFG));
 
         function toast(t, ms) { const e = $("toast"); e.textContent = t; e.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { e.hidden = true; }, ms || 2600); }
@@ -1220,7 +1236,7 @@
         $("sSpot").addEventListener("change", () => { shot.spot = $("sSpot").value; saveShot(); drawShoot(); });
         $("sText").addEventListener("input", () => { shot.text = $("sText").value; saveShot(); drawPrev(); });
         $("sText").addEventListener("change", () => { shot.text = $("sText").value; saveShot(); drawPrev(); });
-        function drawPrev() { const c = $("sPrev"), info = boardInfo(shot); const w = 360, h = Math.round(w * 0.78); c.width = w * 2; c.height = h * 2; const g = c.getContext("2d"); g.scale(2, 2); drawBoard(g, 0, 0, w, h, info); }
+        function drawPrev() { const c = $("sPrev"), info = boardInfo(shot); const k = CFG.shape === "tate" ? 1.3 : 0.78, w = CFG.shape === "tate" ? 250 : 360, h = Math.round(w * k); c.style.maxWidth = w + "px"; c.width = w * 2; c.height = h * 2; const g = c.getContext("2d"); g.scale(2, 2); drawBoard(g, 0, 0, w, h, info); }
         function pickNode(sel, done, allowAll) {
           const rows = tree.map((n) => `<li class="tn${n.id === sel ? " sel" : ""}" style="padding-left:${(n.lv - 1) * 16}px" data-id="${n.id}"><span class="lvbar" style="background:${LVCOL[n.lv]}"></span><button type="button" class="nm">${esc(n.name)}<small>${LV[n.lv]}</small></button></li>`).join("");
           sheet(allowAll ? "しぼる" : "工種・種別・細別を選ぶ", (allowAll ? `<button type="button" class="btn wide" data-id="" style="margin-bottom:8px">すべての写真</button>` : `<button type="button" class="btn wide" data-id="" style="margin-bottom:8px">工種なし</button>`) +
@@ -1269,7 +1285,7 @@
           g.strokeStyle = c.fg; g.fillStyle = c.fg; g.lineWidth = lw; g.textBaseline = "middle";
           const ix = x + pad, iy = y + pad, iw = w - pad * 2, ih = h - pad * 2;
           g.strokeRect(ix, iy, iw, ih);
-          const rh = ih * 0.13, lab = iw * 0.24, rows = [["工事名", info.kname], ["工　種", info.kousyu], ["測　点", info.spot]];
+          const rh = Math.min(ih * 0.13, iw * 0.16), lab = iw * 0.26, rows = [["工事名", info.kname], ["工　種", info.kousyu], ["測　点", info.spot]];
           rows.forEach(([k, v], i) => {
             const ry = iy + rh * i;
             g.beginPath(); g.moveTo(ix, ry + rh); g.lineTo(ix + iw, ry + rh); g.stroke();
@@ -1282,9 +1298,11 @@
           g.restore();
         }
         function boardRect(W, H) {   // 写真の中の黒板の場所(写真の向きのまま)
-          const bw = Math.round(W * CFG.size), bh = Math.round(bw * 0.78), m = Math.round(W * 0.012);
-          const p = CFG.pos;
-          return { x: p.includes("r") ? W - bw - m : m, y: p.includes("b") ? H - bh - m : m, w: bw, h: bh };
+          const s = Math.min(W, H), m = Math.round(s * 0.012), base = s * CFG.size * 4 / 3;   // 横長 4:3 の写真なら幅の CFG.size 割(前と同じ)
+          let bw = CFG.shape === "tate" ? base * 0.8 : base, bh = CFG.shape === "tate" ? bw * 1.3 : bw * 0.78;
+          const k = Math.min(1, (W - 2 * m) / bw, (H - 2 * m) / bh); bw = Math.round(bw * k); bh = Math.round(bh * k);
+          const fx = Math.min(1, Math.max(0, CFG.fx)), fy = Math.min(1, Math.max(0, CFG.fy));
+          return { x: Math.round(m + fx * (W - bw - 2 * m)), y: Math.round(m + fy * (H - bh - 2 * m)), w: bw, h: bh, m };
         }
 
         // ------------------------------------------------------------ カメラ
@@ -1293,7 +1311,7 @@
           if (!needSite()) return;
           if (banned(shot.text) || banned(shot.spot)) { alertBox(`「${banned(shot.text) || banned(shot.spot)}」は書類に入れない名前です。黒板の文字を直してください。`); return; }
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alertBox("この画面ではカメラが使えません。「端末のカメラで撮って黒板を入れる」を使ってください。"); return; }
-          const want = CFG.res === "max" ? 4000 : CFG.res === "2048" ? 2048 : 1600;
+          const want = CFG.res === "max" ? 4000 : longSide();
           try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: want }, height: { ideal: Math.round(want * 0.75) } } });
           } catch (e) { alertBox("カメラを開けません: " + (e.message || e.name) + "（カメラの許可を確かめてください）"); return; }
@@ -1301,34 +1319,87 @@
           camInfo(); setTimeout(layoutBB, 300);
         }
         function closeCam() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; $("cam").hidden = true; drawHome(); }
-        function camInfo() { $("camInfo").textContent = `${KUBUN_SHORT[shot.kubun]}・${pathText(shot.node) || "工種なし"}${shot.spot ? "・" + shot.spot : ""}`; $("camPos").textContent = { br: "↘", bl: "↙", tr: "↗", tl: "↖" }[CFG.pos]; }
+        function camInfo() { $("camInfo").textContent = `${KUBUN_SHORT[shot.kubun]}・${pathText(shot.node) || "工種なし"}${shot.spot ? "・" + shot.spot : ""}`; camBtns(); }
+        // 端末の向き:重力から「画面に対して端末を何度まわしたか」(0/90/180/270、反時計回り)を出す。アプリは縦固定なので横に持つと 90 か 270 になる
+        let devRot = 0, manRot = null;   // manRot: null=自動、数字=手で決めた向き
+        const camRotNow = () => (manRot != null ? manRot : CFG.rotAuto ? devRot : 0);
+        window.addEventListener("devicemotion", (e) => {
+          const a = e.accelerationIncludingGravity; if (!a || a.x == null || a.y == null) return;
+          const x = a.x, y = a.y; let d = null;
+          if (Math.abs(y) > Math.abs(x) * 1.5 && Math.abs(y) > 4) d = y > 0 ? 0 : 180;
+          else if (Math.abs(x) > Math.abs(y) * 1.5 && Math.abs(x) > 4) d = x > 0 ? 90 : 270;
+          if (d == null) return;   // 平らに置いたときなどは前の向きのまま
+          const sa = (screen.orientation && screen.orientation.angle) || Number(window.orientation) || 0;
+          const r = (((d - sa) % 360) + 360) % 360;
+          if (r !== devRot) { devRot = r; if (!$("cam").hidden && !bbDrag) layoutBB(); }
+        });
+        function camBtns() {
+          $("camOn").classList.toggle("off", !CFG.bbOn); $("camOn").querySelector("small").textContent = CFG.bbOn ? "ON" : "OFF";
+          $("camRot").querySelector("small").textContent = manRot == null ? (CFG.rotAuto ? "自動" : "縦") : { 0: "縦", 90: "横", 180: "逆さ", 270: "横" }[manRot];
+          $("camRot").style.transform = `rotate(${camRotNow()}deg)`;
+        }
         function layoutBB() {   // 画面の上に黒板の見本を重ねる
           const v = $("camVideo"), c = $("camBB"); if (!v.videoWidth) { if (!$("cam").hidden) setTimeout(layoutBB, 200); return; }
-          const vr = v.getBoundingClientRect(), sr = $("camStage").getBoundingClientRect();
-          const r = boardRect(vr.width, vr.height);
-          c.style.left = vr.left - sr.left + r.x + "px"; c.style.top = vr.top - sr.top + r.y + "px"; c.style.width = r.w + "px"; c.style.height = r.h + "px";
+          const vr = v.getBoundingClientRect(), sr = $("camStage").getBoundingClientRect(), up = $("camUp");
+          const rot = camRotNow(), uw = rot % 180 ? vr.height : vr.width, uh = rot % 180 ? vr.width : vr.height;   // 端末の向きでまっすぐに見た写真の枠
+          up.style.width = uw + "px"; up.style.height = uh + "px";
+          up.style.left = vr.left - sr.left + (vr.width - uw) / 2 + "px"; up.style.top = vr.top - sr.top + (vr.height - uh) / 2 + "px";
+          up.style.transform = `rotate(${rot}deg)`; camBtns();
+          c.hidden = !CFG.bbOn; if (!CFG.bbOn) return;
+          const r = boardRect(uw, uh); bbBox = { uw, uh, r, rot };
+          c.style.left = r.x + "px"; c.style.top = r.y + "px"; c.style.width = r.w + "px"; c.style.height = r.h + "px";
           c.width = r.w * 2; c.height = r.h * 2; const g = c.getContext("2d"); g.scale(2, 2); drawBoard(g, 0, 0, r.w, r.h, boardInfo(shot));
         }
         window.addEventListener("resize", () => { if (!$("cam").hidden) setTimeout(layoutBB, 150); });
+        // 黒板を指でずらす(まっすぐに見た枠の中の割合 fx・fy で覚える)
+        let bbBox = null, bbDrag = null;
+        $("camBB").addEventListener("pointerdown", (e) => {
+          if (!bbBox) return; e.preventDefault(); $("camBB").setPointerCapture(e.pointerId);
+          bbDrag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, fx: CFG.fx, fy: CFG.fy, box: bbBox }; $("camBB").classList.add("drag");
+        });
+        $("camBB").addEventListener("pointermove", (e) => {
+          if (!bbDrag || e.pointerId !== bbDrag.id) return;
+          const { box } = bbDrag, t = (box.rot * Math.PI) / 180, dx = e.clientX - bbDrag.sx, dy = e.clientY - bbDrag.sy;
+          const ux = dx * Math.cos(t) + dy * Math.sin(t), uy = -dx * Math.sin(t) + dy * Math.cos(t);   // 画面の動き → まっすぐの枠の動き
+          const fw = box.uw - box.r.w - 2 * box.r.m, fh = box.uh - box.r.h - 2 * box.r.m;
+          CFG.fx = Math.min(1, Math.max(0, bbDrag.fx + (fw > 0 ? ux / fw : 0))); CFG.fy = Math.min(1, Math.max(0, bbDrag.fy + (fh > 0 ? uy / fh : 0)));
+          const r = boardRect(box.uw, box.uh); $("camBB").style.left = r.x + "px"; $("camBB").style.top = r.y + "px";
+        });
+        const bbEnd = (e) => { if (!bbDrag || e.pointerId !== bbDrag.id) return; bbDrag = null; $("camBB").classList.remove("drag"); saveCfg(); layoutBB(); };
+        $("camBB").addEventListener("pointerup", bbEnd); $("camBB").addEventListener("pointercancel", bbEnd);
         $("sCam").addEventListener("click", openCam);
         $("camClose").addEventListener("click", closeCam);
-        $("camPos").addEventListener("click", () => { const o = ["br", "bl", "tl", "tr"]; CFG.pos = o[(o.indexOf(CFG.pos) + 1) % 4]; saveCfg(); camInfo(); layoutBB(); });
+        $("camOn").addEventListener("click", () => { CFG.bbOn = !CFG.bbOn; saveCfg(); layoutBB(); toast(CFG.bbOn ? "🧾 黒板を入れて撮ります" : "🚫 黒板なしで撮ります（あとから写真帳で入れられます）", 1800); });
+        $("camRot").addEventListener("click", () => {   // 自動 → 縦 → 横 → 逆さ → 横(反対) → 自動
+          const o = [null, 0, 90, 180, 270]; manRot = o[(o.indexOf(manRot) + 1) % o.length]; layoutBB();
+          toast(manRot == null ? "黒板の向き：自動" : "黒板の向き：手で固定", 1400);
+        });
         $("camEdit").addEventListener("click", () => { closeCam(); go("shoot"); });
         $("camLast").addEventListener("click", () => { closeCam(); go("album"); });
         $("camShot").addEventListener("click", async () => {
           const v = $("camVideo"); if (!v.videoWidth) return;
           $("camFlash").style.opacity = 1; setTimeout(() => ($("camFlash").style.opacity = 0), 120);
-          let W = v.videoWidth, H = v.videoHeight;
-          const lim = CFG.res === "max" ? 1e9 : CFG.res === "2048" ? 2048 * 1536 : 1600 * 1200;
-          if (W * H > lim) { const k = Math.sqrt(lim / (W * H)); W = Math.round(W * k); H = Math.round(H * k); }
+          let w0 = v.videoWidth, h0 = v.videoHeight; const L = longSide();
+          if (Math.max(w0, h0) > L) { const k = L / Math.max(w0, h0); w0 = Math.round(w0 * k); h0 = Math.round(h0 * k); }
+          const rot = camRotNow(), W = rot % 180 ? h0 : w0, H = rot % 180 ? w0 : h0;   // 端末の向きに合わせて写真をまっすぐにする
           const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
-          g.drawImage(v, 0, 0, W, H);
-          const raw = await canvasJpeg(c, 0.92);
+          g.save();
+          if (rot === 90) g.setTransform(0, -1, 1, 0, 0, w0);   // x'=y, y'=w0-x
+          if (rot === 180) g.setTransform(-1, 0, 0, -1, W, H);
+          if (rot === 270) g.setTransform(0, 1, -1, 0, h0, 0);
+          g.drawImage(v, 0, 0, w0, h0); g.restore();
+          const now = new Date(), meta = metaOf(shot, now);
+          if (!CFG.bbOn) {   // 黒板なし:電子小黒板の印(DCP PHOTO・XMP)は入れない。工種・測点はこのアプリの中だけで覚える
+            let jpg = new Uint8Array(await (await canvasJpeg(c, Q())).arrayBuffer()); jpg = putMeta(jpg, exifNew(W, H, now, true), null);
+            const rec = await addPhoto({ jpg, W, H, meta, kokuban: "none", at: now.getTime() });
+            $("camLast").style.backgroundImage = `url(${URL.createObjectURL(rec.thumb)})`;
+            toast(`📸 黒板なしで入れました${rec.saved ? "（保存先にも）" : ""}`, 1800); return;
+          }
+          const raw = await canvasJpeg(c, Q());
           const r = boardRect(W, H); drawBoard(g, r.x, r.y, r.w, r.h, boardInfo(shot));
-          const now = new Date();
-          let jpg = new Uint8Array(await (await canvasJpeg(c, 0.92)).arrayBuffer());
-          jpg = putMeta(jpg, exifNew(W, H, now), xmpOf(metaOf(shot, now)));
-          const rec = await addPhoto({ jpg, raw, W, H, meta: metaOf(shot, now), kokuban: "camera", at: now.getTime() });
+          let jpg = new Uint8Array(await (await canvasJpeg(c, Q())).arrayBuffer());
+          jpg = putMeta(jpg, exifNew(W, H, now), xmpOf(meta));
+          const rec = await addPhoto({ jpg, raw, W, H, meta, kokuban: "camera", at: now.getTime() });
           $("camLast").style.backgroundImage = `url(${URL.createObjectURL(rec.thumb)})`;
           toast(`📸 ${rec.meta.name || "写真"} を入れました${rec.saved ? "（保存先にも）" : ""}`, 1800);
         });
@@ -1374,9 +1445,9 @@
           return s;
         }
         function app1(head, bytes) { const L = bytes.length + head.length + 2; const o = new Uint8Array(4 + head.length + bytes.length); o.set([0xff, 0xe1, L >> 8, L & 255]); o.set(head, 4); o.set(bytes, 4 + head.length); return o; }
-        function exifNew(W, H, d) {   // このアプリで撮った写真:説明「DCP PHOTO」・向き1・撮った日時(本当に撮った時刻)
+        function exifNew(W, H, d, plain) {   // このアプリで撮った写真:説明「DCP PHOTO」(黒板なしなら入れない)・向き1・撮った日時(本当に撮った時刻)
           const dt = `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}\0`;
-          return exifBuild([[0x010e, 2, "DCP PHOTO\0"], [0x0112, 3, 1], [0x011a, 5, [72, 1]], [0x011b, 5, [72, 1]], [0x0128, 3, 2], [0x0132, 2, dt]],
+          return exifBuild([...(plain ? [] : [[0x010e, 2, "DCP PHOTO\0"]]), [0x0112, 3, 1], [0x011a, 5, [72, 1]], [0x011b, 5, [72, 1]], [0x0128, 3, 2], [0x0132, 2, dt]],
             [[0x9000, 7, "0230"], [0x9003, 2, dt], [0x9004, 2, dt], [0xa001, 3, 1], [0xa002, 4, W], [0xa003, 4, H]]);
         }
         function exifMin() { return exifBuild([[0x010e, 2, "DCP PHOTO\0"], [0x0112, 3, 1]], null); }   // Exif の無い写真に足す最小のもの(日時は作らない)
@@ -1486,7 +1557,7 @@
           if (rot === 270) g.setTransform(0, 1, -1, 0, W, 0);
           drawBoard(g, r.x, r.y, r.w, r.h, boardInfo({ node: meta.node, spot: meta.spot, text: meta.lines.join("\n") }));
           g.restore();
-          let jpg = new Uint8Array(await (await canvasJpeg(c, 0.92)).arrayBuffer());
+          let jpg = new Uint8Array(await (await canvasJpeg(c, Q())).arrayBuffer());
           jpg = putMeta(jpg, exSeg ? exifNoThumb(exSeg) : exifMin(), xmpOf(meta));
           return addPhoto({ jpg, W: vw, H: vh, meta, kokuban: "composite", at, orig: new Blob([b], { type: "image/jpeg" }) });
         }
@@ -1572,7 +1643,7 @@
                   const bmp = await createImageBitmap(p.raw); const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height; const g = c.getContext("2d"); g.drawImage(bmp, 0, 0);
                   const r = boardRect(c.width, c.height); drawBoard(g, r.x, r.y, r.w, r.h, boardInfo(o));
                   const old = new Uint8Array(await p.jpeg.arrayBuffer()), ex = segs(old).out.find(isExif);
-                  let jpg = new Uint8Array(await (await canvasJpeg(c, 0.92)).arrayBuffer()); jpg = putMeta(jpg, ex ? old.slice(ex.s, ex.e) : exifMin(), xmpOf(nm));
+                  let jpg = new Uint8Array(await (await canvasJpeg(c, Q())).arrayBuffer()); jpg = putMeta(jpg, ex ? old.slice(ex.s, ex.e) : exifMin(), xmpOf(nm));
                   p.jpeg = new Blob([jpg], { type: "image/jpeg" }); p.thumb = await thumbOf(p.jpeg); p.meta = nm; p.saved = false;
                   await tx("photos", "readwrite", (st) => st.put(p)); toast("黒板を描き直しました。"); closeSheet(); drawAlbum(); return;
                 }
@@ -1650,12 +1721,20 @@
           $("cfAuto").checked = !!CFG.auto;
           const s = S(); $("cfName").value = s.kname || site || ""; $("cfCon").value = s.contractor || ""; $("cfFrom").value = s.from || ""; $("cfTo").value = s.to || "";
           $("cfColor").innerHTML = Object.entries(COLORS).map(([k, c]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.color === k}">${c.name}</button>`).join("");
-          $("cfPos").innerHTML = [["br", "右下"], ["bl", "左下"], ["tr", "右上"], ["tl", "左上"]].map(([k, t]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.pos === k}">${t}</button>`).join("");
-          $("cfRes").innerHTML = [["1600", "1600×1200（192万）"], ["2048", "2048×1536（315万）"], ["max", "カメラの最大"]].map(([k, t]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.res === k}">${t}</button>`).join("");
+          const chips = (list, val) => list.map(([k, t]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${String(val) === String(k)}">${t}</button>`).join("");
+          $("cfShape").innerHTML = chips([["yoko", "▭ 横長"], ["tate", "▯ 縦長"]], CFG.shape);
+          $("cfPos").innerHTML = chips([["11", "右下"], ["01", "左下"], ["10", "右上"], ["00", "左上"]], `${CFG.fx}${CFG.fy}`);
+          $("cfOn").innerHTML = chips([["1", "🧾 黒板を入れる"], ["0", "🚫 黒板なし"]], CFG.bbOn ? 1 : 0);
+          $("cfRot").checked = !!CFG.rotAuto;
+          $("cfRes").innerHTML = chips(Object.entries(RES).map(([k, t]) => [k, t + (k === "max" ? "" : "・電子納品")]), CFG.res);
+          $("cfQ").innerHTML = chips([["normal", "ノーマル"], ["fine", "ファイン"]], CFG.q);
           $("cfSize").value = CFG.size; $("cfSizeV").textContent = "：" + Math.round(CFG.size * 100) + "%";
         }
         $("cfAuto").addEventListener("change", () => { CFG.auto = $("cfAuto").checked; saveCfg(); });
-        for (const [id, key] of [["cfColor", "color"], ["cfPos", "pos"], ["cfRes", "res"]]) $(id).addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG[key] = b.dataset.v; saveCfg(); drawSet(); drawPrev(); });
+        for (const [id, key] of [["cfColor", "color"], ["cfShape", "shape"], ["cfRes", "res"], ["cfQ", "q"]]) $(id).addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG[key] = b.dataset.v; saveCfg(); drawSet(); drawPrev(); });
+        $("cfPos").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG.fx = Number(b.dataset.v[0]); CFG.fy = Number(b.dataset.v[1]); saveCfg(); drawSet(); });
+        $("cfOn").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG.bbOn = b.dataset.v === "1"; saveCfg(); drawSet(); });
+        $("cfRot").addEventListener("change", () => { CFG.rotAuto = $("cfRot").checked; saveCfg(); });
         $("cfSize").addEventListener("input", () => { CFG.size = Number($("cfSize").value); saveCfg(); $("cfSizeV").textContent = "：" + Math.round(CFG.size * 100) + "%"; drawPrev(); });
         $("cfSave").addEventListener("click", async () => {
           if (!needSite()) return;
