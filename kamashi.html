@@ -719,7 +719,7 @@
       s = el("span", { id: "ipxDocs", "class": "ipx-docs" }); var site0 = document.getElementById("ipxSite"); row.insertBefore(s, site0 ? site0.nextSibling : row.firstChild);
       s.addEventListener("click", function (e) {
         var b = e.target.closest("button"); if (!b) return;
-        if (b.dataset.act === "add") { var inp = fileInput(); inp.setAttribute("multiple", ""); inp.click(); return; }
+        if (b.dataset.act === "add") { var inp = fileInput(); inp.setAttribute("multiple", ""); fpOpen(inp); return; }
         if (b.dataset.act === "list") { docDialog(); return; }
         var nm = b.dataset.doc; if (!nm || nm === CURDOC) return;
         docGet(nm).then(function (rec) { if (rec) docOpen(rec); else bar("⚠ 図面「" + esc(nm) + "」が見つかりません。"); });
@@ -776,6 +776,59 @@
     });
   }, true);
   window.addEventListener("genba", function (e) { if (e.detail && (e.detail.type === "file" || e.detail.type === "current")) docStrip(); });
+  // ---------------------------------------------------------------- ファイルを選ぶ前の小窓(戻る付き)(2026-11-16 ゆきちゃん)
+  // 「📂 ひらく」など、ファイルを選ぶ欄を押したら、まずこの小窓を出す(端末のファイル・現場の図面・戻る)。
+  // 端末のファイルの画面(ファイルマネージャー)で「戻る」操作をしたら、またこの小窓に戻る。
+  var fpPass = false, fpWait = null, fpDlg = null;
+  function fpClose() { if (fpDlg) { try { fpDlg.close(); } catch (e) { /* */ } fpDlg = null; } }
+  function fpShow(inp) {
+    fpClose();
+    var isMain = inp.id === "file" && APP !== "menu", n = G.current();
+    var what = isMain ? "図面・点ファイル" : "ファイル";
+    var btns = [{ label: "📂 端末のファイルから選ぶ", ok: true, run: function () { fpOpen(inp); } }];
+    if (isMain && n) btns.push({ label: "📄 現場「" + n + "」の図面から", run: function () { fpDlg = null; setTimeout(function () { fpSite(inp); }, 0); } });
+    btns.push({ label: "戻る", run: function () { fpDlg = null; } });
+    fpDlg = G.dialog("ファイルを選ぶ", "", btns, esc(what) + "を選びます。端末のファイルの画面で戻る(◀・下から上へのスワイプ)と、この画面に戻ります。");
+    var row = fpDlg.el.querySelector(".ipx-row"); if (row) row.style.flexDirection = "column";
+  }
+  function fpOpen(inp) {
+    fpDlg = null; fpWait = { inp: inp, t: Date.now(), done: false };
+    fpPass = true; try { inp.click(); } finally { fpPass = false; }
+  }
+  function fpSite(inp) {
+    var n = G.current(); if (!n) return;
+    G.files(n).then(function (a) {
+      a = a.filter(function (f) { return !XML_RE.test(f.name); });
+      if (!a.length) { G.dialog("現場の図面", "", [{ label: "戻る", run: function () { setTimeout(function () { fpShow(inp); }, 0); } }], "現場「" + esc(n) + "」にはまだ図面がありません。"); return; }
+      var body = '<div class="ipx-list">' + a.map(function (f) { return '<button type="button" data-n="' + esc(f.name) + '">📄 ' + esc(f.name) + "<\/button>"; }).join("") + "<\/div>";
+      var d = G.dialog("現場「" + n + "」の図面", body, [{ label: "戻る", run: function () { setTimeout(function () { fpShow(inp); }, 0); } }]);
+      d.el.querySelector(".ipx-list").addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-n]"); if (!b) return; d.close();
+        G.fileGet(n, b.dataset.n).then(function (r) { if (r) docOpen(r); });
+      });
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var inp = e.target;
+    if (fpPass || !inp || inp.tagName !== "INPUT" || inp.type !== "file" || inp.disabled || inp.hasAttribute("data-nofp")) return;
+    e.preventDefault(); e.stopPropagation();
+    fpShow(inp);
+  }, true);
+  document.addEventListener("change", function (e) {   // 選べたら待ちを終える
+    if (e.target && e.target.type === "file" && fpWait) fpWait.done = true;
+    fpClose();
+  }, true);
+  document.addEventListener("cancel", function (e) {   // ファイルの画面で戻った(新しい Chrome)
+    if (!fpWait || e.target !== fpWait.inp) return;
+    var w = fpWait; fpWait = null; setTimeout(function () { fpShow(w.inp); }, 50);
+  }, true);
+  var fpBack = function () {   // 古い Chrome・Android:画面に戻ってきても選ばれていなければ「戻った」とみなす
+    if (!fpWait || document.hidden) return;
+    var w = fpWait;
+    setTimeout(function () { if (fpWait === w && !w.done && Date.now() - w.t > 600) { fpWait = null; fpShow(w.inp); } }, 1500);
+  };
+  window.addEventListener("focus", fpBack);
+  document.addEventListener("visibilitychange", fpBack);
   var dwgBusy = false;
   document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で DWG(名前が .dwg)を選んだら、DXF に変えてからアプリに渡す
     var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
