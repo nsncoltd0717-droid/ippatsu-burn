@@ -1128,15 +1128,23 @@
     if (res.als && res.als.length) { XS.als = res.als; XS.al = res.als[0]; XS.alAuto = res.als.length > 1; XS.alName = res.als[0].name + (res.als[0].spiral ? "(緩和曲線は直線で近似)" : ""); }
     say(msg); render(true); redraw();
   }
+  // 中身の頭で種類を見る(Android でファイル名に拡張子が付いてこないときのため)
+  function headText(buf) { var n = Math.min(buf.length, 4096), s = ""; for (var i = 0; i < n; i++) s += String.fromCharCode(buf[i]); return s; }
+  function looksLandXml(name, head) { return /\.(xml|landxml)$/i.test(name || "") || /<LandXML[\s>]/.test(head || ""); }
   async function onFile(ev) {
     var f = ev.target.files && ev.target.files[0]; if (!f) return;
+    await loadFile(f);
+    ev.target.value = "";
+  }
+  async function loadFile(f) {
     try {
-      var buf = new Uint8Array(await f.arrayBuffer()), name = f.name.toLowerCase(), hh = H(), k = hh && hh.drawingK ? (hh.drawingK() || 1) : 1;
-      if (/\.(xml|landxml)$/.test(name)) {
+      var buf = new Uint8Array(await f.arrayBuffer()), name = f.name.toLowerCase(), hh = H(), k = hh && hh.drawingK ? (hh.drawingK() || 1) : 1, head = headText(buf);
+      if (looksLandXml(name, head)) {
         var r = parseLandXml(decodeText(buf));
         if (!r.surf && !r.gl && !r.als.length) throw new Error("面も線形も見つかりません");
         load(r, "🏔 LandXML を読みました:" + (r.surf ? "設計の面 " + r.surf.m.toLocaleString() + " 三角形・" : "") + (r.gl ? "現況の面 " + r.gl.m.toLocaleString() + " 三角形・" : "") + "線形 " + r.als.length + " 本。");
-      } else if (/\.(dxf|dwg)$/.test(name)) {
+      } else if (/\.(dxf|dwg)$/.test(name) || /^\s*0\s*[\r\n]+\s*SECTION/.test(head) || /^AC10\d\d/.test(head)) {
+        if (/^AC10\d\d/.test(head)) name = name + ".dwg";
         if (/\.dwg$/.test(name)) { say("DWG を DXF に変えています…"); buf = await window.Genba.dwgToDxf(buf); }
         var P = pts3dOfLines(TL().linesFromDxf(buf, k));
         if (P.length < 3) throw new Error("高さ(Z)の入った線がありません");
@@ -1147,8 +1155,20 @@
         load({ surf: surfFromPoints(hp, "点の高さ「" + f.name + "」") }, "🏔 点の高さから面を作りました(点 " + hp.length + "。CSV は X=北・Y=東・m で読みます)。");
       }
     } catch (e) { say("⚠ 設計データを読めません: " + e.message, true); }
-    ev.target.value = "";
   }
+  // 図面を開く欄(#file、📂 ひらく)で LandXML を選んだときも、3D 断面に読み込む(図面ではないので、アプリには渡さない)
+  var xmlPass = false;
+  document.addEventListener("change", function (e) {
+    var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
+    if (!f || xmlPass || !window.IPPATSU_HOST) return;
+    var nm = f.name || "";
+    if (/\.(dxf|dwg|zrd|zsdx|zsdxz|csv|sim|sima|txt)$/i.test(nm)) return;   // いつもの図面・点ファイル
+    e.stopImmediatePropagation();
+    f.slice(0, 4096).arrayBuffer().then(function (b) {
+      if (looksLandXml(nm, headText(new Uint8Array(b)))) { open(true); return loadFile(f).then(function () { inp.value = ""; }); }
+      xmlPass = true; try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { xmlPass = false; }
+    });
+  }, true);
   function onClick(e) {
     var b = e.target.closest("[data-xs]"); if (!b) return;
     var k = b.dataset.xs, hh = H();
@@ -1246,7 +1266,7 @@
     el("line", { x1: A[0], y1: A[1], x2: B[0], y2: B[1] }, "xs-secp");
     if (r.from === "tap") { var p = T([r.P.x, r.P.y]); el("circle", { cx: p[0], cy: p[1], r: 7 }, "xs-tapm"); }
   }
-  window.IPPATSU_XS = { plan: plan, open: open, state: XS, surfZ: surfZ, parseLandXml: parseLandXml };
+  window.IPPATSU_XS = { plan: plan, open: open, state: XS, surfZ: surfZ, parseLandXml: parseLandXml, loadFile: loadFile };
   document.addEventListener("DOMContentLoaded", function () { if (window.IPPATSU_HOST) build(); else setTimeout(function () { if (window.IPPATSU_HOST) build(); }, 500); });
 })();
 
