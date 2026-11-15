@@ -459,7 +459,8 @@
     ".ipx-list button[aria-pressed=true]{border:2px solid var(--accent,#2563eb);font-weight:700}" +
     ".ipx-badge{display:inline-flex;align-items:center;gap:2px;max-width:46vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px;font-weight:700;padding:4px 8px;margin-left:6px;border-radius:999px;border:1px solid var(--line,#ccd);background:var(--card,#fff);color:inherit;vertical-align:middle;cursor:pointer}" +
     ".ipx-badge.none{color:var(--sub,#5d6575);font-weight:400}" +
-    ".ipx-chips{display:flex;gap:6px;align-items:center;padding:2px 10px 4px;margin:0}.ipx-chips .ipx-badge{margin-left:0}" +
+    ".ipx-chips{display:flex;flex:0 0 auto;gap:6px;align-items:center;padding:2px 10px 4px;margin:0;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.ipx-chips::-webkit-scrollbar{display:none}.ipx-chips .ipx-badge,.ipx-chips button{margin:0!important;flex:0 0 auto;width:auto!important;min-height:0!important;min-width:0!important}" +
+    ".ipx-docs{display:inline-flex;gap:4px;align-items:center}.ipx-badge.doc{max-width:none;font-weight:400}.ipx-badge.doc[aria-pressed=true]{background:var(--accent,#2563eb);color:#fff;border-color:transparent;font-weight:700}.ipx-badge.doc.add{color:var(--accent,#2563eb);border-style:dashed}" +
     ".ipx-badge.mode{max-width:none;color:#0f766e;border-color:#0f766e}" +
     "body.ipx-easy details.adv,body.ipx-easy .step-note,body.ipx-easy .help-btn{display:none!important}" +
     "body.ipx-easy button.big,body.ipx-easy .seg-toggle button,body.ipx-easy .filebtn button{font-size:17px;min-height:50px}" +
@@ -604,9 +605,9 @@
     var inp = fileInput(); if (!inp || !f || !f.bytes) return false;
     try {
       var file = new File([f.bytes], f.name, { type: f.type || "", lastModified: f.lastModified || Date.now() });
-      var dt = new DataTransfer(); dt.items.add(file); opening = true; inp.files = dt.files;
-      inp.dispatchEvent(new Event("change", { bubbles: true })); opening = false; return true;
-    } catch (e) { opening = false; return false; }
+      var dt = new DataTransfer(); dt.items.add(file); opening = true; docBusy = true; inp.files = dt.files; CURDOC = f.name; docAdd({ name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: f.bytes });
+      inp.dispatchEvent(new Event("change", { bubbles: true })); opening = false; docBusy = false; docStrip(); return true;
+    } catch (e) { opening = false; docBusy = false; return false; }
   };
   function hookFile() {
     var inp = fileInput(); if (!inp || APP === "kurukuru") return;   // くるくるは自分で現場に入れる
@@ -663,6 +664,96 @@
       return out;
     } finally { ["/in.dwg", "/out.dxf"].forEach(function (n) { if (ex(n)) FS.unlink(n); }); }
   };
+  // ---------------------------------------------------------------- 図面を何枚も(4本とも)
+  // 開いた図面は、見出しの下の行に「📄 名前」で並ぶ。押すとその図面に切り替わる。「📂 ひらく」で何枚もまとめて選べる。
+  // 現場を選んでいれば現場の図面(一発バーンの「図面を読み込む」で入れたものも)も並ぶ。脳みそバーンは現場に入れず、この画面の間だけ覚える。
+  var DOCS = [], CURDOC = "", docBusy = false;
+  var DRAW_RE = /\.(dxf|dwg|zrd|zsdx|zsdxz|csv|sim|sima|txt)$/i, XML_RE = /\.(xml|landxml)$/i;
+  function docAdd(rec) { DOCS = DOCS.filter(function (d) { return d.name !== rec.name; }); DOCS.push(rec); }
+  function docOpen(rec) {
+    if (!G.openInApp(rec)) { bar("⚠ 図面「" + esc(rec.name) + "」を開けませんでした。"); return; }
+    CURDOC = rec.name; docStrip();
+  }
+  function docList() {
+    var n = G.current();
+    var site = n && APP !== "menu" ? G.files(n).catch(function () { return []; }) : Promise.resolve([]);
+    return site.then(function (a) {
+      var names = [], seen = {};
+      a.filter(function (f) { return DRAW_RE.test(f.name) || !XML_RE.test(f.name); }).slice().reverse().forEach(function (f) { if (!seen[f.name]) { seen[f.name] = 1; names.push({ name: f.name, site: true }); } });
+      DOCS.forEach(function (d) { if (!seen[d.name]) { seen[d.name] = 1; names.push({ name: d.name, site: false }); } });
+      return names;
+    });
+  }
+  function docGet(name) {
+    var d = DOCS.filter(function (x) { return x.name === name; })[0]; if (d) return Promise.resolve(d);
+    var n = G.current(); return n ? G.fileGet(n, name) : Promise.resolve(null);
+  }
+  var short = function (s) { s = String(s).replace(/\.[^.]+$/, ""); return s.length > 12 ? s.slice(0, 11) + "…" : s; };
+  function docStrip() {
+    if (APP === "menu" || !APP || !fileInput()) return;
+    var row = chips(); if (!row) return;
+    var s = document.getElementById("ipxDocs");
+    if (!s) {
+      s = el("span", { id: "ipxDocs", "class": "ipx-docs" }); var site0 = document.getElementById("ipxSite"); row.insertBefore(s, site0 ? site0.nextSibling : row.firstChild);
+      s.addEventListener("click", function (e) {
+        var b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.act === "add") { var inp = fileInput(); inp.setAttribute("multiple", ""); inp.click(); return; }
+        if (b.dataset.act === "list") { docDialog(); return; }
+        var nm = b.dataset.doc; if (!nm || nm === CURDOC) return;
+        docGet(nm).then(function (rec) { if (rec) docOpen(rec); else bar("⚠ 図面「" + esc(nm) + "」が見つかりません。"); });
+      });
+    }
+    docList().then(function (a) {
+      var h = a.map(function (d) { return '<button type="button" class="ipx-badge doc" data-doc="' + esc(d.name) + '" aria-pressed="' + (d.name === CURDOC) + '" title="' + esc(d.name) + '">📄 ' + esc(short(d.name)) + "<\/button>"; }).join("");
+      s.innerHTML = h + '<button type="button" class="ipx-badge doc add" data-act="add" title="図面を足す(何枚でも選べます)">＋図面<\/button>' + (a.length > 1 ? '<button type="button" class="ipx-badge doc" data-act="list" title="図面の一覧">☰<\/button>' : "");
+      var cur = s.querySelector('[aria-pressed="true"]'); if (cur && cur.scrollIntoView) try { cur.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (e) { /* */ }
+    });
+  }
+  G.docStrip = docStrip;
+  function docDialog() {
+    docList().then(function (a) {
+      var body = '<div class="ipx-list">' + a.map(function (d) {
+        return '<div style="display:flex;gap:6px"><button type="button" style="flex:1" data-open="' + esc(d.name) + '" aria-pressed="' + (d.name === CURDOC) + '">📄 ' + esc(d.name) + (d.site ? " <small>(現場)<\/small>" : "") + '<\/button><button type="button" style="flex:0 0 auto" data-del="' + esc(d.name) + '" aria-label="外す">✕<\/button><\/div>';
+      }).join("") + "<\/div>";
+      var dl = G.dialog("図面の一覧", body, [{ label: "閉じる" }], "押すとその図面に切り替わります。✕ はこの一覧から外します" + (RO || !G.current() ? "。" : "(現場からも消します)。"));
+      dl.el.querySelector(".ipx-list").addEventListener("click", function (e) {
+        var b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.open) { dl.close(); if (b.dataset.open !== CURDOC) docGet(b.dataset.open).then(function (r) { if (r) docOpen(r); }); return; }
+        var nm = b.dataset.del; if (!nm) return;
+        DOCS = DOCS.filter(function (d) { return d.name !== nm; });
+        var n = G.current(); (n && !RO ? G.fileDel(n, nm).catch(function () {}) : Promise.resolve()).then(function () { b.parentNode.remove(); docStrip(); });
+      });
+    });
+  }
+  function readRec(f) { return f.arrayBuffer().then(function (buf) { return { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: buf }; }); }
+  document.addEventListener("change", function (e) {   // 図面を開く欄で選んだ図面を覚える。何枚も選んだら、全部覚えて 1 枚目を開く
+    var inp = e.target; if (!inp || inp.id !== "file" || !inp.files || !inp.files.length || APP === "menu") return;
+    if (dwgBusy || docBusy) return;   // DWG を DXF に変えたあと・切り替えのときは、もう覚えている
+    var fs = Array.prototype.slice.call(inp.files);
+    if (fs.length === 1) {
+      var f = fs[0]; if (XML_RE.test(f.name)) return;   // LandXML は 3D(🗻)へ
+      CURDOC = f.name; readRec(f).then(function (r) { docAdd(r); docStrip(); });
+      return;
+    }
+    e.stopImmediatePropagation();
+    var xmls = fs.filter(function (f) { return XML_RE.test(f.name); }), drs = fs.filter(function (f) { return !XML_RE.test(f.name); });
+    Promise.all(drs.map(readRec)).then(function (recs) {
+      recs.forEach(docAdd);
+      var n = G.current(), put = Promise.resolve();
+      if (n && !RO) recs.slice(1).concat(recs.slice(0, 1)).forEach(function (r) { put = put.then(function () { return G.filePut(n, r, APP); }).catch(function () {}); });   // 1 枚目を「現場の図面」に
+      return put.then(function () {
+        if (recs.length) {
+          var r0 = recs[0], file = new File([r0.bytes], r0.name, { type: r0.type, lastModified: r0.lastModified }), dt = new DataTransfer(); dt.items.add(file);
+          CURDOC = r0.name; docBusy = true; opening = true; inp.files = dt.files;
+          try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { docBusy = false; opening = false; }
+          bar("✓ 図面 " + recs.length + " 枚を読み込みました。見出しの下の「📄」で切り替えられます。", null, 6000);
+        }
+        docStrip();
+        if (xmls.length && window.IPPATSU_XS && window.IPPATSU_XS.loadFile) xmls.reduce(function (p, f) { return p.then(function () { return window.IPPATSU_XS.loadFile(f); }); }, Promise.resolve());
+      });
+    });
+  }, true);
+  window.addEventListener("genba", function (e) { if (e.detail && (e.detail.type === "file" || e.detail.type === "current")) docStrip(); });
   var dwgBusy = false;
   document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で DWG(名前が .dwg)を選んだら、DXF に変えてからアプリに渡す
     var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
@@ -678,7 +769,7 @@
       bar("✓ DWG「" + esc(f.name) + "」を DXF に変えて開きました。", null, 6000);
     }).catch(function (er) { bar("⚠ DWG を読めません: " + esc(er.message) + "(CAD で「DXF で保存」してから開いてください)"); });
   }, true);
-  document.addEventListener("DOMContentLoaded", function () { siteBadge(); modeChip(); hookFile(); offerSiteFile(); });
+  document.addEventListener("DOMContentLoaded", function () { siteBadge(); modeChip(); hookFile(); offerSiteFile(); var fi = fileInput(); if (fi && APP !== "menu") fi.setAttribute("multiple", ""); docStrip(); });
   // DWG の部品は、電波のあるときに先に取っておく(現場の電波なしでも開けるように。sw.js が覚える)
   setTimeout(function () {
     try {
@@ -854,6 +945,7 @@
   var CSS = "" +
     ".ipx-xsbtn{position:fixed;right:6px;top:46%;z-index:360;width:46px;height:46px;border-radius:23px;border:2px solid #0f766e;background:var(--card,#fff);color:#0f766e;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.25);padding:0}" +
     "body.ipx-xs-on .ipx-xsbtn{display:none}" +
+    ".ipx-3dbtn{top:calc(46% + 54px);border-color:#7c3aed;color:#7c3aed;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}.ipx-3dbtn small{font-size:9px;font-weight:700}.ipx-3dbtn.on{background:#7c3aed;color:#fff}" +
     ".xs-panel{position:fixed;left:0;right:0;bottom:0;z-index:370;background:var(--card,#fff);color:var(--ink,var(--fg,#1d2330));border-top:3px solid #0f766e;box-shadow:0 -4px 16px rgba(0,0,0,.18);max-height:56vh;overflow:auto;padding:8px 10px calc(env(safe-area-inset-bottom) + 12px);font-size:14px}" +
     ".xs-panel button{font:inherit;width:auto;min-height:38px;padding:2px 10px;font-size:13.5px;border-radius:8px;border:1px solid var(--line,#ccd);background:var(--bg,#f4f5f7);color:inherit}" +
     ".xs-panel button.pri{background:#0f766e;color:#fff;border-color:transparent}" +
@@ -885,6 +977,9 @@
     var btn = document.createElement("button"); btn.type = "button"; btn.className = "ipx-xsbtn"; btn.title = "3D 断面・図面で測る"; btn.setAttribute("aria-label", "3D 断面"); btn.textContent = "🏔";
     btn.addEventListener("click", function () { open(true); });
     document.body.appendChild(btn);
+    var b3 = document.createElement("button"); b3.type = "button"; b3.className = "ipx-xsbtn ipx-3dbtn"; b3.title = "3D データを図面に重ねる・3D 画面"; b3.setAttribute("aria-label", "3D データを重ねる"); b3.innerHTML = "🗻<small>3D<\/small>";
+    b3.addEventListener("click", menu3d);
+    document.body.appendChild(b3);
     $p = document.createElement("div"); $p.className = "xs-panel"; $p.hidden = true; $p.setAttribute("data-noipx", "");
     $p.innerHTML =
       '<div class="xs-head"><b>🏔 3D 断面<\/b><span class="xs-tabs"><button type="button" data-t="xs" aria-pressed="true">横断<\/button><button type="button" data-t="3d" aria-pressed="false">3D<\/button><\/span><button type="button" data-xs="close">閉じる<\/button><\/div>' +
@@ -1077,7 +1172,8 @@
       if (n) msg += " 名前つきの点 " + n + " 点を点の一覧に足しました。";
     }
     if (res.als && res.als.length) { XS.als = res.als; XS.al = res.als[0]; XS.alAuto = res.als.length > 1; XS.alName = res.als[0].name + (res.als[0].spiral ? "(緩和曲線は直線で近似)" : ""); }
-    say(msg); render(true); redraw();
+    XS.hide = false;
+    say(msg + overlapNote()); render(true); redraw();
   }
   // 中身の頭で種類を見る(Android でファイル名に拡張子が付いてこないときのため)
   function headText(buf) { var n = Math.min(buf.length, 4096), s = ""; for (var i = 0; i < n; i++) s += String.fromCharCode(buf[i]); return s; }
@@ -1116,7 +1212,7 @@
     if (/\.(dxf|dwg|zrd|zsdx|zsdxz|csv|sim|sima|txt)$/i.test(nm)) return;   // いつもの図面・点ファイル
     e.stopImmediatePropagation();
     f.slice(0, 4096).arrayBuffer().then(function (b) {
-      if (looksLandXml(nm, headText(new Uint8Array(b)))) { open(true); return loadFile(f).then(function () { inp.value = ""; }); }
+      if (looksLandXml(nm, headText(new Uint8Array(b)))) { return loadFile(f).then(function () { inp.value = ""; }); }
       xmlPass = true; try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { xmlPass = false; }
     });
   }, true);
@@ -1192,12 +1288,14 @@
   function plan() {
     var h = H(); if (!h || !h.svg) return;
     var g = h.svg.querySelector("g.ipx-xs");
-    if (!XS.surf && !XS.gl && !XS.al && !XS.als.length && !(XS.open && XS.tap)) { if (g) g.remove(); return; }
+    if (!XS.surf && !XS.gl && !XS.al && !XS.als.length && !(XS.open && XS.tap)) { if (g) g.remove(); var b0 = document.querySelector(".ipx-3dbtn"); if (b0) b0.classList.remove("on"); return; }
     if (!g) { g = document.createElementNS(NS, "g"); g.setAttribute("class", "ipx-xs"); g.style.pointerEvents = "none"; }
     h.svg.appendChild(g);   // いちばん上に
     while (g.firstChild) g.removeChild(g.firstChild);
     var el = function (tag, at, cls) { var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); if (cls) e.setAttribute("class", cls); g.appendChild(e); return e; };
     var T = function (p) { return h.toScreen(p); };
+    var b3 = document.querySelector(".ipx-3dbtn"); if (b3) b3.classList.toggle("on", !!(XS.surf || XS.gl || XS.als.length) && !XS.hide);
+    if (XS.hide && !XS.open) { while (g.firstChild) g.removeChild(g.firstChild); return; }
     [XS.gl, XS.surf].forEach(function (S) {
       if (!S) return;
       if (S.m <= 30000) {
@@ -1217,7 +1315,207 @@
     el("line", { x1: A[0], y1: A[1], x2: B[0], y2: B[1] }, "xs-secp");
     if (r.from === "tap") { var p = T([r.P.x, r.P.y]); el("circle", { cx: p[0], cy: p[1], r: 7 }, "xs-tapm"); }
   }
-  window.IPPATSU_XS = { plan: plan, open: open, state: XS, surfZ: surfZ, parseLandXml: parseLandXml, loadFile: loadFile };
+  // ---------------------------------------------------------------- 🗻 3D データを図面に重ねる(別ボタン)
+  function overlapNote() {
+    var h = H(), S = XS.surf || XS.gl; if (!h || !S || !h.lines) return "";
+    var L = h.lines() || [], x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0;
+    for (var i = 0; i < L.length && n < 200000; i++) { var P = L[i].draw || L[i].points || []; for (var j = 0; j < P.length; j++, n++) { var p = P[j]; if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; } }
+    if (!n) return "";
+    var ov = !(S.x1 < x0 || S.x0 > x1 || S.y1 < y0 || S.y0 > y1);
+    return ov ? "" : " ⚠ 図面と 3D データの場所が重なりません(図面が現場の座標・3D が公共座標、など)。図面の座標を確かめてください。";
+  }
+  function pick3dFile() { build(); q('[data-r="file"]').click(); }
+  function menu3d() {
+    var G = window.Genba, has = !!(XS.surf || XS.gl || XS.als.length);
+    if (!has) { pick3dFile(); return; }
+    if (!G || !G.dialog) { XS.hide = !XS.hide; redraw(); return; }
+    var info = [XS.surf ? "設計の面:" + esc3(XS.surf.src) : "", XS.gl ? "現況の面:" + esc3(XS.gl.src) : "", XS.als.length ? "線形 " + XS.als.length + " 本" : ""].filter(Boolean).join("<br>");
+    G.dialog("🗻 3D データ", "", [
+      { label: "🧊 3D 画面", ok: true, run: function () { v3open(); } },
+      { label: XS.hide ? "👁 重ねる" : "🙈 隠す", run: function () { XS.hide = !XS.hide; redraw(); say(XS.hide ? "3D データを図面から隠しました。" : "3D データを図面に重ねました。"); } },
+      { label: "📂 読み込む", run: function () { pick3dFile(); } },
+      { label: "✕ 外す", run: function () { XS.surf = null; XS.gl = null; XS.als = []; XS.al = null; XS.alName = ""; XS.hide = false; render(true); redraw(); say("3D データを外しました。"); } }
+    ], info + overlapNote());
+  }
+  var esc3 = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+
+  // ---------------------------------------------------------------- 🧊 3D 画面(別画面)：回す・拡大・動かす・点の XYZ を取る
+  var V3 = { yaw: -0.7, pitch: 0.8, zoom: 1, ex: 1, cx: null, cy: null, el: null, taken: [], sel: null, lines: true, pickOn: true };
+  function v3surf() { return XS.surf && XS.surf.m >= 3 ? XS.surf : XS.gl; }
+  function v3open() {
+    var S = v3surf(); if (!S) { say("先に 🗻 で 3D データ(LandXML など)を読み込んでください。", true); return; }
+    if (!V3.el) {
+      var st = document.createElement("style");
+      st.textContent = ".ipx-v3{position:fixed;inset:0;z-index:2147482000;background:#e0f2fe;display:flex;flex-direction:column;color:#0f172a;font-size:14px}" +
+        ".ipx-v3 header,.ipx-v3 .v3-bot{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:calc(env(safe-area-inset-top) + 6px) 8px 6px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.15)}" +
+        ".ipx-v3 .v3-bot{padding:6px 8px calc(env(safe-area-inset-bottom) + 8px);box-shadow:0 -1px 4px rgba(0,0,0,.15)}" +
+        ".ipx-v3 header b{flex:1;font-size:16px}.ipx-v3 button{font:inherit;width:auto;min-height:40px;padding:2px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc;color:inherit}" +
+        ".ipx-v3 button.pri{background:#0f766e;color:#fff;border-color:transparent}.ipx-v3 button[aria-pressed=true]{background:#0f766e;color:#fff}" +
+        ".ipx-v3 canvas{flex:1;min-height:0;width:100%;display:block;touch-action:none}" +
+        ".v3-card{display:grid;grid-template-columns:auto 1fr auto 1fr auto 1fr;gap:2px 6px;align-items:baseline;width:100%;font-variant-numeric:tabular-nums}.v3-card b{font-size:15px}.v3-card span{color:#64748b;font-size:12px}" +
+        ".v3-list{width:100%;max-height:18vh;overflow:auto;font-size:12.5px;font-variant-numeric:tabular-nums}.v3-list div{display:flex;gap:8px;border-bottom:1px solid #e2e8f0;padding:2px 0}";
+      document.head.appendChild(st);
+      var d = document.createElement("div"); d.className = "ipx-v3"; d.hidden = true; d.setAttribute("data-noipx", "");
+      d.innerHTML = '<header><b>🧊 3D 画面<\/b><button type="button" data-v="ex">高さ ×1<\/button><button type="button" data-v="all">全体<\/button><button type="button" data-v="ln" aria-pressed="true">図面の線<\/button><button type="button" class="pri" data-v="close">閉じる<\/button><\/header>' +
+        '<canvas><\/canvas><div class="v3-bot"><div class="v3-card" data-v3="card"><span>1 本指で回す・2 本指で拡大と移動(PC はホイールと右ドラッグ)。<b>軽くタップ<\/b>すると、そこの X・Y・Z が出ます。<\/span><\/div>' +
+        '<button type="button" class="pri" data-v="take" disabled>＋ この点を取り込む<\/button><button type="button" data-v="give" disabled>📥 アプリに入れる<\/button><button type="button" data-v="copy" disabled>📋 コピー<\/button><button type="button" data-v="clear" disabled>消す<\/button><div class="v3-list" data-v3="list"><\/div><\/div>';
+      document.body.appendChild(d); V3.el = d;
+      d.addEventListener("click", v3click); v3touch(d.querySelector("canvas"));
+      window.addEventListener("resize", function () { if (!V3.el.hidden) v3draw(); });
+    }
+    V3.el.hidden = false; if (V3.cx == null) v3all(); v3draw(); v3ui();
+  }
+  function v3all() { var S = v3surf(); V3.cx = (S.x0 + S.x1) / 2; V3.cy = (S.y0 + S.y1) / 2; V3.zoom = 1; }
+  function v3click(e) {
+    var b = e.target.closest("[data-v]"); if (!b) return; var k = b.dataset.v, h = H();
+    if (k === "close") { V3.el.hidden = true; redraw(); return; }
+    if (k === "ex") V3.ex = V3.ex === 1 ? 2 : V3.ex === 2 ? 5 : V3.ex === 5 ? 10 : 1;
+    else if (k === "all") v3all();
+    else if (k === "ln") V3.lines = !V3.lines;
+    else if (k === "take" && V3.sel) { V3.taken.push({ name: "3D" + (V3.taken.length + 1), x: V3.sel.x, y: V3.sel.y, z: V3.sel.z }); }
+    else if (k === "clear") { V3.taken = []; }
+    else if (k === "copy") {
+      var t = V3.taken.map(function (p) { return [p.name, (p.y / 1000).toFixed(3), (p.x / 1000).toFixed(3), p.z.toFixed(3)].join(","); }).join("\n");
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { v3msg("📋 " + V3.taken.length + " 点を「点名,X(北),Y(東),Z」でコピーしました。"); }, function () { v3msg("コピーできませんでした。"); }); return;
+    }
+    else if (k === "give") { v3give(); return; }
+    v3draw(); v3ui();
+  }
+  function v3msg(m) { var c = V3.el.querySelector('[data-v3="card"]'); c.innerHTML = "<span style=\"grid-column:1/-1\">" + esc3(m) + "<\/span>"; }
+  function v3give() {
+    var h = H(), G = window.Genba, list = V3.taken.map(function (p) { return { name: p.name, x: p.x, y: p.y, hM: p.z }; });
+    if (!list.length) return;
+    if (h && h.addPicks) { var n = h.addPicks(list); v3msg("📥 " + n + " 点をアプリの点の一覧に入れました(同じ名前の点は飛ばしました)。"); redraw(); return; }
+    if (G && !window.IPPATSU_READONLY && G.current() && G.pointsAdd) {
+      G.pointsAdd(G.current(), V3.taken.map(function (p) { return { name: p.name, X: p.y / 1000, Y: p.x / 1000, H: p.z, role: "design" }; }), window.IPPATSU_APP)
+        .then(function () { v3msg("📥 " + list.length + " 点を現場「" + G.current() + "」の座標に入れました(くるくる回し太郎の「📥 受け取る」で使えます)。"); }, function (er) { v3msg("⚠ 入れられません: " + er.message); });
+      return;
+    }
+    v3msg(window.IPPATSU_READONLY ? "脳みそバーンは保存しません。「📋 コピー」で写してください。" : "現場を選ぶと、現場の座標に入れられます。今は「📋 コピー」で写してください。");
+  }
+  function v3ui() {
+    var d = V3.el; d.querySelector('[data-v="ex"]').textContent = "高さ ×" + V3.ex; d.querySelector('[data-v="ln"]').setAttribute("aria-pressed", String(V3.lines));
+    d.querySelector('[data-v="take"]').disabled = !V3.sel;
+    ["give", "copy", "clear"].forEach(function (k) { d.querySelector('[data-v="' + k + '"]').disabled = !V3.taken.length; });
+    d.querySelector('[data-v3="list"]').innerHTML = V3.taken.map(function (p) { return "<div><b>" + esc3(p.name) + "<\/b><span>X " + (p.y / 1000).toFixed(3) + "<\/span><span>Y " + (p.x / 1000).toFixed(3) + "<\/span><span>Z " + p.z.toFixed(3) + "<\/span><\/div>"; }).join("");
+    if (V3.sel) d.querySelector('[data-v3="card"]').innerHTML = "<span>X(北)<\/span><b>" + (V3.sel.y / 1000).toFixed(3) + "<\/b><span>Y(東)<\/span><b>" + (V3.sel.x / 1000).toFixed(3) + "<\/b><span>Z<\/span><b>" + V3.sel.z.toFixed(3) + " m<\/b>" + (V3.sel.what ? '<span style="grid-column:1/-1">' + esc3(V3.sel.what) + "<\/span>" : "");
+  }
+  var V3P = null;   // 最後に描いたときの写し方(タップの逆算に使う)
+  function v3draw() {
+    var S = v3surf(), cv = V3.el.querySelector("canvas"); if (!S || !cv) return;
+    var w = cv.clientWidth || 360, h = cv.clientHeight || 400, dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    var g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    var zmin = Infinity, zmax = -Infinity, i; for (i = 0; i < S.n; i++) { if (S.pz[i] < zmin) zmin = S.pz[i]; if (S.pz[i] > zmax) zmax = S.pz[i]; }
+    var zr = Math.max(0.5, zmax - zmin), zc = (zmin + zmax) / 2, R = Math.hypot(S.x1 - S.x0, S.y1 - S.y0) / 2 || 1000;
+    var cy = Math.cos(V3.yaw), sy = Math.sin(V3.yaw), cp = Math.cos(V3.pitch), sp = Math.sin(V3.pitch), ex = V3.ex;
+    var sc = Math.min(w, h) / (2 * R / 1000) * 0.9 * V3.zoom;
+    var prj = function (x, y, z) { var X = (x - V3.cx) / 1000, Y = (y - V3.cy) / 1000, Z = (z - zc) * ex, xr = X * cy - Y * sy, yr = X * sy + Y * cy; return [w / 2 + xr * sc, h * 0.5 - (yr * sp + Z * cp) * sc, yr * cp - Z * sp]; };
+    V3P = { prj: prj, w: w, h: h };
+    var F = [], LIM = 30000;
+    var add = function (Sx, design) {
+      var step = Math.max(1, Math.ceil(Sx.m / LIM));
+      for (var t = 0; t < Sx.m; t += step) {
+        var a = Sx.T[3 * t], b = Sx.T[3 * t + 1], c = Sx.T[3 * t + 2], up = design ? 0.01 : 0;
+        var A = prj(Sx.px[a], Sx.py[a], Sx.pz[a] + up), B = prj(Sx.px[b], Sx.py[b], Sx.pz[b] + up), C = prj(Sx.px[c], Sx.py[c], Sx.pz[c] + up);
+        var ux = (Sx.px[b] - Sx.px[a]) / 1000, uy = (Sx.py[b] - Sx.py[a]) / 1000, uz = (Sx.pz[b] - Sx.pz[a]) * ex, vx = (Sx.px[c] - Sx.px[a]) / 1000, vy = (Sx.py[c] - Sx.py[a]) / 1000, vz = (Sx.pz[c] - Sx.pz[a]) * ex;
+        var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) || 1; if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        var lit = Math.max(0, (nx * -0.45 + ny * 0.45 + nz * 0.77) / nl);
+        F.push([A, B, C, (A[2] + B[2] + C[2]) / 3, design ? "rgba(124,58,237," + (0.5 + 0.4 * lit) + ")" : col3(((Sx.pz[a] + Sx.pz[b] + Sx.pz[c]) / 3 - zmin) / zr, lit)]);
+      }
+    };
+    if (XS.gl) add(XS.gl, false);
+    if (XS.surf && XS.surf !== XS.gl) add(XS.surf, !!XS.gl);
+    F.sort(function (p, q2) { return q2[3] - p[3]; });
+    g.lineWidth = 0.5;
+    F.forEach(function (f) { g.fillStyle = f[4]; g.strokeStyle = "rgba(15,23,42,0.15)"; g.beginPath(); g.moveTo(f[0][0], f[0][1]); g.lineTo(f[1][0], f[1][1]); g.lineTo(f[2][0], f[2][1]); g.closePath(); g.fill(); g.stroke(); });
+    var hh = H();
+    if (V3.lines && hh && hh.lines) {   // 図面の線を面の上にのせて描く(面の外は描かない)
+      g.strokeStyle = "rgba(15,23,42,0.75)"; g.lineWidth = 1; g.beginPath(); var segs = 0;
+      (hh.lines() || []).forEach(function (l) {
+        var P = l.draw || l.points; if (!P || segs > 40000) return; var on = false;
+        for (var j = 0; j < P.length; j++) {
+          var p = P[j]; if (p[0] < S.x0 || p[0] > S.x1 || p[1] < S.y0 || p[1] > S.y1) { on = false; continue; }
+          var z = surfZ(S, p[0], p[1]); if (z == null) { on = false; continue; }
+          var pp = prj(p[0], p[1], z + 0.02); if (on) g.lineTo(pp[0], pp[1]); else g.moveTo(pp[0], pp[1]); on = true; segs++;
+        }
+      });
+      g.stroke();
+    }
+    g.font = "bold 11px sans-serif";
+    var hm = hh && hh.hM ? hh.hM() : 1;
+    ((hh && hh.picks && hh.picks()) || []).forEach(function (p) {
+      var z = p.h ? p.h * hm : surfZ(S, p.x, p.y); if (z == null) return;
+      var pp = prj(p.x, p.y, z); g.fillStyle = "#ea580c"; g.beginPath(); g.arc(pp[0], pp[1], 4, 0, 2 * Math.PI); g.fill(); g.fillText(p.name, pp[0] + 6, pp[1] - 4);
+    });
+    V3.taken.forEach(function (p) { var pp = prj(p.x, p.y, p.z); g.fillStyle = "#16a34a"; g.beginPath(); g.arc(pp[0], pp[1], 5, 0, 2 * Math.PI); g.fill(); g.fillStyle = "#14532d"; g.fillText(p.name, pp[0] + 7, pp[1] - 5); });
+    if (V3.sel) { var s0 = prj(V3.sel.x, V3.sel.y, V3.sel.z); g.strokeStyle = "#dc2626"; g.lineWidth = 3; g.beginPath(); g.moveTo(s0[0], s0[1]); g.lineTo(s0[0], s0[1] - 28); g.stroke(); g.fillStyle = "#dc2626"; g.beginPath(); g.arc(s0[0], s0[1], 7, 0, 2 * Math.PI); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 2; g.stroke(); }
+    var ax = w - 26, ay = 26, d0 = -sy, d1 = -cy * sp, Ln = Math.hypot(d0, d1) || 1;
+    g.strokeStyle = "#0f172a"; g.lineWidth = 2; g.beginPath(); g.moveTo(ax - d0 / Ln * 12, ay + d1 / Ln * 12); g.lineTo(ax + d0 / Ln * 12, ay - d1 / Ln * 12); g.stroke();
+    g.fillStyle = "#0f172a"; g.font = "bold 12px sans-serif"; g.fillText("N", ax + d0 / Ln * 16 - 4, ay - d1 / Ln * 16 + 4); g.lineWidth = 1;
+    for (i = 0; i < 40; i++) { g.fillStyle = col3(i / 39, 1); g.fillRect(8 + i * 2, 8, 2, 8); }
+    g.fillStyle = "#334155"; g.font = "11px sans-serif"; g.fillText(zmin.toFixed(2), 8, 28); g.fillText(zmax.toFixed(2) + " m", 70, 28);
+  }
+  // タップした所の X・Y・Z：頂点の近く(14px)なら頂点、それ以外は手前の三角形の中を内分
+  function v3pick(sx, sy) {
+    var S = v3surf(); if (!S || !V3P) return null;
+    var prj = V3P.prj, best = null, bd = 14, i;
+    var cand = [XS.surf, XS.gl].filter(Boolean);
+    cand.forEach(function (Sx) { for (i = 0; i < Sx.n; i++) { var p = prj(Sx.px[i], Sx.py[i], Sx.pz[i]), d = Math.hypot(p[0] - sx, p[1] - sy); if (d < bd) { bd = d; best = { x: Sx.px[i], y: Sx.py[i], z: Sx.pz[i], what: (Sx === XS.gl ? "現況" : "設計") + "の面の点(頂点)" }; } } });
+    if (best) return best;
+    var front = null;
+    cand.forEach(function (Sx) {
+      for (var t = 0; t < Sx.m; t++) {
+        var a = Sx.T[3 * t], b = Sx.T[3 * t + 1], c = Sx.T[3 * t + 2], A = prj(Sx.px[a], Sx.py[a], Sx.pz[a]), B = prj(Sx.px[b], Sx.py[b], Sx.pz[b]), C = prj(Sx.px[c], Sx.py[c], Sx.pz[c]);
+        var d = (B[1] - C[1]) * (A[0] - C[0]) + (C[0] - B[0]) * (A[1] - C[1]); if (Math.abs(d) < 1e-9) continue;
+        var u = ((B[1] - C[1]) * (sx - C[0]) + (C[0] - B[0]) * (sy - C[1])) / d, v = ((C[1] - A[1]) * (sx - C[0]) + (A[0] - C[0]) * (sy - C[1])) / d, wv = 1 - u - v;
+        if (u < 0 || v < 0 || wv < 0) continue;
+        var depth = u * A[2] + v * B[2] + wv * C[2];
+        if (!front || depth < front.depth) front = { depth: depth, x: u * Sx.px[a] + v * Sx.px[b] + wv * Sx.px[c], y: u * Sx.py[a] + v * Sx.py[b] + wv * Sx.py[c], S: Sx };
+      }
+    });
+    if (!front) return null;
+    var z = surfZ(front.S, front.x, front.y); if (z == null) return null;
+    return { x: front.x, y: front.y, z: z, what: (front.S === XS.gl ? "現況" : "設計") + "の面の上" };
+  }
+  function v3touch(cv) {   // 1 本指:回す 2 本指:拡大と移動 タップ:点を取る(PC:ホイールで拡大・右ドラッグで移動)
+    var pts = new Map(), d0 = null, p2 = null, tap = null;
+    var re = function () { if (!V3.raf) V3.raf = requestAnimationFrame(function () { V3.raf = 0; v3draw(); }); };
+    var mid = function () { var v = Array.from(pts.values()); return { x: (v[0].x + v[1].x) / 2, y: (v[0].y + v[1].y) / 2, d: Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y) || 1 }; };
+    var panBy = function (dx, dy) {   // 画面の動き → 図面の中心を動かす(水平面で)
+      var S = v3surf(), R = Math.hypot(S.x1 - S.x0, S.y1 - S.y0) / 2 || 1000, sc = Math.min(V3P.w, V3P.h) / (2 * R / 1000) * 0.9 * V3.zoom;
+      var cy = Math.cos(V3.yaw), sy = Math.sin(V3.yaw), sp = Math.max(0.2, Math.sin(V3.pitch));
+      var xr = -dx / sc, yr = dy / sc / sp;
+      V3.cx += (xr * cy + yr * sy) * 1000; V3.cy += (-xr * sy + yr * cy) * 1000;
+    };
+    cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    cv.addEventListener("pointerdown", function (e) {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button }); try { cv.setPointerCapture(e.pointerId); } catch (er) { /* */ }
+      if (pts.size === 1) { d0 = { x: e.clientX, y: e.clientY, yaw: V3.yaw, pitch: V3.pitch, pan: e.button === 2 }; tap = { x: e.clientX, y: e.clientY, t: Date.now() }; }
+      if (pts.size === 2) { d0 = null; tap = null; var m = mid(); p2 = { x: m.x, y: m.y, d: m.d, z: V3.zoom }; }
+    });
+    cv.addEventListener("pointermove", function (e) {
+      if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap = null;
+      if (p2 && pts.size >= 2) { var m = mid(); V3.zoom = Math.max(0.2, Math.min(50, p2.z * m.d / p2.d)); panBy(m.x - p2.x, m.y - p2.y); p2.x = m.x; p2.y = m.y; re(); return; }
+      if (!d0) return;
+      if (d0.pan) { panBy(e.clientX - d0.x, e.clientY - d0.y); d0.x = e.clientX; d0.y = e.clientY; re(); return; }
+      V3.yaw = d0.yaw + (e.clientX - d0.x) * 0.01; V3.pitch = Math.max(0.05, Math.min(1.55, d0.pitch + (e.clientY - d0.y) * 0.01)); re();
+    });
+    var up = function (e) {
+      var t = tap; pts.delete(e.pointerId); if (pts.size < 2) p2 = null;
+      if (pts.size === 1) { var v = Array.from(pts.values())[0]; d0 = { x: v.x, y: v.y, yaw: V3.yaw, pitch: V3.pitch }; }
+      if (!pts.size) d0 = null;
+      if (e.type === "pointerup" && t && !pts.size && Date.now() - t.t < 500) {
+        var r = cv.getBoundingClientRect(), hit = v3pick(e.clientX - r.left, e.clientY - r.top);
+        V3.sel = hit; if (!hit) v3msg("そこには 3D の面がありません。面の上をタップしてください。"); v3draw(); v3ui();
+      }
+      tap = null;
+    };
+    cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+    cv.addEventListener("wheel", function (e) { e.preventDefault(); V3.zoom = Math.max(0.2, Math.min(50, V3.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); re(); }, { passive: false });
+  }
+  window.IPPATSU_XS = { plan: plan, open: open, state: XS, surfZ: surfZ, parseLandXml: parseLandXml, loadFile: loadFile, menu3d: menu3d, v3open: v3open };
   document.addEventListener("DOMContentLoaded", function () { if (window.IPPATSU_HOST) build(); else setTimeout(function () { if (window.IPPATSU_HOST) build(); }, 500); });
 })();
 
