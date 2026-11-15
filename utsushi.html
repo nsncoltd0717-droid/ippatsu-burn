@@ -1,0 +1,1710 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>こっそり写し太郎</title>
+    <style>
+      :root { --bg: #f5f3ee; --card: #fff; --ink: #1f2430; --sub: #6a6f7c; --line: #dcd8cf; --accent: #c2255c; --accent2: #2f3a8f; --ok: #2b8a3e; --warn: #c76a00; --ng: #c92a2a; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; -webkit-text-size-adjust: 100%; }
+      body { min-height: 100dvh; padding-bottom: 76px; }
+      header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--line); }
+      header h1 { font-size: 17px; margin: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      button { font: inherit; color: inherit; }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 10px 12px 20px; }
+      .view[hidden] { display: none !important; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+      .card h2 { font-size: 15px; margin: 0 0 8px; }
+      .site { border-left: 6px solid var(--accent); }
+      .site b { display: block; font-size: 17px; }
+      .site small { color: var(--sub); display: block; margin-top: 2px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 96px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); text-align: left; cursor: pointer; }
+      .tile i { font-style: normal; font-size: 28px; line-height: 1; }
+      .tile b { font-size: 15px; }
+      .tile small { color: var(--sub); font-size: 12px; }
+      .tile.main { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 14px; background: var(--accent); color: #fff; border: 0; min-height: 84px; }
+      .tile.main small { color: #ffe3ec; }
+      .tile.main span { display: flex; flex-direction: column; gap: 2px; }
+      .tile.main b { font-size: 20px; }
+      .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); font-weight: 700; cursor: pointer; }
+      .btn.pri { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .btn.blue { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+      .btn.ghost { background: transparent; }
+      .btn.sm { min-height: 34px; padding: 4px 10px; font-size: 13px; }
+      .btn.wide { width: 100%; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .row > .grow { flex: 1 1 0; min-width: 0; }
+      label.f { display: block; font-size: 12px; color: var(--sub); margin: 8px 0 3px; font-weight: 700; }
+      input[type=text], input[type=date], input[type=number], select, textarea { width: 100%; font: inherit; font-size: 16px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+      textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+      .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+      .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+      .chip[aria-pressed=true] { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+      .path { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 8px 12px; text-align: left; border: 1px dashed var(--accent2); border-radius: 10px; background: #f4f5fd; cursor: pointer; }
+      .path span { flex: 1 1 0; min-width: 0; }
+      .path small { color: var(--sub); }
+      .note { font-size: 12px; color: var(--sub); line-height: 1.5; margin: 6px 0 0; }
+      .warn { color: var(--warn); }
+      .ng { color: var(--ng); }
+      nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+      nav.tabs button { flex: 1 1 0; border: 0; background: none; padding: 7px 2px 8px; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 11px; color: var(--sub); cursor: pointer; }
+      nav.tabs button i { font-style: normal; font-size: 21px; }
+      nav.tabs button[aria-current=page] { color: var(--accent); font-weight: 700; }
+      /* 写真の一覧 */
+      .bar { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+      .bar[hidden] { display: none; }
+      .bar select { flex: 1 1 0; min-width: 0; }
+      .bar .btn { white-space: nowrap; flex: 0 0 auto; }
+      .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+      @media (min-width: 600px) { .thumbs { grid-template-columns: repeat(5, 1fr); } }
+      .th { position: relative; aspect-ratio: 4 / 3; background: #ddd center / cover no-repeat; border: 0; padding: 0; cursor: pointer; border-radius: 4px; overflow: hidden; }
+      .th em { position: absolute; left: 3px; bottom: 3px; font-style: normal; font-size: 10px; background: rgba(0, 0, 0, .6); color: #fff; padding: 1px 4px; border-radius: 4px; max-width: 94%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .th .mk { position: absolute; right: 3px; top: 3px; font-size: 13px; }
+      .th[aria-selected=true]::after { content: "✓"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; color: #fff; background: rgba(194, 37, 92, .45); }
+      .empty { text-align: center; color: var(--sub); padding: 30px 10px; }
+      /* 工種ツリー */
+      .tree { list-style: none; margin: 0; padding: 0; }
+      .tn { display: flex; align-items: center; gap: 6px; min-height: 44px; border-bottom: 1px solid #eee; }
+      .tn .lvbar { width: 5px; align-self: stretch; border-radius: 3px; }
+      .tn .nm { flex: 1 1 0; min-width: 0; text-align: left; border: 0; background: none; padding: 8px 4px; cursor: pointer; font-size: 15px; }
+      .tn .nm small { color: var(--sub); font-size: 11px; margin-left: 6px; }
+      .tn .cnt { color: var(--accent2); font-size: 12px; font-weight: 700; }
+      .tn .more { border: 0; background: none; font-size: 20px; width: 36px; height: 36px; cursor: pointer; color: var(--sub); }
+      .tn.sel { background: #fdeef3; }
+      /* 下から出る画面 */
+      .sheet { position: fixed; inset: 0; z-index: 60; background: rgba(20, 22, 30, .45); display: flex; align-items: flex-end; justify-content: center; }
+      .sheet[hidden] { display: none; }
+      .sheet > div { background: var(--bg); width: 100%; max-width: 720px; max-height: 92dvh; overflow: auto; border-radius: 16px 16px 0 0; padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); }
+      .sheet h3 { margin: 2px 0 10px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+      .sheet h3 span { flex: 1 1 auto; }
+      .x { border: 1px solid var(--line); background: #fff; border-radius: 10px; width: 40px; height: 40px; font-size: 18px; cursor: pointer; }
+      .detail img { width: 100%; border-radius: 10px; background: #000; display: block; }
+      .kv { display: grid; grid-template-columns: 6.5em 1fr; gap: 4px 8px; font-size: 14px; margin: 8px 0; }
+      .kv dt { color: var(--sub); }
+      .kv dd { margin: 0; word-break: break-all; }
+      .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 90; background: rgba(20, 22, 30, .9); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: 92vw; }
+      .toast[hidden] { display: none; }
+      /* カメラ */
+      .cam { position: fixed; inset: 0; z-index: 80; background: #000; display: flex; }
+      .cam[hidden] { display: none; }
+      .cam .stage { position: relative; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+      .cam video { max-width: 100%; max-height: 100%; }
+      .cam canvas.bb { position: absolute; pointer-events: none; }
+      .cam .side { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 8px; width: 88px; background: #000; }
+      .cam .side button { border: 0; background: rgba(255, 255, 255, .12); color: #fff; width: 56px; height: 56px; border-radius: 14px; font-size: 22px; cursor: pointer; }
+      .cam .side .shot { width: 74px; height: 74px; border-radius: 50%; background: #fff; border: 5px solid #999; box-shadow: 0 0 0 3px #fff; }
+      .cam .side .shot:active { background: #f2c; }
+      .cam .last { width: 64px; height: 48px; border-radius: 6px; background: #222 center / cover; border: 2px solid #555; }
+      .cam .info { position: absolute; left: 8px; top: 8px; color: #fff; font-size: 12px; background: rgba(0, 0, 0, .5); padding: 4px 8px; border-radius: 8px; max-width: 70%; }
+      .cam .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
+      @media (orientation: portrait) { .cam { flex-direction: column; } .cam .side { flex-direction: row; width: auto; height: 104px; padding: 8px 14px; } }
+      .bbprev { width: 100%; max-width: 360px; display: block; margin: 6px auto 0; border-radius: 6px; }
+    </style>
+
+    <script>window.IPPATSU_APP = "utsushi";</script>
+    <script>
+// 一発バーン 共通(make_apps.py が4本のアプリと一発バーンのメニューの <head> に入れる)
+//  1. Genba … 現場(図面・座標・設定・アプリごとの作業)を、この端末の IndexedDB「ippatsu-genba」にまとめて持つ。
+//     現場を作る・消す・設定するのは一発バーンのメニュー。4本のアプリは「いまの現場」を読み書きしてやり取りする。
+//  2. 入力の小窓 … 数字・文字の欄を押すと、画面の上に小窓を出してそこで入力する(キーボードで画面がずれないように)。
+//  3. 現場のバッジ … アプリの見出しに「🏗 現場名」を出す。押すと現場を切り替えられる。
+// window.IPPATSU_APP(sumi・kamashi・nomiso・kurukuru・menu)と IPPATSU_READONLY(脳みそバーン:現場へ保存しない)は make_apps.py が決める。
+(function () {
+  "use strict";
+  if (window.Genba) return;
+  var APP = window.IPPATSU_APP || "", RO = !!window.IPPATSU_READONLY;
+  var CUR = "ippatsu.genba", LIST = "ippatsu.genba.list";
+  var ls = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* */ } }
+  };
+  var DEF = { code: "", memo: "", unit: "", axis: "", model: "LN-1000i",
+    zone: "", kMode: "none", k: 1, hOn: false, hMean: 0, geoid: 0, temp: 15, press: 1013 };
+  var SI_KEYS = ["zone", "kMode", "k", "hOn", "hMean", "geoid", "temp", "press"];   // くるくるの「現場の情報」と同じ欄(kr.sinfo.現場名 にも写す)
+
+  function open() {
+    return new Promise(function (ok, ng) {
+      if (!window.indexedDB) return ng(new Error("この端末では現場の保存が使えません"));
+      var rq = indexedDB.open("ippatsu-genba", 1);
+      rq.onupgradeneeded = function () {
+        var db = rq.result;
+        ["sites", "files", "points", "apps"].forEach(function (s) { if (!db.objectStoreNames.contains(s)) db.createObjectStore(s); });
+      };
+      rq.onsuccess = function () { ok(rq.result); };
+      rq.onerror = function () { ng(rq.error || new Error("現場の保存場所を開けません")); };
+    });
+  }
+  function tx(store, mode, fn) {
+    return open().then(function (db) {
+      return new Promise(function (ok, ng) {
+        var t = db.transaction(store, mode), st = t.objectStore(store), out;
+        var rq = fn(st); if (rq) rq.onsuccess = function () { out = rq.result; };
+        t.oncomplete = function () { db.close(); ok(out); };
+        t.onerror = function () { db.close(); ng(t.error); };
+        t.onabort = function () { db.close(); ng(t.error || new Error("保存できませんでした(容量が足りないかもしれません)")); };
+      });
+    });
+  }
+  var FK = function (site, name) { return site + "\n" + name; };
+  var range = function (site) { return IDBKeyRange.bound(site + "\n", site + "\n￿"); };
+  function bad(n) {
+    n = String(n || "").trim();
+    if (!n) return "現場名を入れてください。";
+    if (n.length > 30) return "現場名は30文字までです。";
+    if (/[\\/:*?"<>|\n]/.test(n)) return "現場名に \\ / : * ? \" < > | は使えません。";
+    return "";
+  }
+  function mirror(rec) {   // 設定を localStorage にも写す(起動のすぐあとに同期で読めるように)
+    var s = rec.settings || {}, si = {};
+    SI_KEYS.forEach(function (k) { if (s[k] != null) si[k] = s[k]; });
+    ls.set("kr.sinfo." + rec.name, JSON.stringify(si));
+    ls.set("ippatsu.genba.set." + rec.name, JSON.stringify(s));
+  }
+  function emit(type, detail) { try { window.dispatchEvent(new CustomEvent("genba", { detail: Object.assign({ type: type }, detail || {}) })); } catch (e) { /* */ } }
+
+  var G = {
+    app: APP, readonly: RO, DEF: DEF,
+    bad: bad,
+    current: function () { return ls.get(CUR) || ""; },
+    setCurrent: function (n) { ls.set(CUR, n || null); emit("current", { name: n || "" }); },
+    names: function () { try { return JSON.parse(ls.get(LIST) || "[]") || []; } catch (e) { return []; } },
+    settingsSync: function (n) { try { return Object.assign({}, DEF, JSON.parse(ls.get("ippatsu.genba.set." + (n == null ? G.current() : n)) || "{}")); } catch (e) { return Object.assign({}, DEF); } },
+    list: function () {
+      return tx("sites", "readonly", function (st) { return st.getAll(); }).then(function (a) {
+        a = (a || []).sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
+        ls.set(LIST, JSON.stringify(a.map(function (r) { return r.name; })));
+        return a;
+      });
+    },
+    get: function (n) { return tx("sites", "readonly", function (st) { return st.get(n); }).then(function (r) { return r || null; }); },
+    put: function (rec) {
+      rec.at = Date.now(); rec.settings = Object.assign({}, DEF, rec.settings || {});
+      return tx("sites", "readwrite", function (st) { return st.put(rec, rec.name); }).then(function () { mirror(rec); return G.list(); }).then(function () { emit("site", { name: rec.name }); return rec; });
+    },
+    create: function (n, settings) {
+      n = String(n || "").trim(); var e = bad(n); if (e) return Promise.reject(new Error(e));
+      return G.get(n).then(function (r) {
+        if (r) throw new Error("現場「" + n + "」はもうあります。");
+        return G.put({ name: n, created: Date.now(), settings: Object.assign({}, DEF, settings || {}) });
+      });
+    },
+    touch: function (n) { return G.get(n).then(function (r) { if (r) return G.put(r); }); },
+    remove: function (n) {
+      return Promise.all([
+        tx("sites", "readwrite", function (st) { return st.delete(n); }),
+        tx("points", "readwrite", function (st) { return st.delete(n); }),
+        tx("files", "readwrite", function (st) { return st.delete(range(n)); }),
+        tx("apps", "readwrite", function (st) { return st.delete(range(n)); })
+      ]).then(function () {
+        ls.set("ippatsu.genba.set." + n, null);
+        if (G.current() === n) G.setCurrent("");
+        return G.list();
+      });
+    },
+    rename: function (a, b) {
+      b = String(b || "").trim(); var e = bad(b); if (e) return Promise.reject(new Error(e));
+      return G.exportSites([a]).then(function (o) {
+        return G.get(b).then(function (r) {
+          if (r) throw new Error("現場「" + b + "」はもうあります。");
+          o.sites[0].site.name = b; o.sites[0].name = b;
+          return G.importSites(o, { overwrite: true }).then(function () { var c = G.current() === a; return G.remove(a).then(function () { if (c) G.setCurrent(b); }); });
+        });
+      });
+    },
+    // 図面(1つの現場に何枚でも。いちばん新しく入れたものが「現場の図面」)
+    files: function (n) {
+      return tx("files", "readonly", function (st) { return st.getAll(range(n)); }).then(function (a) {
+        return (a || []).map(function (f) { return { name: f.name, size: f.bytes ? f.bytes.byteLength : 0, at: f.at, from: f.from, type: f.type }; })
+          .sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
+      });
+    },
+    fileGet: function (n, name) {
+      if (name) return tx("files", "readonly", function (st) { return st.get(FK(n, name)); }).then(function (r) { return r || null; });
+      return G.get(n).then(function (r) {
+        var main = r && r.mainFile;
+        return (main ? G.fileGet(n, main) : Promise.resolve(null)).then(function (f) {
+          if (f) return f;
+          return tx("files", "readonly", function (st) { return st.getAll(range(n)); }).then(function (a) { return (a || []).sort(function (x, y) { return (y.at || 0) - (x.at || 0); })[0] || null; });
+        });
+      });
+    },
+    filePut: function (n, f, from) {
+      if (RO) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));
+      var rec = { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: f.bytes, at: Date.now(), from: from || APP };
+      return tx("files", "readwrite", function (st) { return st.put(rec, FK(n, f.name)); })
+        .then(function () { return G.get(n); }).then(function (r) { if (r) { r.mainFile = f.name; return G.put(r); } })
+        .then(function () { emit("file", { name: n, file: f.name }); });
+    },
+    fileDel: function (n, name) {
+      return tx("files", "readwrite", function (st) { return st.delete(FK(n, name)); }).then(function () { return G.get(n); })
+        .then(function (r) { if (r && r.mainFile === name) { r.mainFile = ""; return G.put(r); } });
+    },
+    // 座標(現場の座標リスト。X=北・Y=東・H、単位 m)。role: known(既知点)・design(設計の点)
+    points: function (n) { return tx("points", "readonly", function (st) { return st.get(n); }).then(function (r) { return r || { points: [] }; }); },
+    pointsPut: function (n, pts, from) {
+      if (RO) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));
+      var rec = { points: pts || [], at: Date.now(), from: from || APP };
+      return tx("points", "readwrite", function (st) { return st.put(rec, n); }).then(function () { return G.touch(n); }).then(function () { emit("points", { name: n }); return rec; });
+    },
+    pointsAdd: function (n, pts, from) {   // 名前が同じで 1 mm 以内の点は飛ばす。名前が同じで位置が違う点は置き換える
+      return G.points(n).then(function (r) {
+        var cur = (r.points || []).slice(), add = 0, rep = 0, skip = 0;
+        (pts || []).forEach(function (q) {
+          var nm = String(q.name || "").trim(); if (!nm || !isFinite(q.X) || !isFinite(q.Y)) { skip++; return; }
+          var i = cur.findIndex(function (p) { return p.name === nm; });
+          var p = { name: nm, X: +q.X, Y: +q.Y, H: isFinite(q.H) ? +q.H : 0, role: q.role || "", src: from || APP };
+          if (i < 0) { cur.push(p); add++; }
+          else if (Math.hypot(cur[i].X - p.X, cur[i].Y - p.Y) < 0.001 && Math.abs((cur[i].H || 0) - p.H) < 0.001) skip++;
+          else { cur[i] = p; rep++; }
+        });
+        return G.pointsPut(n, cur, from).then(function () { return { add: add, rep: rep, skip: skip, total: cur.length }; });
+      });
+    },
+    // アプリごとの作業(くるくるの器械点・打った杭 など)
+    appGet: function (app, n) { return tx("apps", "readonly", function (st) { return st.get(FK(n, app)); }).then(function (r) { return r || null; }); },
+    appPut: function (app, n, v) {
+      if (RO) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));
+      return tx("apps", "readwrite", function (st) { return st.put(v, FK(n, app)); });
+    },
+    appDel: function (app, n) { return tx("apps", "readwrite", function (st) { return st.delete(FK(n, app)); }); },
+    // 現場をまるごとファイルに(バックアップ・別の端末へ)
+    exportSites: function (names) {
+      var b64 = function (buf) { var u = new Uint8Array(buf), s = ""; for (var i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+      return Promise.all(names.map(function (n) {
+        return Promise.all([G.get(n), tx("files", "readonly", function (st) { return st.getAll(range(n)); }), G.points(n),
+          tx("apps", "readonly", function (st) { return st.getAllKeys(range(n)); }), tx("apps", "readonly", function (st) { return st.getAll(range(n)); })])
+          .then(function (r) {
+            var apps = {}; (r[3] || []).forEach(function (k, i) { apps[k.slice(n.length + 1)] = r[4][i]; });
+            if (apps.kurukuru && apps.kurukuru.picks) apps.kurukuru = Object.assign({}, apps.kurukuru);
+            return { name: n, site: r[0], points: r[2], apps: apps,
+              files: (r[1] || []).map(function (f) { return { name: f.name, type: f.type, lastModified: f.lastModified, at: f.at, from: f.from, b64: b64(f.bytes) }; }) };
+          });
+      })).then(function (sites) { return { kind: "ippatsu-genba", v: 1, at: new Date().toISOString(), sites: sites }; });
+    },
+    importSites: function (o, opt) {
+      opt = opt || {};
+      var bytes = function (b) { var s = atob(b), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; };
+      if (o && o.kind === "kurukuru-site" && Array.isArray(o.sites)) {   // くるくる回し太郎で保存した現場(kurukuru_〜.json)も読める
+        o = { kind: "ippatsu-genba", sites: o.sites.map(function (q) {
+          return { name: q.name, site: { name: q.name, created: Date.now(), settings: {} }, points: null, apps: q.state ? { kurukuru: q.state } : {},
+            files: q.file ? [{ name: q.file.name, type: q.file.type, lastModified: q.file.lastModified, b64: q.file.b64 }] : [] };
+        }) };
+      }
+      if (!o || o.kind !== "ippatsu-genba" || !Array.isArray(o.sites)) return Promise.reject(new Error("一発バーン(またはくるくる回し太郎)で保存した現場のファイルではありません。"));
+      var done = [];
+      return o.sites.reduce(function (pr, q) {
+        return pr.then(function () {
+          var n = String(q.name || (q.site && q.site.name) || "").slice(0, 30); if (!n) return;
+          return G.get(n).then(function (r) {
+            if (r && !opt.overwrite) {
+              var ans = opt.ask ? opt.ask(n) : true;
+              if (!ans) { var i = 2; while (G.names().indexOf(n + "(" + i + ")") >= 0) i++; n = n + "(" + i + ")"; }
+            }
+            var site = Object.assign({}, q.site || {}, { name: n });
+            if (!site.created) site.created = Date.now();
+            return tx("files", "readwrite", function (st) { return st.delete(range(n)); })
+              .then(function () { return tx("apps", "readwrite", function (st) { return st.delete(range(n)); }); })
+              .then(function () { return (q.files || []).reduce(function (p2, f) { return p2.then(function () { return tx("files", "readwrite", function (st) { return st.put({ name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), at: f.at || Date.now(), from: f.from || "", bytes: bytes(f.b64) }, FK(n, f.name)); }); }); }, Promise.resolve()); })
+              .then(function () { return Object.keys(q.apps || {}).reduce(function (p2, a) { return p2.then(function () { return tx("apps", "readwrite", function (st) { return st.put(q.apps[a], FK(n, a)); }); }); }, Promise.resolve()); })
+              .then(function () { return q.points ? tx("points", "readwrite", function (st) { return st.put(q.points, n); }) : null; })
+              .then(function () { if (!site.mainFile && q.files && q.files[0]) site.mainFile = q.files[0].name; return G.put(site); })
+              .then(function () { done.push(n); });
+          });
+        });
+      }, Promise.resolve()).then(function () { return done; });
+    }
+  };
+  // 前のくるくる回し太郎の現場(IndexedDB kurukuru-sites・kr.sites)を、はじめてのときに一発バーンの現場へ移す。移した現場名を返す
+  G.migrate = async function () {
+          let done = false; try { done = localStorage.getItem("ippatsu.genba.migrated") === "1"; } catch (e) { /* */ }
+          if (done || !window.indexedDB) return [];
+          try { localStorage.setItem("ippatsu.genba.migrated", "1"); } catch (e) { /* */ }   // 2つの画面で同時に移さないように先に印をつける
+          let names = []; try { names = JSON.parse(localStorage.getItem("kr.sites") || "[]") || []; } catch (e) { /* */ }
+          const moved = [];
+          if (names.length) {
+            const db = await new Promise((ok) => { const rq = indexedDB.open("kurukuru-sites", 1); rq.onupgradeneeded = () => { rq.result.createObjectStore("state"); rq.result.createObjectStore("files"); }; rq.onsuccess = () => ok(rq.result); rq.onerror = () => ok(null); });
+            const get = (s, n) => new Promise((ok) => { try { const rq = db.transaction(s).objectStore(s).get(n); rq.onsuccess = () => ok(rq.result || null); rq.onerror = () => ok(null); } catch (e) { ok(null); } });
+            for (const n of names) {
+              if (!db || G.bad(n) || await G.get(n)) continue;
+              const st = await get("state", n), fl = await get("files", n);
+              let si = {}; try { si = JSON.parse(localStorage.getItem("kr.sinfo." + n) || "{}") || {}; } catch (e) { /* */ }
+              await G.create(n, { ...si, code: /^[A-Za-z0-9_-]{1,20}$/.test(n) ? n : "" });
+              if (st) await G.appPut("kurukuru", n, st);
+              if (fl && fl.bytes) await G.filePut(n, fl, "kurukuru");
+              moved.push(n);
+            }
+            if (db) db.close();
+            let cur = ""; try { cur = localStorage.getItem("kr.site") || ""; } catch (e) { /* */ }
+            if (cur && !G.current() && await G.get(cur)) G.setCurrent(cur);
+          }
+          try { localStorage.setItem("ippatsu.genba.migrated", "1"); } catch (e) { /* */ }
+          return moved;
+  };
+  window.Genba = G;
+  G.list().catch(function () { /* */ });   // 現場の名前の一覧を localStorage に写しておく
+
+  // ---------------------------------------------------------------- 小窓(共通)
+  var CSS = "" +
+    ".ipx-ovl{position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.45);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 10px) 10px 10px}" +
+    ".ipx-card{width:min(520px,100%);max-height:calc(100dvh - 20px);overflow:auto;background:var(--card,#fff);color:var(--ink,var(--fg,#1d2330));border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:14px;font:inherit;font-size:16px}" +
+    ".ipx-card h3{margin:0 0 8px;font-size:17px}.ipx-card .ipx-sub{color:var(--sub,#5d6575);font-size:13px;margin:2px 0 8px;line-height:1.5}" +
+    ".ipx-card input,.ipx-card textarea,.ipx-card select{width:100%;box-sizing:border-box;font:inherit;font-size:20px;padding:10px 12px;border-radius:10px;border:2px solid var(--accent,#2563eb);background:var(--bg,#fff);color:inherit}" +
+    ".ipx-row{display:flex;gap:8px;margin-top:12px}.ipx-row button{flex:1;font:inherit;font-size:17px;font-weight:700;min-height:48px;border-radius:10px;border:1px solid var(--line,#ccd);background:var(--bg,#f4f5f7);color:inherit}" +
+    ".ipx-row button.ipx-ok{background:var(--accent,#2563eb);border-color:transparent;color:#fff}" +
+    ".ipx-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}.ipx-list button{text-align:left;font:inherit;font-size:16px;padding:12px;border-radius:10px;border:1px solid var(--line,#ccd);background:var(--bg,#f4f5f7);color:inherit}" +
+    ".ipx-list button[aria-pressed=true]{border:2px solid var(--accent,#2563eb);font-weight:700}" +
+    ".ipx-badge{display:inline-flex;align-items:center;gap:2px;max-width:46vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px;font-weight:700;padding:4px 8px;margin-left:6px;border-radius:999px;border:1px solid var(--line,#ccd);background:var(--card,#fff);color:inherit;vertical-align:middle;cursor:pointer}" +
+    ".ipx-badge.none{color:var(--sub,#5d6575);font-weight:400}" +
+    ".ipx-chips{display:flex;flex:0 0 auto;gap:6px;align-items:center;padding:2px 10px 4px;margin:0;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.ipx-chips::-webkit-scrollbar{display:none}.ipx-chips .ipx-badge,.ipx-chips button{margin:0!important;flex:0 0 auto;width:auto!important;min-height:0!important;min-width:0!important}" +
+    ".ipx-docs{display:inline-flex;gap:4px;align-items:center}.ipx-badge.doc{max-width:none;font-weight:400}.ipx-badge.doc[aria-pressed=true]{background:var(--accent,#2563eb);color:#fff;border-color:transparent;font-weight:700}.ipx-badge.doc.add{color:var(--accent,#2563eb);border-style:dashed}" +
+    ".ipx-badge.mode{max-width:none;color:#0f766e;border-color:#0f766e}" +
+    "body.ipx-easy details.adv,body.ipx-easy .step-note,body.ipx-easy .help-btn{display:none!important}" +
+    "body.ipx-easy button.big,body.ipx-easy .seg-toggle button,body.ipx-easy .filebtn button{font-size:17px;min-height:50px}" +
+    "body.ipx-easy .status{font-size:16px}" +
+    ".ipx-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0;padding:8px 10px;border-radius:10px;border:1px dashed var(--accent,#2563eb);font-size:14px}" +
+    ".ipx-bar button{width:auto!important;min-height:0!important;flex:0 0 auto;margin:0!important;font:inherit;font-weight:700;padding:8px 12px;border-radius:8px;border:0;background:var(--accent,#2563eb);color:#fff}.ipx-bar .ipx-x{background:transparent;color:inherit;border:1px solid var(--line,#ccd)}";
+  function addCss() { if (document.getElementById("ipx-css")) return; var s = document.createElement("style"); s.id = "ipx-css"; s.textContent = CSS; document.head.appendChild(s); }
+  function el(tag, attrs, html) { var e = document.createElement(tag); for (var k in attrs || {}) e.setAttribute(k, attrs[k]); if (html != null) e.innerHTML = html; return e; }
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  G.esc = esc;
+  // 小窓を出す。body は HTML、buttons は [{ label, ok?, run }]。run が false を返すと閉じない
+  G.dialog = function (title, body, buttons, sub) {
+    addCss();
+    var o = el("div", { "class": "ipx-ovl", role: "dialog", "aria-modal": "true" });
+    var c = el("div", { "class": "ipx-card" }, "<h3>" + esc(title) + "<\/h3>" + (sub ? '<div class="ipx-sub">' + sub + "<\/div>" : "") + (body || ""));
+    var row = el("div", { "class": "ipx-row" });
+    var close = function () { o.remove(); document.removeEventListener("keydown", key, true); };
+    (buttons || [{ label: "閉じる" }]).forEach(function (b) {
+      var bt = el("button", { type: "button", "class": b.ok ? "ipx-ok" : "" }); bt.textContent = b.label;
+      bt.onclick = function () { var r = b.run ? b.run(c) : true; if (r !== false) close(); };
+      row.appendChild(bt);
+    });
+    if (buttons !== null) c.appendChild(row);
+    o.appendChild(c);
+    o.addEventListener("click", function (e) { if (e.target === o) close(); });
+    var key = function (e) { if (e.key === "Escape") { e.preventDefault(); close(); } };
+    document.addEventListener("keydown", key, true);
+    document.body.appendChild(o);
+    return { el: c, close: close };
+  };
+
+  // ---------------------------------------------------------------- 入力の小窓
+  // 画面の中の数字・文字の欄を押すと、上の小窓で入れる(元の欄はキーボードを出さない)。
+  // 小窓の中・操作盤や点の入力のような固定の画面(.dlg・.ovl・.ipx-card)・data-noipx の欄はそのまま。
+  var TEXTY = /^(text|number|search|tel|url|email|password|)$/;
+  function labelOf(inp) {
+    var t = "";
+    if (inp.id) { var l = document.querySelector('label[for="' + inp.id + '"]'); if (l) t = l.textContent; }
+    if (!t) { var p = inp.closest("label"); if (p) t = p.textContent; }
+    if (!t) t = inp.getAttribute("aria-label") || inp.getAttribute("title") || inp.placeholder || "";
+    if (!t) { var prev = inp.previousElementSibling; if (prev && prev.textContent.length < 40) t = prev.textContent; }
+    return (t || "入力").replace(/\s+/g, " ").trim().slice(0, 60);
+  }
+  function wants(inp) {
+    if (!inp || inp.disabled || inp.readOnly) return false;
+    if (inp.tagName === "TEXTAREA") return !inp.closest(".dlg, .ovl, .ipx-card, [data-noipx]");
+    if (inp.tagName !== "INPUT" || !TEXTY.test(inp.type || "")) return false;
+    if (inp.hasAttribute("data-noipx") || inp.closest(".dlg, .ovl, .ipx-card, [data-noipx]")) return false;
+    return true;
+  }
+  function editIn(inp) {
+    var isNum = inp.type === "number", ta = inp.tagName === "TEXTAREA";
+    var mode = inp.getAttribute("inputmode") || (isNum ? "decimal" : "");
+    var f = ta ? '<textarea rows="5"><\/textarea>' : '<input type="' + (isNum ? "text" : (inp.type || "text")) + '"' + (mode ? ' inputmode="' + esc(mode) + '"' : "") + ' autocomplete="off" spellcheck="false" />';
+    var hint = isNum ? [inp.min !== "" ? "最小 " + inp.min : "", inp.max !== "" ? "最大 " + inp.max : ""].filter(Boolean).join("・") : "";
+    var d = G.dialog(labelOf(inp), f + (isNum ? '<div class="ipx-sub" style="margin-top:6px">数字で入れてください' + (hint ? "(" + hint + ")" : "") + "。- や . も使えます。<\/div>" : ""), [
+      { label: "やめる" },
+      { label: "決定", ok: true, run: function (c) {
+        var v = c.querySelector("input,textarea").value;
+        if (isNum) { v = v.replace(/[０-９．－]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/ー|−/g, "-").trim(); if (v !== "" && !isFinite(Number(v))) { c.querySelector(".ipx-sub").textContent = "数字ではありません。"; return false; } }
+        if (inp.maxLength > 0 && v.length > inp.maxLength) v = v.slice(0, inp.maxLength);
+        var set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(inp), "value").set; set.call(inp, v);
+        inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true }));
+      } }
+    ]);
+    var box = d.el.querySelector("input,textarea"); box.value = inp.value;
+    box.addEventListener("keydown", function (e) { if (e.key === "Enter" && !ta) { e.preventDefault(); d.el.querySelector(".ipx-ok").click(); } });
+    setTimeout(function () { box.focus(); try { box.select(); } catch (e) { /* */ } }, 30);
+  }
+  G.inputDialog = true;
+  // 押したとき:元の欄を一時的に読むだけにして(キーボードを出さない)、指を離したら小窓を出す。指を動かした(画面を動かした)ときは何もしない
+  var pend = null;
+  var undo = function () { if (pend) { pend.readOnly = false; pend = null; } };
+  document.addEventListener("pointerdown", function (e) {
+    undo();
+    var inp = e.target; if (!wants(inp) || window.IPPATSU_NO_INPUT_DIALOG) return;
+    pend = inp; inp.readOnly = true;
+  }, true);
+  document.addEventListener("pointercancel", function () { setTimeout(undo, 0); }, true);
+  document.addEventListener("click", function (e) {
+    var inp = pend; if (!inp) return;
+    if (e.target !== inp) { undo(); return; }
+    e.preventDefault(); inp.readOnly = false; pend = null; inp.blur(); editIn(inp);
+  }, true);
+
+  // ---------------------------------------------------------------- 現場のバッジ(アプリの見出し)
+  function siteBadge() {
+    if (APP === "menu" || !APP) return;
+    var row = chips(); if (!row) return;
+    var b = el("button", { type: "button", "class": "ipx-badge", id: "ipxSite", title: "いまの現場(押すと切り替え)" });
+    row.insertBefore(b, row.firstChild);
+    var draw = function () { var n = G.current(); b.textContent = n ? "🏗 " + n : "🏗 現場なし"; b.classList.toggle("none", !n); };
+    draw(); window.addEventListener("genba", draw);
+    b.addEventListener("click", function () { G.pick(); });
+  }
+  // かんたん画面/くわしい画面(アプリごとに覚える)。かんたん画面は「くわしい設定」(details.adv)と説明の文を隠して、ボタンを大きくする
+  var EZ = "ippatsu.easy." + APP;
+  G.easy = function () { return ls.get(EZ) === "1"; };
+  G.setEasy = function (on) { ls.set(EZ, on ? "1" : "0"); document.body.classList.toggle("ipx-easy", !!on); var m = document.getElementById("ipxMode"); if (m) m.textContent = on ? "かんたん" : "くわしい"; emit("easy", { on: !!on }); };
+  function modeChip() {
+    if (APP === "menu" || !APP) return;
+    document.body.classList.toggle("ipx-easy", G.easy());
+    var row = chips(); if (!row) return;
+    var b = el("button", { type: "button", "class": "ipx-badge mode", id: "ipxMode", title: "かんたん画面とくわしい画面を切り替える" });
+    b.textContent = G.easy() ? "かんたん" : "くわしい";
+    b.addEventListener("click", function () { G.setEasy(!G.easy()); });
+    row.appendChild(b);
+  }
+  // 見出しのすぐ下の細い行(現場・かんたん/くわしい)
+  function chips() {
+    var r = document.getElementById("ipxChips"); if (r) return r;
+    var h = document.querySelector("header"); if (!h) return null;
+    addCss();
+    r = el("div", { id: "ipxChips", "class": "ipx-chips" }); h.parentNode.insertBefore(r, h.nextSibling); return r;
+  }
+  // 現場を選ぶ小窓。選んだら、アプリを読み直してその現場を開く
+  G.pick = function (after) {
+    G.list().then(function (a) {
+      var cur = G.current();
+      var body = '<div class="ipx-list">' + ['<button type="button" data-n="" aria-pressed="' + (!cur) + '">(現場を選ばない)<\/button>'].concat(a.map(function (r) {
+        return '<button type="button" data-n="' + esc(r.name) + '" aria-pressed="' + (r.name === cur) + '">🏗 ' + esc(r.name) + (r.settings && r.settings.memo ? '<br><small>' + esc(r.settings.memo) + "<\/small>" : "") + "<\/button>";
+      })).join("") + "<\/div>";
+      var btns = [{ label: "閉じる" }];
+      if (APP && APP !== "menu") btns.unshift({ label: G.easy() ? "くわしい画面にする" : "かんたん画面にする", run: function () { G.setEasy(!G.easy()); } });
+      var d = G.dialog("現場を選ぶ", body, btns,
+        "現場を作る・名前を変える・消す・設定は、一発バーンのメニュー(左上の ⌂)で行います。" + (a.length ? "" : "<br><b>まだ現場がありません。<\/b>"));
+      d.el.querySelector(".ipx-list").addEventListener("click", function (e) {
+        var t = e.target.closest("button[data-n]"); if (!t) return;
+        var n = t.getAttribute("data-n"); d.close();
+        if (n === cur) return;
+        G.setCurrent(n);
+        if (after) after(n); else if (APP !== "menu") location.reload();
+      });
+    }).catch(function (e) { G.dialog("現場", "", null, esc(e.message)); });
+  };
+
+  // ---------------------------------------------------------------- 現場の図面を開く・開いた図面を現場に入れる(どのアプリでも同じ)
+  // アプリの「図面を開く」欄(#file)を使う。開いた図面は、いまの現場に入れる(脳みそバーンは入れない)
+  var opening = false;
+  function fileInput() { return document.getElementById("file"); }
+  G.openInApp = function (f) {
+    var inp = fileInput(); if (!inp || !f || !f.bytes) return false;
+    try {
+      var file = new File([f.bytes], f.name, { type: f.type || "", lastModified: f.lastModified || Date.now() });
+      var dt = new DataTransfer(); dt.items.add(file); opening = true; docBusy = true; inp.files = dt.files; CURDOC = f.name; docAdd({ name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: f.bytes });
+      inp.dispatchEvent(new Event("change", { bubbles: true })); opening = false; docBusy = false; docStrip(); return true;
+    } catch (e) { opening = false; docBusy = false; return false; }
+  };
+  function hookFile() {
+    var inp = fileInput(); if (!inp || APP === "kurukuru") return;   // くるくるは自分で現場に入れる
+    inp.addEventListener("change", function () {
+      var n = G.current(), f = inp.files && inp.files[0];
+      if (opening || RO || !n || !f) return;
+      f.arrayBuffer().then(function (buf) { return G.filePut(n, { name: f.name, type: f.type, lastModified: f.lastModified, bytes: buf }, APP); })
+        .then(function () { bar("✓ 図面「" + esc(f.name) + "」を現場「" + esc(n) + "」に入れました。", null, 5000); })
+        .catch(function (e) { bar("⚠ 図面を現場に入れられません: " + esc(e.message)); });
+    });
+  }
+  // 見出しの下に出す細い知らせ(ボタンつき)
+  function bar(html, btn, ms) {
+    addCss();
+    var old = document.getElementById("ipxBar"); if (old) old.remove();
+    var h = document.querySelector("header"); if (!h) return;
+    var b = el("div", { "class": "ipx-bar", id: "ipxBar" }, "<span style=\"flex:1 1 0;min-width:0\">" + html + "<\/span>");
+    if (btn) { var x = el("button", { type: "button" }); x.textContent = btn.label; x.onclick = function () { b.remove(); btn.run(); }; b.appendChild(x); }
+    var c = el("button", { type: "button", "class": "ipx-x", "aria-label": "閉じる" }); c.textContent = "✕"; c.onclick = function () { b.remove(); }; b.appendChild(c);
+    h.parentNode.insertBefore(b, h.nextSibling);
+    if (ms) setTimeout(function () { b.remove(); }, ms);
+  }
+  G.bar = bar;
+  function offerSiteFile() {
+    var n = G.current(); if (!n || APP === "kurukuru" || !fileInput()) return;
+    G.fileGet(n).then(function (f) {
+      if (!f) { bar("現場「" + esc(n) + "」にはまだ図面がありません。" + (RO ? "" : "ここで図面を開くと、現場に入ります。")); return; }
+      bar("現場「" + esc(n) + "」の図面「" + esc(f.name) + "」", { label: "📂 開く", run: function () { if (!G.openInApp(f)) bar("⚠ 図面を開けませんでした。"); } });
+    }).catch(function () { /* */ });
+  }
+  // ---------------------------------------------------------------- DWG を開く(4本とも)
+  // 【ECP一撃測量 v1.18.0 から】DWG は端末の中で DXF に変えてから、いつもの DXF の読み込みに渡す。
+  // 部品は GNU LibreDWG を wasm にしたもの(vendor/libredwg、@mlightcad/libredwg-web 0.8.8、GPL-3.0)。DWG を開いたときだけ読み込む
+  var dwgMod = null;
+  G.isDwg = function (name, u8) { return /\.dwg$/i.test(name || "") || (u8 && u8.length > 6 && /^AC10\d\d/.test(String.fromCharCode.apply(null, u8.subarray(0, 6)))); };
+  G.dwgToDxf = async function (bytes) {
+    if (!dwgMod) {
+      // 部品(wasm)は自分で取って中身を確かめてから渡す(電波が無いと別のページが返ってきて固まるため)
+      var base = new URL("vendor/libredwg/", location.href).href;
+      var NG = "DWG を開く部品を読み込めませんでした。電波のある所(杭ナビの Wi-Fi を切って)で一度 DWG を開くと、あとは現場でも開けます。";
+      var bin;
+      try { var r = await fetch(base + "libredwg-web.wasm"); if (!r.ok) throw 0; bin = new Uint8Array(await r.arrayBuffer()); } catch (e) { throw new Error(NG); }
+      if (bin.length < 1e6 || bin[0] !== 0 || bin[1] !== 0x61 || bin[2] !== 0x73 || bin[3] !== 0x6d) throw new Error(NG);
+      var m; try { m = await import(base + "libredwg-web.js"); } catch (e) { throw new Error(NG); }
+      dwgMod = await m.default({ locateFile: function (f) { return base + f; }, wasmBinary: bin });
+    }
+    var FS = dwgMod.FS, ex = function (n) { return FS.analyzePath(n, false).exists; };
+    try {
+      FS.writeFile("/in.dwg", new Uint8Array(bytes));
+      var rc = dwgMod.dwg_write_dxf("/in.dwg", "/out.dxf");
+      if (!ex("/out.dxf")) throw new Error("変換できませんでした(コード " + rc + ")");
+      var out = FS.readFile("/out.dxf");
+      if (out.length < 100) throw new Error("変換した中身が空でした");
+      return out;
+    } finally { ["/in.dwg", "/out.dxf"].forEach(function (n) { if (ex(n)) FS.unlink(n); }); }
+  };
+  // ---------------------------------------------------------------- 図面を何枚も(4本とも)
+  // 開いた図面は、見出しの下の行に「📄 名前」で並ぶ。押すとその図面に切り替わる。「📂 ひらく」で何枚もまとめて選べる。
+  // 現場を選んでいれば現場の図面(一発バーンの「図面を読み込む」で入れたものも)も並ぶ。脳みそバーンは現場に入れず、この画面の間だけ覚える。
+  var DOCS = [], CURDOC = "", docBusy = false;
+  var DRAW_RE = /\.(dxf|dwg|zrd|zsdx|zsdxz|csv|sim|sima|txt)$/i, XML_RE = /\.(xml|landxml)$/i;
+  function docAdd(rec) { DOCS = DOCS.filter(function (d) { return d.name !== rec.name; }); DOCS.push(rec); }
+  function docOpen(rec) {
+    if (!G.openInApp(rec)) { bar("⚠ 図面「" + esc(rec.name) + "」を開けませんでした。"); return; }
+    CURDOC = rec.name; docStrip();
+  }
+  function docList() {
+    var n = G.current();
+    var site = n && APP !== "menu" ? G.files(n).catch(function () { return []; }) : Promise.resolve([]);
+    return site.then(function (a) {
+      var names = [], seen = {};
+      a.filter(function (f) { return DRAW_RE.test(f.name) || !XML_RE.test(f.name); }).slice().reverse().forEach(function (f) { if (!seen[f.name]) { seen[f.name] = 1; names.push({ name: f.name, site: true }); } });
+      DOCS.forEach(function (d) { if (!seen[d.name]) { seen[d.name] = 1; names.push({ name: d.name, site: false }); } });
+      return names;
+    });
+  }
+  function docGet(name) {
+    var d = DOCS.filter(function (x) { return x.name === name; })[0]; if (d) return Promise.resolve(d);
+    var n = G.current(); return n ? G.fileGet(n, name) : Promise.resolve(null);
+  }
+  var short = function (s) { s = String(s).replace(/\.[^.]+$/, ""); return s.length > 12 ? s.slice(0, 11) + "…" : s; };
+  function docStrip() {
+    if (APP === "menu" || !APP || !fileInput()) return;
+    var row = chips(); if (!row) return;
+    var s = document.getElementById("ipxDocs");
+    if (!s) {
+      s = el("span", { id: "ipxDocs", "class": "ipx-docs" }); var site0 = document.getElementById("ipxSite"); row.insertBefore(s, site0 ? site0.nextSibling : row.firstChild);
+      s.addEventListener("click", function (e) {
+        var b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.act === "add") { var inp = fileInput(); inp.setAttribute("multiple", ""); fpOpen(inp); return; }
+        if (b.dataset.act === "list") { docDialog(); return; }
+        var nm = b.dataset.doc; if (!nm || nm === CURDOC) return;
+        docGet(nm).then(function (rec) { if (rec) docOpen(rec); else bar("⚠ 図面「" + esc(nm) + "」が見つかりません。"); });
+      });
+    }
+    docList().then(function (a) {
+      var h = a.map(function (d) { return '<button type="button" class="ipx-badge doc" data-doc="' + esc(d.name) + '" aria-pressed="' + (d.name === CURDOC) + '" title="' + esc(d.name) + '">📄 ' + esc(short(d.name)) + "<\/button>"; }).join("");
+      s.innerHTML = h + '<button type="button" class="ipx-badge doc add" data-act="add" title="図面を足す(何枚でも選べます)">＋図面<\/button>' + (a.length > 1 ? '<button type="button" class="ipx-badge doc" data-act="list" title="図面の一覧">☰<\/button>' : "");
+      var cur = s.querySelector('[aria-pressed="true"]'); if (cur && cur.scrollIntoView) try { cur.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (e) { /* */ }
+    });
+  }
+  G.docStrip = docStrip;
+  function docDialog() {
+    docList().then(function (a) {
+      var body = '<div class="ipx-list">' + a.map(function (d) {
+        return '<div style="display:flex;gap:6px"><button type="button" style="flex:1" data-open="' + esc(d.name) + '" aria-pressed="' + (d.name === CURDOC) + '">📄 ' + esc(d.name) + (d.site ? " <small>(現場)<\/small>" : "") + '<\/button><button type="button" style="flex:0 0 auto" data-del="' + esc(d.name) + '" aria-label="外す">✕<\/button><\/div>';
+      }).join("") + "<\/div>";
+      var dl = G.dialog("図面の一覧", body, [{ label: "閉じる" }], "押すとその図面に切り替わります。✕ はこの一覧から外します" + (RO || !G.current() ? "。" : "(現場からも消します)。"));
+      dl.el.querySelector(".ipx-list").addEventListener("click", function (e) {
+        var b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.open) { dl.close(); if (b.dataset.open !== CURDOC) docGet(b.dataset.open).then(function (r) { if (r) docOpen(r); }); return; }
+        var nm = b.dataset.del; if (!nm) return;
+        DOCS = DOCS.filter(function (d) { return d.name !== nm; });
+        var n = G.current(); (n && !RO ? G.fileDel(n, nm).catch(function () {}) : Promise.resolve()).then(function () { b.parentNode.remove(); docStrip(); });
+      });
+    });
+  }
+  function readRec(f) { return f.arrayBuffer().then(function (buf) { return { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: buf }; }); }
+  document.addEventListener("change", function (e) {   // 図面を開く欄で選んだ図面を覚える。何枚も選んだら、全部覚えて 1 枚目を開く
+    var inp = e.target; if (!inp || inp.id !== "file" || !inp.files || !inp.files.length || APP === "menu") return;
+    if (dwgBusy || docBusy) return;   // DWG を DXF に変えたあと・切り替えのときは、もう覚えている
+    var fs = Array.prototype.slice.call(inp.files);
+    if (fs.length === 1) {
+      var f = fs[0]; if (XML_RE.test(f.name)) return;   // LandXML は 3D(🗻)へ
+      CURDOC = f.name; readRec(f).then(function (r) { docAdd(r); docStrip(); });
+      return;
+    }
+    e.stopImmediatePropagation();
+    var xmls = fs.filter(function (f) { return XML_RE.test(f.name); }), drs = fs.filter(function (f) { return !XML_RE.test(f.name); });
+    Promise.all(drs.map(readRec)).then(function (recs) {
+      recs.forEach(docAdd);
+      var n = G.current(), put = Promise.resolve();
+      if (n && !RO) recs.slice(1).concat(recs.slice(0, 1)).forEach(function (r) { put = put.then(function () { return G.filePut(n, r, APP); }).catch(function () {}); });   // 1 枚目を「現場の図面」に
+      return put.then(function () {
+        if (recs.length) {
+          var r0 = recs[0], file = new File([r0.bytes], r0.name, { type: r0.type, lastModified: r0.lastModified }), dt = new DataTransfer(); dt.items.add(file);
+          CURDOC = r0.name; docBusy = true; opening = true; inp.files = dt.files;
+          try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { docBusy = false; opening = false; }
+          bar("✓ 図面 " + recs.length + " 枚を読み込みました。見出しの下の「📄」で切り替えられます。", null, 6000);
+        }
+        docStrip();
+        if (xmls.length && window.IPPATSU_XS && window.IPPATSU_XS.loadFile) xmls.reduce(function (p, f) { return p.then(function () { return window.IPPATSU_XS.loadFile(f); }); }, Promise.resolve());
+      });
+    });
+  }, true);
+  window.addEventListener("genba", function (e) { if (e.detail && (e.detail.type === "file" || e.detail.type === "current")) docStrip(); });
+  // ---------------------------------------------------------------- ファイルを選ぶ前の小窓(戻る付き)(2026-11-16 ゆきちゃん)
+  // 「📂 ひらく」など、ファイルを選ぶ欄を押したら、まずこの小窓を出す(端末のファイル・現場の図面・戻る)。
+  // 端末のファイルの画面(ファイルマネージャー)で「戻る」操作をしたら、またこの小窓に戻る。
+  var fpPass = false, fpWait = null, fpDlg = null;
+  function fpClose() { if (fpDlg) { try { fpDlg.close(); } catch (e) { /* */ } fpDlg = null; } }
+  function fpShow(inp) {
+    fpClose();
+    var isMain = inp.id === "file" && APP !== "menu", n = G.current();
+    var what = isMain ? "図面・点ファイル" : "ファイル";
+    var btns = [{ label: "📂 端末のファイルから選ぶ", ok: true, run: function () { fpOpen(inp); } }];
+    if (isMain && n) btns.push({ label: "📄 現場「" + n + "」の図面から", run: function () { fpDlg = null; setTimeout(function () { fpSite(inp); }, 0); } });
+    btns.push({ label: "戻る", run: function () { fpDlg = null; } });
+    fpDlg = G.dialog("ファイルを選ぶ", "", btns, esc(what) + "を選びます。端末のファイルの画面で戻る(◀・下から上へのスワイプ)と、この画面に戻ります。");
+    var row = fpDlg.el.querySelector(".ipx-row"); if (row) row.style.flexDirection = "column";
+  }
+  function fpOpen(inp) {
+    fpDlg = null; fpWait = { inp: inp, t: Date.now(), done: false };
+    fpPass = true; try { inp.click(); } finally { fpPass = false; }
+  }
+  function fpSite(inp) {
+    var n = G.current(); if (!n) return;
+    G.files(n).then(function (a) {
+      a = a.filter(function (f) { return !XML_RE.test(f.name); });
+      if (!a.length) { G.dialog("現場の図面", "", [{ label: "戻る", run: function () { setTimeout(function () { fpShow(inp); }, 0); } }], "現場「" + esc(n) + "」にはまだ図面がありません。"); return; }
+      var body = '<div class="ipx-list">' + a.map(function (f) { return '<button type="button" data-n="' + esc(f.name) + '">📄 ' + esc(f.name) + "<\/button>"; }).join("") + "<\/div>";
+      var d = G.dialog("現場「" + n + "」の図面", body, [{ label: "戻る", run: function () { setTimeout(function () { fpShow(inp); }, 0); } }]);
+      d.el.querySelector(".ipx-list").addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-n]"); if (!b) return; d.close();
+        G.fileGet(n, b.dataset.n).then(function (r) { if (r) docOpen(r); });
+      });
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var inp = e.target;
+    if (fpPass || !inp || inp.tagName !== "INPUT" || inp.type !== "file" || inp.disabled || inp.hasAttribute("data-nofp")) return;
+    e.preventDefault(); e.stopPropagation();
+    fpShow(inp);
+  }, true);
+  document.addEventListener("change", function (e) {   // 選べたら待ちを終える
+    if (e.target && e.target.type === "file" && fpWait) fpWait.done = true;
+    fpClose();
+  }, true);
+  document.addEventListener("cancel", function (e) {   // ファイルの画面で戻った(新しい Chrome)
+    if (!fpWait || e.target !== fpWait.inp) return;
+    var w = fpWait; fpWait = null; setTimeout(function () { fpShow(w.inp); }, 50);
+  }, true);
+  var fpBack = function () {   // 古い Chrome・Android:画面に戻ってきても選ばれていなければ「戻った」とみなす
+    if (!fpWait || document.hidden) return;
+    var w = fpWait;
+    setTimeout(function () { if (fpWait === w && !w.done && Date.now() - w.t > 600) { fpWait = null; fpShow(w.inp); } }, 1500);
+  };
+  window.addEventListener("focus", fpBack);
+  document.addEventListener("visibilitychange", fpBack);
+  var dwgBusy = false;
+  document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で DWG(名前が .dwg)を選んだら、DXF に変えてからアプリに渡す
+    var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
+    if (!f || dwgBusy || !/\.dwg$/i.test(f.name)) return;
+    e.stopImmediatePropagation();
+    var keepOpening = opening;
+    bar("DWG「" + esc(f.name) + "」を DXF に変えています…" + (dwgMod ? "" : "(はじめては部品の読み込みに少しかかります)"));
+    f.arrayBuffer().then(function (b) { return G.dwgToDxf(b); }).then(function (out) {
+      var nf = new File([out], f.name.replace(/\.dwg$/i, "") + ".dxf", { type: "application/dxf", lastModified: f.lastModified });
+      var dt = new DataTransfer(); dt.items.add(nf);
+      dwgBusy = true; opening = keepOpening; inp.files = dt.files;
+      try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { dwgBusy = false; opening = false; }
+      bar("✓ DWG「" + esc(f.name) + "」を DXF に変えて開きました。", null, 6000);
+    }).catch(function (er) { bar("⚠ DWG を読めません: " + esc(er.message) + "(CAD で「DXF で保存」してから開いてください)"); });
+  }, true);
+  document.addEventListener("DOMContentLoaded", function () { siteBadge(); modeChip(); hookFile(); offerSiteFile(); var fi = fileInput(); if (fi && APP !== "menu") fi.setAttribute("multiple", ""); docStrip(); });
+  // DWG の部品は、電波のあるときに先に取っておく(現場の電波なしでも開けるように。sw.js が覚える)
+  setTimeout(function () {
+    try {
+      if (!/^https?:/.test(location.protocol) || !navigator.onLine || !("caches" in window)) return;
+      var base = new URL("vendor/libredwg/", location.href).href;
+      ["libredwg-web.js", "libredwg-web.wasm"].forEach(function (f) { caches.match(base + f).then(function (r) { if (!r) fetch(base + f).catch(function () {}); }); });
+    } catch (e) { /* 次に開いたときにまた試す */ }
+  }, 8000);
+})();
+
+    </script>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="一発バーン" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0d3f8f" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <style>
+      body { padding-top: env(safe-area-inset-top); }
+      header .menuback { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px;
+        border-radius: 8px; border: 1px solid var(--line, #ccd); color: inherit; text-decoration: none; font-size: 18px; margin-right: 2px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
+      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.1.0</small></h1>
+    </header>
+
+    <!-- ホーム -->
+    <section class="view wrap" id="vHome">
+      <div class="card site" id="siteCard"></div>
+      <div class="grid">
+        <button type="button" class="tile main" data-go="shoot"><i>📸</i><span><b>撮る</b><small>黒板を入れて写真を撮る</small></span></button>
+        <button type="button" class="tile" data-go="album"><i>🖼</i><b>写真帳</b><small id="hCount">0 枚</small></button>
+        <button type="button" class="tile" data-go="tree"><i>🌳</i><b>工種ツリー</b><small id="hTree">まだありません</small></button>
+        <button type="button" class="tile" data-go="boards"><i>🧾</i><b>黒板ひな形</b><small id="hBoards">0 枚</small></button>
+        <button type="button" class="tile" data-act="import"><i>📥</i><b>写真を入れる</b><small>端末・SiteBox の写真</small></button>
+        <button type="button" class="tile" data-go="set"><i>💾</i><b>保存先・設定</b><small id="hDir">この端末の中</small></button>
+        <button type="button" class="tile" data-act="ks"><i>☁</i><b>KSデータバンクへ</b><small>まとめて書き出す</small></button>
+      </div>
+      <p class="note">現場（工事）は一発バーンの最初の画面で作って選びます。上の「🏗」を押すと切り替えられます。写真はこの端末の中に覚え、保存先を決めればそこにも工種ごとのフォルダで入ります。</p>
+    </section>
+
+    <!-- 撮る -->
+    <section class="view wrap" id="vShoot" hidden>
+      <div class="card">
+        <h2>これから撮る写真</h2>
+        <label class="f">写真区分</label>
+        <div class="chips" id="sKubun"></div>
+        <label class="f">工種・種別・細別</label>
+        <button type="button" class="path" id="sPath"><span>—</span><small>選ぶ ›</small></button>
+        <label class="f" for="sSpot">測点（撮影箇所）</label>
+        <input type="text" id="sSpot" placeholder="例 No.12+5.0、重力式擁壁2" />
+        <label class="f" for="sText">黒板の文字（1行目が写真の名前になります）</label>
+        <textarea id="sText" placeholder="例&#10;材料検収&#10;　流れ流末飲口桝&#10;　510×155×300"></textarea>
+        <canvas class="bbprev" id="sPrev"></canvas>
+        <div class="row" style="margin-top:10px">
+          <button type="button" class="btn grow" id="sFromBoard">🧾 ひな形から</button>
+          <button type="button" class="btn grow" id="sToBoard">＋ ひな形に入れる</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button type="button" class="btn pri grow" id="sCam" style="min-height:58px;font-size:18px">📸 カメラを開く</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button type="button" class="btn grow sm" id="sPhone">端末のカメラで撮って黒板を入れる</button>
+        </div>
+        <p class="note" id="sNote"></p>
+      </div>
+    </section>
+
+    <!-- 写真帳 -->
+    <section class="view wrap" id="vAlbum" hidden>
+      <div class="bar">
+        <button type="button" class="path" id="aPath" style="min-height:42px"><span>すべての写真</span><small>しぼる ›</small></button>
+      </div>
+      <div class="bar">
+        <select id="aKubun" aria-label="写真区分でしぼる"></select>
+        <button type="button" class="btn sm" id="aSel">選ぶ</button>
+      </div>
+      <div class="bar" id="aSelBar" hidden>
+        <span id="aSelN" class="grow" style="flex:1">0 枚</span>
+        <button type="button" class="btn sm" id="aSave">💾 保存先へ</button>
+        <button type="button" class="btn sm" id="aZip">⬇ ZIP</button>
+        <button type="button" class="btn sm" id="aDel">🗑</button>
+      </div>
+      <div class="thumbs" id="aGrid"></div>
+      <div class="empty" id="aEmpty" hidden>写真はまだありません。「撮る」か「写真を入れる」で入れてください。</div>
+    </section>
+
+    <!-- 工種ツリー -->
+    <section class="view wrap" id="vTree" hidden>
+      <div class="card">
+        <div class="row">
+          <b class="grow">工種ツリー</b>
+          <button type="button" class="btn sm" id="tAdd">＋ 工種</button>
+          <button type="button" class="btn sm" id="tImp">📄 読み込む</button>
+        </div>
+        <p class="note">工種 › 種別 › 細別 の3段です（SiteBox・デキスパートと同じ並び）。写真の XMP にこの名前が入るので、写管屋に取り込むと同じツリーに入ります。行の「⋮」で、下に足す・名前を変える・消す。</p>
+      </div>
+      <ul class="tree card" id="tList" style="padding:4px 8px"></ul>
+    </section>
+
+    <!-- 黒板ひな形 -->
+    <section class="view wrap" id="vBoards" hidden>
+      <div class="card"><b>黒板ひな形</b><p class="note">よく使う黒板（区分・工種・測点・文字）を覚えておきます。押すとその黒板で「撮る」へ。</p></div>
+      <div id="bList"></div>
+    </section>
+
+    <!-- 保存先・設定 -->
+    <section class="view wrap" id="vSet" hidden>
+      <div class="card">
+        <h2>💾 写真の保存先</h2>
+        <div id="dirBox"></div>
+        <label class="f"><input type="checkbox" id="cfAuto" /> 撮ったらすぐ保存先にも入れる</label>
+        <p class="note">保存先の下に「工事名 › 種別 › 細別 › 1_施工状況 …」のフォルダを作って入れます（施工の工事写真作成エンジンと同じ形）。</p>
+      </div>
+      <div class="card">
+        <h2>🏗 工事の情報（一発バーンの現場の設定）</h2>
+        <label class="f" for="cfName">工事名（黒板・XMP に入れる正式な名前）</label>
+        <input type="text" id="cfName" />
+        <label class="f" for="cfCon">受注者</label>
+        <input type="text" id="cfCon" />
+        <div class="row">
+          <div class="grow"><label class="f" for="cfFrom">工期（始め）</label><input type="date" id="cfFrom" data-noipx /></div>
+          <div class="grow"><label class="f" for="cfTo">工期（終わり）</label><input type="date" id="cfTo" data-noipx /></div>
+        </div>
+        <button type="button" class="btn blue wide" id="cfSave" style="margin-top:10px">現場の設定に入れる</button>
+      </div>
+      <div class="card">
+        <h2>🧾 黒板</h2>
+        <label class="f">黒板の色</label>
+        <div class="chips" id="cfColor"></div>
+        <label class="f" for="cfSize">黒板の大きさ（写真の幅の割合）<span id="cfSizeV"></span></label>
+        <input type="range" id="cfSize" min="0.17" max="0.45" step="0.01" style="width:100%" />
+        <label class="f">黒板の場所</label>
+        <div class="chips" id="cfPos"></div>
+        <label class="f">写真の大きさ</label>
+        <div class="chips" id="cfRes"></div>
+        <p class="note">電子納品の目安は 100〜300 万画素です（1600×1200 で 192 万画素）。</p>
+      </div>
+    </section>
+
+    <nav class="tabs" id="tabs">
+      <button type="button" data-go="home" aria-current="page"><i>🏠</i>ホーム</button>
+      <button type="button" data-go="shoot"><i>📸</i>撮る</button>
+      <button type="button" data-go="album"><i>🖼</i>写真帳</button>
+      <button type="button" data-go="tree"><i>🌳</i>ツリー</button>
+      <button type="button" data-go="set"><i>💾</i>設定</button>
+    </nav>
+
+    <div class="sheet" id="sheet" hidden data-noipx><div id="sheetBody"></div></div>
+    <div class="toast" id="toast" hidden></div>
+
+    <div class="cam" id="cam" hidden>
+      <div class="stage" id="camStage">
+        <video id="camVideo" playsinline muted autoplay></video>
+        <canvas class="bb" id="camBB"></canvas>
+        <div class="info" id="camInfo"></div>
+        <div class="flash" id="camFlash"></div>
+      </div>
+      <div class="side">
+        <button type="button" id="camClose" aria-label="カメラを閉じる">✕</button>
+        <button type="button" id="camPos" aria-label="黒板の場所">↘</button>
+        <button type="button" class="shot" id="camShot" aria-label="撮る"></button>
+        <button type="button" id="camEdit" aria-label="黒板を直す">📝</button>
+        <button type="button" class="last" id="camLast" aria-label="写真帳"></button>
+      </div>
+    </div>
+
+    <input type="file" id="impFile" accept="image/jpeg,image/*" multiple hidden data-nofp />
+    <input type="file" id="phoneCam" accept="image/*" capture="environment" hidden data-nofp />
+    <input type="file" id="treeFile" accept=".pdf,.json,.ckd,.txt,.csv,*/*" hidden />
+
+    <script>
+      (function () {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        const A = window.KurukuruAndroid || null;
+        const G = window.Genba || null;
+        const BANNED = ["中谷行寿", "松本光市", "今村正人"];   // 書類に入れない名前(施工の決まり)
+        const KUBUN = ["着手前及び完成写真", "施工状況写真", "安全管理写真", "使用材料写真", "品質管理写真", "出来形管理写真", "災害写真", "事故写真", "その他（公害、環境、補償等）"];
+        const KUBUN_SHORT = { "着手前及び完成写真": "着手前・完成", "施工状況写真": "施工状況", "安全管理写真": "安全管理", "使用材料写真": "使用材料", "品質管理写真": "品質管理", "出来形管理写真": "出来形管理", "災害写真": "災害", "事故写真": "事故", "その他（公害、環境、補償等）": "その他" };
+        const SUBDIR = { "施工状況写真": "1_施工状況", "使用材料写真": "2_使用材料", "品質管理写真": "3_品質管理", "出来形管理写真": "4_出来形管理" };
+        const FIXDIR = { "着手前及び完成写真": "00_着手前・完成", "安全管理写真": "90_安全管理", "災害写真": "99_その他（災害・事故・環境等）", "事故写真": "99_その他（災害・事故・環境等）", "その他（公害、環境、補償等）": "99_その他（災害・事故・環境等）" };
+        const SKIP = ["直接工事費", "間接工事費", "共通仮設費", "共通仮設", "純工事費", "現場管理費", "工事原価", "一般管理費", "一般管理費等", "工事価格", "消費税", "消費税相当額", "工事費", "本工事費", "率計上", "合計", "小計", "計"];
+        const SKIP_UNDER = ["共通仮設", "共通仮設費", "間接工事費", "諸経費"];
+        const LVCOL = ["#c2255c", "#2f3a8f", "#2b8a3e", "#c76a00"];
+        const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* */ } } };
+        const CFG_DEF = { color: "green", size: 0.24, pos: "br", res: "1600", auto: true };
+        let CFG = { ...CFG_DEF };
+        try { CFG = { ...CFG_DEF, ...JSON.parse(ls.get("ut.cfg") || "{}") }; } catch (e) { /* */ }
+        const saveCfg = () => ls.set("ut.cfg", JSON.stringify(CFG));
+
+        function toast(t, ms) { const e = $("toast"); e.textContent = t; e.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { e.hidden = true; }, ms || 2600); }
+        const pad = (n, w = 2) => String(n).padStart(w, "0");
+        const banned = (s) => BANNED.find((n) => String(s || "").includes(n));
+        const safeName = (s, n = 60) => String(s || "").replace(/[\\/:*?"<>|\r\n\t]/g, "_").replace(/\s+$/, "").slice(0, n) || "_";
+        const nk = (s) => String(s || "").replace(/[\s　]/g, "");
+
+        // ------------------------------------------------------------ 保存(IndexedDB)
+        let dbp = null;
+        function db() {
+          if (dbp) return dbp;
+          dbp = new Promise((ok, ng) => {
+            const r = indexedDB.open("utsushi", 1);
+            r.onupgradeneeded = () => {
+              const d = r.result;
+              const p = d.createObjectStore("photos", { keyPath: "id" }); p.createIndex("site", "site");
+              d.createObjectStore("trees");
+              const b = d.createObjectStore("boards", { keyPath: "id" }); b.createIndex("site", "site");
+            };
+            r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error);
+          });
+          return dbp;
+        }
+        async function tx(store, mode, fn) {
+          const d = await db();
+          return new Promise((ok, ng) => {
+            const t = d.transaction(store, mode), st = t.objectStore(store); let out;
+            const r = fn(st); if (r) r.onsuccess = () => { out = r.result; };
+            t.oncomplete = () => ok(out); t.onerror = () => ng(t.error); t.onabort = () => ng(t.error);
+          });
+        }
+        const bySite = (store, site) => tx(store, "readonly", (st) => st.index("site").getAll(site));
+
+        // ------------------------------------------------------------ 現場(一発バーン)
+        let site = "", siteRec = null;
+        const S = () => (siteRec && siteRec.settings) || {};
+        const kname = () => S().kname || site || "";
+        async function loadSite() {
+          site = G ? G.current() : (ls.get("ut.site") || "");
+          siteRec = G && site ? await G.get(site).catch(() => null) : null;
+          tree = site ? (await tx("trees", "readonly", (st) => st.get(site))) || [] : [];
+          drawHome(); drawShoot(); if (cur === "album") drawAlbum(); if (cur === "tree") drawTree(); if (cur === "boards") drawBoards(); if (cur === "set") drawSet();
+        }
+        async function putSiteSettings(v) {
+          if (!G || !site) return;
+          const r = await G.get(site); if (!r) return;
+          r.settings = { ...r.settings, ...v }; await G.put(r); siteRec = r;
+        }
+        function needSite() {
+          if (site) return true;
+          toast("先に現場を選んでください（上の 🏗 か、一発バーンの最初の画面）。", 4000);
+          if (G && G.pick) G.pick();
+          return false;
+        }
+
+        // ------------------------------------------------------------ 画面の切り替え
+        let cur = "home";
+        const VIEWS = { home: "vHome", shoot: "vShoot", album: "vAlbum", tree: "vTree", boards: "vBoards", set: "vSet" };
+        function go(v) {
+          if (v !== "home" && v !== "set" && !needSite()) return;
+          cur = v;
+          for (const k in VIEWS) $(VIEWS[k]).hidden = k !== v;
+          for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-current", b.dataset.go === v ? "page" : "false");
+          if (v === "home") drawHome(); if (v === "shoot") drawShoot(); if (v === "album") drawAlbum(); if (v === "tree") drawTree(); if (v === "boards") drawBoards(); if (v === "set") drawSet();
+          window.scrollTo(0, 0);
+        }
+        document.addEventListener("click", (e) => {
+          const g = e.target.closest("[data-go]"); if (g) { go(g.dataset.go); return; }
+          const a = e.target.closest("[data-act]"); if (!a) return;
+          if (a.dataset.act === "import") { if (needSite()) $("impFile").click(); }
+          if (a.dataset.act === "ks") ksDialog();
+        });
+
+        async function drawHome() {
+          const s = S();
+          $("siteCard").innerHTML = site
+            ? `<b>${esc(kname())}</b><small>現場「${esc(site)}」${s.from || s.to ? `・工期 ${esc(s.from || "")} 〜 ${esc(s.to || "")}` : ""}</small><small>${s.contractor ? "受注者 " + esc(s.contractor) : "受注者はまだ入っていません（設定）"}</small>`
+            : `<b>現場が選ばれていません</b><small>一発バーンの最初の画面で現場を作って選んでください。</small>`;
+          if (!site) { $("hCount").textContent = "—"; return; }
+          const ps = await bySite("photos", site), bs = await bySite("boards", site);
+          $("hCount").textContent = ps.length + " 枚";
+          $("hBoards").textContent = bs.length + " 枚";
+          $("hTree").textContent = tree.length ? tree.filter((n) => n.lv === 1).length + " 工種・" + tree.length + " 段" : "まだありません";
+          $("hDir").textContent = dirLabel();
+        }
+
+        // ------------------------------------------------------------ 工種ツリー
+        // tree = [{ id, parent, lv(1=工種 2=種別 3=細別), name }]  順番は配列の順
+        let tree = [];
+        const LV = ["", "工種", "種別", "細別"];
+        const kids = (pid) => tree.filter((n) => (n.parent || "") === (pid || ""));
+        const nodeOf = (id) => tree.find((n) => n.id === id);
+        const pathOf = (id) => { const a = []; let n = nodeOf(id); while (n) { a.unshift(n); n = nodeOf(n.parent); } return a; };
+        const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        async function saveTree() { if (site) await tx("trees", "readwrite", (st) => st.put(tree, site)); }
+        function addPath(names) {   // ["公園工事","施設整備","雨水排水設備工"] を足す(あれば使う)
+          let pid = "", id = "";
+          names.forEach((nm, i) => {
+            nm = String(nm || "").trim(); if (!nm) return;
+            let n = kids(pid).find((k) => k.name === nm);
+            if (!n) { n = { id: uid(), parent: pid, lv: i + 1, name: nm }; tree.push(n); }
+            pid = id = n.id;
+          });
+          return id;
+        }
+        function sortTree() {   // 親子の順に並べ直す
+          const out = []; const walk = (pid) => kids(pid).forEach((n) => { out.push(n); walk(n.id); }); walk(""); tree = out;
+        }
+        let treeCount = {};
+        async function drawTree() {
+          const ps = site ? await bySite("photos", site) : [];
+          treeCount = {};
+          for (const p of ps) for (const n of pathOf(p.node)) treeCount[n.id] = (treeCount[n.id] || 0) + 1;
+          const ul = $("tList");
+          if (!tree.length) { ul.innerHTML = `<li class="empty">まだありません。「＋ 工種」で作るか、「📄 読み込む」で設計書（PDF）・写真・CKD から作ります。</li>`; return; }
+          ul.innerHTML = tree.map((n) => `<li class="tn" style="padding-left:${(n.lv - 1) * 16}px" data-id="${n.id}"><span class="lvbar" style="background:${LVCOL[n.lv] || "#999"}"></span><button type="button" class="nm">${esc(n.name)}<small>${LV[n.lv] || ""}</small></button>${treeCount[n.id] ? `<span class="cnt">[${treeCount[n.id]}]</span>` : ""}<button type="button" class="more" aria-label="${esc(n.name)} のメニュー">⋮</button></li>`).join("");
+        }
+        $("tList").addEventListener("click", (e) => {
+          const li = e.target.closest(".tn"); if (!li) return;
+          const n = nodeOf(li.dataset.id); if (!n) return;
+          if (e.target.closest(".more") || e.target.closest(".nm")) nodeMenu(n);
+        });
+        function nodeMenu(n) {
+          const b = [];
+          if (n.lv < 3) b.push([`＋ この下に${LV[n.lv + 1]}を足す`, () => askName(LV[n.lv + 1] + "の名前", "", (nm) => { tree.push({ id: uid(), parent: n.id, lv: n.lv + 1, name: nm }); sortTree(); saveTree().then(drawTree); })]);
+          b.push(["✏ 名前を変える", () => askName("名前", n.name, (nm) => { n.name = nm; saveTree().then(drawTree); })]);
+          b.push(["↑ 上へ", () => move(n, -1)], ["↓ 下へ", () => move(n, 1)]);
+          b.push(["📸 この工種で撮る", () => { shot.node = n.id; go("shoot"); }]);
+          b.push(["🗑 消す（下の段も）", () => {
+            const del = new Set([n.id]); let more = true;
+            while (more) { more = false; for (const k of tree) if (!del.has(k.id) && del.has(k.parent)) { del.add(k.id); more = true; } }
+            if (!confirmBox(`「${n.name}」と下の ${del.size - 1} 段を消します。写真は消えません。`)) return;
+            tree = tree.filter((k) => !del.has(k.id)); saveTree().then(drawTree);
+          }]);
+          menu(n.name, b);
+        }
+        function move(n, d) {
+          const sib = kids(n.parent), i = sib.indexOf(n), j = i + d; if (j < 0 || j >= sib.length) return;
+          const a = tree.indexOf(n), b = tree.indexOf(sib[j]); tree[a] = sib[j]; tree[b] = n; sortTree(); saveTree().then(drawTree);
+        }
+        $("tAdd").addEventListener("click", () => askName("工種の名前（例 公園工事）", "", (nm) => { tree.push({ id: uid(), parent: "", lv: 1, name: nm }); sortTree(); saveTree().then(drawTree); }));
+        $("tImp").addEventListener("click", () => menu("工種ツリーを読み込む", [
+          ["📄 設計書（PDF）から", () => { treeMode = "pdf"; $("treeFile").accept = ".pdf,application/pdf"; $("treeFile").click(); }],
+          ["📷 写真（SiteBox の黒板入り）から", () => { treeMode = "photo"; $("treeFile").accept = "image/jpeg,image/*"; $("treeFile").multiple = true; $("treeFile").click(); }],
+          ["🗂 CKD ファイルから", () => { treeMode = "ckd"; $("treeFile").accept = "*/*"; $("treeFile").click(); }],
+          ["📋 文字で入れる（字下げで段）", pasteTree],
+          ["📥 ツリーのファイル（.json）を読む", () => { treeMode = "json"; $("treeFile").accept = ".json,application/json"; $("treeFile").click(); }],
+          ["📤 ツリーをファイルに書き出す", () => download(JSON.stringify({ app: "こっそり写し太郎", site, tree }, null, 1), `工種ツリー_${safeName(site)}.json`, "application/json")],
+        ]));
+        let treeMode = "";
+        $("treeFile").addEventListener("change", async () => {
+          const fs = [...$("treeFile").files]; $("treeFile").value = ""; $("treeFile").multiple = false; if (!fs.length) return;
+          try {
+            let n0 = tree.length, msg = "";
+            if (treeMode === "json") { const o = JSON.parse(await fs[0].text()); for (const p of flatPaths(o.tree || [])) addPath(p); }
+            else if (treeMode === "photo") { let k = 0; for (const f of fs) { const x = readXmp(new Uint8Array(await f.arrayBuffer())); if (x && x.ConstructionType) { addPath([x.ConstructionType, x.MiddleClassification, x.SmallClassification]); k++; } } msg = `写真 ${fs.length} 枚のうち ${k} 枚から。`; }
+            else if (treeMode === "pdf") { const r = await treeFromPdf(fs[0]); for (const p of r.paths) addPath(p); msg = r.msg; if (r.info && r.info.工事名 && !S().kname) await putSiteSettings({ kname: r.info.工事名 }); }
+            else if (treeMode === "ckd") { const r = await treeFromCkd(fs[0]); if (!r.paths.length) { alertBox(r.msg); return; } for (const p of r.paths) addPath(p); msg = r.msg; }
+            sortTree(); await saveTree(); drawTree(); drawHome();
+            toast(`工種ツリーに ${tree.length - n0} 段を足しました。${msg}`, 5000);
+          } catch (er) { alertBox("読めませんでした: " + (er.message || er)); }
+        });
+        function flatPaths(t) { const out = []; const byId = {}; t.forEach((n) => (byId[n.id] = n)); for (const n of t) { if (t.some((k) => k.parent === n.id)) continue; const a = []; let x = n; while (x) { a.unshift(x.name); x = byId[x.parent]; } out.push(a); } return out; }
+        function pasteTree() {
+          sheet("文字で入れる", `<p class="note">1行に1つ。字下げ（空白・タブ）で段を下げます。0 個＝工種、1 個＝種別、2 個＝細別。「公園工事 > 施設整備 > 雨水排水設備工」のように「>」でつないでも入ります。</p><textarea id="ptT" style="min-height:220px" data-noipx placeholder="公園工事&#10;　基盤整備&#10;　　敷地造成工&#10;　　擁壁工&#10;　施設整備&#10;　　雨水排水設備工"></textarea><button type="button" class="btn pri wide" id="ptOk" style="margin-top:10px">入れる</button>`);
+          $("ptOk").onclick = async () => {
+            const n0 = tree.length, st = [];
+            for (const raw of $("ptT").value.split(/\r?\n/)) {
+              if (!raw.trim()) continue;
+              if (raw.includes(">") || raw.includes("＞")) { addPath(raw.split(/[>＞]/).map((s) => s.trim())); continue; }
+              const ind = (raw.match(/^[\s　]*/)[0].replace(/\t/g, "  ").replace(/　/g, "  ").length + 1) >> 1;
+              const lv = Math.min(2, ind); st.length = lv; st[lv] = raw.trim(); addPath(st.slice(0, lv + 1));
+            }
+            sortTree(); await saveTree(); closeSheet(); drawTree(); toast(`${tree.length - n0} 段を足しました。`);
+          };
+        }
+
+        // 設計書 PDF(pdf.js)。施工の写真エンジン(read_ref_pdf・design_tree)と同じ読み方：
+        // 「本工事内訳書 → A-n号 1式当たり内訳書 → B-n号 明細書」の参照をたどる。読めなければ字下げの位置で段を決める
+        function loadScript(src) { return new Promise((ok, ng) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => ng(new Error(src + " を読めません")); document.head.appendChild(s); }); }
+        async function pdfLib() {
+          if (!window.pdfjsLib) await loadScript("vendor/pdfjs/pdf.min.js");
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdfjs/pdf.worker.min.js";
+          return window.pdfjsLib;
+        }
+        async function pdfPages(file) {
+          const lib = await pdfLib();
+          const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), cMapUrl: "vendor/pdfjs/cmaps/", cMapPacked: true }).promise;
+          const pages = [];
+          for (let i = 1; i <= doc.numPages; i++) {
+            const pg = await doc.getPage(i), vp = pg.getViewport({ scale: 1 }), tc = await pg.getTextContent();
+            const ws = tc.items.filter((t) => t.str && t.str.trim()).map((t) => { const [, , , , e, f] = t.transform; const h = t.height || Math.abs(t.transform[3]) || 8; return { text: t.str, x0: e, top: vp.height - f - h, w: t.width }; });
+            ws.sort((a, b) => a.top - b.top || a.x0 - b.x0);
+            const rows = []; let curRow = [];
+            for (const w of ws) { if (curRow.length && w.top - curRow[0].top > 4) { rows.push(curRow.sort((a, b) => a.x0 - b.x0)); curRow = []; } curRow.push(w); }
+            if (curRow.length) rows.push(curRow.sort((a, b) => a.x0 - b.x0));
+            // 横に近い文字をつなぐ(pdf.js は1文字ずつのことがある)
+            const merged = rows.map((r) => { const o = []; for (const w of r) { const l = o[o.length - 1]; if (l && w.x0 - (l.x0 + l.w) < 3) { l.text += w.text; l.w = w.x0 + w.w - l.x0; } else o.push({ ...w }); } return o; });
+            pages.push({ rows: merged, text: merged.map((r) => r.map((w) => w.text).join(" ")).join("\n") });
+          }
+          return pages;
+        }
+        async function treeFromPdf(file) {
+          const pages = await pdfPages(file);
+          const REF = /([A-Z])-\s*(\d+)号/;
+          const info = {}, refp = {}, root = [];
+          for (const pg of pages) {
+            const lines = pg.text.split("\n"); if (!lines.length) continue;
+            const head = nk(lines[0]);
+            if (!info.工事名) { const m = pg.text.match(/工\s*事\s*名\s*称?\s+(\S.*)/); if (m && nk(pg.text.slice(0, 600)).includes("工事名")) info.工事名 = m[1].trim(); }
+            if (head.startsWith("本工事内訳書")) {
+              let lv1 = "";
+              for (const row of pg.rows.filter((r) => r[0].top > 125)) {
+                const txt = row.map((w) => w.text.trim()), joined = txt.join("");
+                if (joined.startsWith("直接工事費")) break;
+                if (txt[0] === "本工事費" && txt.length > 1) { lv1 = txt[1]; continue; }
+                const ref = joined.match(REF); if (ref && txt.length) root.push([lv1, txt[0], ref[1] + "-" + ref[2]]);
+              }
+              continue;
+            }
+            const m = head.match(/([A-Z])-(\d+)号1式当たり(内訳書|明細書)/);
+            if (m) {
+              const rows = [];
+              for (const row of pg.rows.filter((r) => r[0].top > 125)) {
+                const txt = row.map((w) => w.text.trim()).filter(Boolean);
+                if (!txt.length || txt[0] === "計" || txt[0] === "合計" || row[0].x0 > 120) continue;
+                const ref = txt.slice(1).join(" ").match(REF); rows.push([txt[0], ref ? ref[1] + "-" + ref[2] : ""]);
+              }
+              refp[m[1] + "-" + m[2]] = rows;
+            }
+          }
+          let items = [];
+          if (root.length) {
+            let seen = null;
+            for (const [lv1, lv2, ref] of root) {
+              if (lv1 !== seen) { items.push({ name: lv1, lv: 1 }); seen = lv1; }
+              items.push({ name: lv2, lv: 2 });
+              for (const [lv3, ref3] of refp[ref] || []) { items.push({ name: lv3, lv: 3 }); for (const [lv4] of refp[ref3] || []) items.push({ name: lv4, lv: 4 }); }
+            }
+          } else {
+            // 字下げで段を決める(内訳書の名称の列)。名称の書き出しの位置を 4 段まで
+            const rows = [];
+            for (const pg of pages) { if (!/内訳|明細|設計書/.test(pg.text.slice(0, 300))) continue; for (const r of pg.rows) { const w = r[0]; if (w && /[一-龠ぁ-んァ-ヶ]/.test(w.text) && w.text.length <= 40 && !/^(No|頁|ページ|工事名|名称|単位|数量|金額|摘要)/.test(w.text)) rows.push(w); } }
+            const xs = [...new Set(rows.map((w) => Math.round(w.x0 / 6) * 6))].sort((a, b) => a - b);
+            const col = xs.filter((x) => rows.filter((w) => Math.abs(Math.round(w.x0 / 6) * 6 - x) < 1).length >= 2).slice(0, 4);
+            for (const w of rows) { const x = Math.round(w.x0 / 6) * 6, lv = col.indexOf(x) + 1; if (lv > 0) items.push({ name: w.text.trim(), lv }); }
+          }
+          const paths = designTree(items);
+          return { paths, info, msg: root.length ? `内訳書・明細書の参照から ${paths.length} 行。` : paths.length ? `字下げから ${paths.length} 行（形がちがう設計書なので、たしかめてください）。` : "この PDF からは工種が読めませんでした（文字の入っていない PDF かもしれません）。" };
+        }
+        function designTree(items) {   // 写真エンジンの design_tree と同じ。デキスパートの並び(工種=第1 工事区分、種別=第2、細別=第3)
+          const skip = new Set(SKIP.map(nk)), skipU = SKIP_UNDER.map(nk);
+          let c1 = "", c2 = "", skipping = false; const out = new Map();
+          for (const it of items) {
+            const name = String(it.name || "").replace(/\s+/g, " ").trim(), lv = it.lv; if (!name || !lv) continue;
+            const key = nk(name.replace(/[（(].*?[)）]$/, ""));
+            if (lv === 1) { skipping = skipU.some((s) => key.startsWith(s)); c1 = name; c2 = ""; continue; }
+            if (skipping || skip.has(key)) continue;
+            if (lv === 2) { c2 = name; out.set([c1, name, ""].join("\t"), 1); }
+            else if (lv === 3 && c2) { out.delete([c1, c2, ""].join("\t")); out.set([c1, c2, name].join("\t"), 1); }
+          }
+          return [...out.keys()].map((k) => k.split("\t").filter(Boolean)).filter((p) => p.length);
+        }
+        // CKD:見本がまだ無いので、中身を見て「工種/種別/細別」らしい形(XML・区切り文字)を読む
+        async function treeFromCkd(file) {
+          const buf = new Uint8Array(await file.arrayBuffer());
+          let txt = "";
+          for (const enc of ["utf-8", "shift_jis", "utf-16le"]) { try { const t = new TextDecoder(enc, { fatal: true }).decode(buf); txt = t; break; } catch (e) { /* 次 */ } }
+          if (!txt) return { paths: [], msg: "CKD ファイルの中身が読めませんでした（文字のファイルではないようです）。見本をいただければ読めるようにします。" };
+          const paths = [];
+          const tag = (n) => [...txt.matchAll(new RegExp("<(?:\\w+:)?" + n + "[^>]*>([^<]*)<", "g"))].map((m) => m[1].trim());
+          if (/ConstructionType|工種/.test(txt) && /</.test(txt)) {
+            const blocks = txt.split(/<\/?(?:\w+:)?(?:Description|Item|Node|写真|分類)[^>]*>/);
+            for (const b of blocks) { const g = (n) => (b.match(new RegExp("<(?:\\w+:)?" + n + "[^>]*>([^<]*)<")) || [])[1]; const p = [g("ConstructionType") || g("工種"), g("MiddleClassification") || g("種別"), g("SmallClassification") || g("細別")].filter(Boolean); if (p.length) paths.push(p); }
+            if (!paths.length) { const a = tag("ConstructionType"); a.forEach((x) => paths.push([x])); }
+          } else {
+            for (const line of txt.split(/\r?\n/)) { const c = line.split(/[,\t]/).map((s) => s.replace(/^"|"$/g, "").trim()).filter(Boolean); if (c.length >= 1 && c.length <= 6 && c.every((s) => s.length < 40) && c.some((s) => /工$|工事$|整備$/.test(s))) paths.push(c.slice(0, 3)); }
+          }
+          return paths.length ? { paths, msg: `CKD から ${paths.length} 行（形を推して読んだので、たしかめてください）。` } : { paths: [], msg: "CKD ファイルの形が分かりませんでした。見本をいただければ読めるようにします。" };
+        }
+
+        // ------------------------------------------------------------ これから撮る写真(撮影の情報)
+        const shot = { kubun: "施工状況写真", node: "", spot: "", text: "" };
+        try { Object.assign(shot, JSON.parse(ls.get("ut.shot") || "{}")); } catch (e) { /* */ }
+        const saveShot = () => ls.set("ut.shot", JSON.stringify(shot));
+        function treeNames(id) { const p = pathOf(id); return { k: p[0] ? p[0].name : "", m: p[1] ? p[1].name : "", s: p[2] ? p[2].name : "" }; }
+        function pathText(id) { const p = pathOf(id); return p.length ? p.map((n) => n.name).join(" › ") : ""; }
+        function drawShoot() {
+          $("sKubun").innerHTML = KUBUN.map((k) => `<button type="button" class="chip" data-k="${esc(k)}" aria-pressed="${shot.kubun === k}">${esc(KUBUN_SHORT[k])}</button>`).join("");
+          $("sPath").querySelector("span").textContent = pathText(shot.node) || (FIXDIR[shot.kubun] ? "（この区分は工種なしでも可）" : "工種を選んでください");
+          if (document.activeElement !== $("sSpot")) $("sSpot").value = shot.spot || "";
+          if (document.activeElement !== $("sText")) $("sText").value = shot.text || "";
+          drawPrev();
+          const w = [];
+          if (!shot.spot) w.push("測点が空です（電子納品では撮影箇所が要ります）。");
+          if (!shot.node && !FIXDIR[shot.kubun]) w.push("工種がまだ選ばれていません。");
+          $("sNote").innerHTML = w.map((x) => `<span class="warn">⚠ ${esc(x)}</span>`).join("<br>");
+        }
+        $("sKubun").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (!b) return; shot.kubun = b.dataset.k; saveShot(); drawShoot(); });
+        $("sPath").addEventListener("click", () => pickNode(shot.node, (id) => { shot.node = id; saveShot(); drawShoot(); }));
+        $("sSpot").addEventListener("input", () => { shot.spot = $("sSpot").value; saveShot(); drawPrev(); });
+        $("sSpot").addEventListener("change", () => { shot.spot = $("sSpot").value; saveShot(); drawShoot(); });
+        $("sText").addEventListener("input", () => { shot.text = $("sText").value; saveShot(); drawPrev(); });
+        $("sText").addEventListener("change", () => { shot.text = $("sText").value; saveShot(); drawPrev(); });
+        function drawPrev() { const c = $("sPrev"), info = boardInfo(shot); const w = 360, h = Math.round(w * 0.78); c.width = w * 2; c.height = h * 2; const g = c.getContext("2d"); g.scale(2, 2); drawBoard(g, 0, 0, w, h, info); }
+        function pickNode(sel, done, allowAll) {
+          const rows = tree.map((n) => `<li class="tn${n.id === sel ? " sel" : ""}" style="padding-left:${(n.lv - 1) * 16}px" data-id="${n.id}"><span class="lvbar" style="background:${LVCOL[n.lv]}"></span><button type="button" class="nm">${esc(n.name)}<small>${LV[n.lv]}</small></button></li>`).join("");
+          sheet(allowAll ? "しぼる" : "工種・種別・細別を選ぶ", (allowAll ? `<button type="button" class="btn wide" data-id="" style="margin-bottom:8px">すべての写真</button>` : `<button type="button" class="btn wide" data-id="" style="margin-bottom:8px">工種なし</button>`) +
+            (tree.length ? `<ul class="tree card" style="padding:4px 8px">${rows}</ul>` : `<p class="empty">工種ツリーがまだありません。<br><button type="button" class="btn blue" id="pkGo" style="margin-top:8px">🌳 工種ツリーを作る</button></p>`));
+          const body = $("sheetBody");
+          body.addEventListener("click", (e) => {
+            if (e.target.id === "pkGo") { closeSheet(); go("tree"); return; }
+            const li = e.target.closest("[data-id]"); if (!li) return; closeSheet(); done(li.dataset.id);
+          });
+        }
+        $("sToBoard").addEventListener("click", async () => {
+          if (!needSite()) return;
+          const nm = (shot.text || "").split(/\r?\n/)[0].trim() || "黒板";
+          await tx("boards", "readwrite", (st) => st.put({ id: uid(), site, name: nm, kubun: shot.kubun, node: shot.node, spot: shot.spot, text: shot.text, at: Date.now() }));
+          toast(`ひな形「${nm}」に入れました。`); drawHome();
+        });
+        $("sFromBoard").addEventListener("click", () => go("boards"));
+
+        // ------------------------------------------------------------ 黒板ひな形
+        async function drawBoards() {
+          const bs = (await bySite("boards", site)).sort((a, b) => b.at - a.at);
+          $("bList").innerHTML = bs.length ? bs.map((b) => `<div class="card row" data-id="${b.id}"><canvas width="220" height="172" style="width:110px;height:86px;border-radius:4px"></canvas><div class="grow"><b>${esc(b.name)}</b><div class="note">${esc(KUBUN_SHORT[b.kubun] || "")}・${esc(pathText(b.node) || "工種なし")}${b.spot ? "・" + esc(b.spot) : ""}</div><div class="row" style="margin-top:6px"><button type="button" class="btn sm pri" data-b="use">📸 これで撮る</button><button type="button" class="btn sm" data-b="del">🗑</button></div></div></div>`).join("") : `<p class="empty">ひな形はまだありません。「撮る」の画面で「＋ ひな形に入れる」を押すと覚えます。</p>`;
+          for (const el of $("bList").querySelectorAll("[data-id]")) { const b = bs.find((x) => x.id === el.dataset.id); const g = el.querySelector("canvas").getContext("2d"); drawBoard(g, 0, 0, 220, 172, boardInfo(b)); }
+          $("bList").onclick = async (e) => {
+            const c = e.target.closest("[data-id]"), act = e.target.closest("[data-b]"); if (!c || !act) return;
+            const b = bs.find((x) => x.id === c.dataset.id);
+            if (act.dataset.b === "use") { Object.assign(shot, { kubun: b.kubun, node: b.node, spot: b.spot, text: b.text }); saveShot(); go("shoot"); }
+            if (act.dataset.b === "del" && confirmBox(`ひな形「${b.name}」を消しますか？`)) { await tx("boards", "readwrite", (st) => st.delete(b.id)); drawBoards(); }
+          };
+        }
+
+        // ------------------------------------------------------------ 黒板を描く
+        const COLORS = { green: { bg: "#224b2d", fg: "#ffffff", name: "緑" }, black: { bg: "#1d1f22", fg: "#ffffff", name: "黒" }, white: { bg: "#ffffff", fg: "#111111", name: "白" } };
+        function boardInfo(o) {
+          const t = treeNames(o.node);
+          return { kname: kname(), kousyu: t.k ? [t.k, t.m, t.s].filter(Boolean).slice(-1)[0] : "", spot: o.spot || "", lines: String(o.text || "").split(/\r?\n/).slice(0, 8) };
+        }
+        function fitText(g, s, maxW, size, bold) {
+          let z = size; g.font = `${bold ? "bold " : ""}${z}px "Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif`;
+          while (z > 6 && g.measureText(s).width > maxW) { z -= 1; g.font = `${bold ? "bold " : ""}${z}px "Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif`; }
+          return z;
+        }
+        function drawBoard(g, x, y, w, h, info) {
+          const c = COLORS[CFG.color] || COLORS.green, lw = Math.max(1, w * 0.006), pad = w * 0.025;
+          g.save(); g.fillStyle = c.bg; g.fillRect(x, y, w, h);
+          g.strokeStyle = c.fg; g.fillStyle = c.fg; g.lineWidth = lw; g.textBaseline = "middle";
+          const ix = x + pad, iy = y + pad, iw = w - pad * 2, ih = h - pad * 2;
+          g.strokeRect(ix, iy, iw, ih);
+          const rh = ih * 0.13, lab = iw * 0.24, rows = [["工事名", info.kname], ["工　種", info.kousyu], ["測　点", info.spot]];
+          rows.forEach(([k, v], i) => {
+            const ry = iy + rh * i;
+            g.beginPath(); g.moveTo(ix, ry + rh); g.lineTo(ix + iw, ry + rh); g.stroke();
+            g.beginPath(); g.moveTo(ix + lab, ry); g.lineTo(ix + lab, ry + rh); g.stroke();
+            fitText(g, k, lab - pad * 2, rh * 0.48, true); g.textAlign = "center"; g.fillText(k, ix + lab / 2, ry + rh / 2);
+            g.textAlign = "left"; fitText(g, v || "", iw - lab - pad * 2, rh * 0.5, true); g.fillText(v || "", ix + lab + pad, ry + rh / 2);
+          });
+          const fy = iy + rh * 3 + pad, fl = Math.max(4, info.lines.length), lh = Math.min((ih - rh * 3 - pad * 2) / fl, rh * 0.95);
+          info.lines.forEach((ln, i) => { g.textAlign = "left"; fitText(g, ln, iw - pad * 2, lh * 0.8, true); g.fillText(ln, ix + pad, fy + lh * (i + 0.5)); });
+          g.restore();
+        }
+        function boardRect(W, H) {   // 写真の中の黒板の場所(写真の向きのまま)
+          const bw = Math.round(W * CFG.size), bh = Math.round(bw * 0.78), m = Math.round(W * 0.012);
+          const p = CFG.pos;
+          return { x: p.includes("r") ? W - bw - m : m, y: p.includes("b") ? H - bh - m : m, w: bw, h: bh };
+        }
+
+        // ------------------------------------------------------------ カメラ
+        let stream = null;
+        async function openCam() {
+          if (!needSite()) return;
+          if (banned(shot.text) || banned(shot.spot)) { alertBox(`「${banned(shot.text) || banned(shot.spot)}」は書類に入れない名前です。黒板の文字を直してください。`); return; }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alertBox("この画面ではカメラが使えません。「端末のカメラで撮って黒板を入れる」を使ってください。"); return; }
+          const want = CFG.res === "max" ? 4000 : CFG.res === "2048" ? 2048 : 1600;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: want }, height: { ideal: Math.round(want * 0.75) } } });
+          } catch (e) { alertBox("カメラを開けません: " + (e.message || e.name) + "（カメラの許可を確かめてください）"); return; }
+          $("cam").hidden = false; const v = $("camVideo"); v.srcObject = stream; await v.play().catch(() => { });
+          camInfo(); setTimeout(layoutBB, 300);
+        }
+        function closeCam() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; $("cam").hidden = true; drawHome(); }
+        function camInfo() { $("camInfo").textContent = `${KUBUN_SHORT[shot.kubun]}・${pathText(shot.node) || "工種なし"}${shot.spot ? "・" + shot.spot : ""}`; $("camPos").textContent = { br: "↘", bl: "↙", tr: "↗", tl: "↖" }[CFG.pos]; }
+        function layoutBB() {   // 画面の上に黒板の見本を重ねる
+          const v = $("camVideo"), c = $("camBB"); if (!v.videoWidth) { if (!$("cam").hidden) setTimeout(layoutBB, 200); return; }
+          const vr = v.getBoundingClientRect(), sr = $("camStage").getBoundingClientRect();
+          const r = boardRect(vr.width, vr.height);
+          c.style.left = vr.left - sr.left + r.x + "px"; c.style.top = vr.top - sr.top + r.y + "px"; c.style.width = r.w + "px"; c.style.height = r.h + "px";
+          c.width = r.w * 2; c.height = r.h * 2; const g = c.getContext("2d"); g.scale(2, 2); drawBoard(g, 0, 0, r.w, r.h, boardInfo(shot));
+        }
+        window.addEventListener("resize", () => { if (!$("cam").hidden) setTimeout(layoutBB, 150); });
+        $("sCam").addEventListener("click", openCam);
+        $("camClose").addEventListener("click", closeCam);
+        $("camPos").addEventListener("click", () => { const o = ["br", "bl", "tl", "tr"]; CFG.pos = o[(o.indexOf(CFG.pos) + 1) % 4]; saveCfg(); camInfo(); layoutBB(); });
+        $("camEdit").addEventListener("click", () => { closeCam(); go("shoot"); });
+        $("camLast").addEventListener("click", () => { closeCam(); go("album"); });
+        $("camShot").addEventListener("click", async () => {
+          const v = $("camVideo"); if (!v.videoWidth) return;
+          $("camFlash").style.opacity = 1; setTimeout(() => ($("camFlash").style.opacity = 0), 120);
+          let W = v.videoWidth, H = v.videoHeight;
+          const lim = CFG.res === "max" ? 1e9 : CFG.res === "2048" ? 2048 * 1536 : 1600 * 1200;
+          if (W * H > lim) { const k = Math.sqrt(lim / (W * H)); W = Math.round(W * k); H = Math.round(H * k); }
+          const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+          g.drawImage(v, 0, 0, W, H);
+          const raw = await canvasJpeg(c, 0.92);
+          const r = boardRect(W, H); drawBoard(g, r.x, r.y, r.w, r.h, boardInfo(shot));
+          const now = new Date();
+          let jpg = new Uint8Array(await (await canvasJpeg(c, 0.92)).arrayBuffer());
+          jpg = putMeta(jpg, exifNew(W, H, now), xmpOf(metaOf(shot, now)));
+          const rec = await addPhoto({ jpg, raw, W, H, meta: metaOf(shot, now), kokuban: "camera", at: now.getTime() });
+          $("camLast").style.backgroundImage = `url(${URL.createObjectURL(rec.thumb)})`;
+          toast(`📸 ${rec.meta.name || "写真"} を入れました${rec.saved ? "（保存先にも）" : ""}`, 1800);
+        });
+        function metaOf(o, d) {
+          const t = treeNames(o.node), lines = String(o.text || "").split(/\r?\n/);
+          return { kubun: o.kubun, node: o.node || "", k: t.k, m: t.m, s: t.s, spot: o.spot || "", lines, name: (lines[0] || "").trim(), memo: "", date: d ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : "" };
+        }
+
+        // 端末のカメラ(撮った写真の Exif はそのまま残して黒板を入れる)
+        $("sPhone").addEventListener("click", () => { if (needSite()) $("phoneCam").click(); });
+        $("phoneCam").addEventListener("change", async () => {
+          const f = $("phoneCam").files[0]; $("phoneCam").value = ""; if (!f) return;
+          try { const rec = await importOne(f, { ...shot }); toast(`📸 ${rec.meta.name || "写真"} を入れました`); drawHome(); } catch (e) { alertBox("入れられませんでした: " + (e.message || e)); }
+        });
+
+        // ------------------------------------------------------------ JPEG(Exif・XMP)
+        function canvasJpeg(c, q) { return new Promise((ok) => c.toBlob(ok, "image/jpeg", q)); }
+        function segs(b) {   // JPEG の先頭の区切り(APPn など)を並べる
+          const out = []; let i = 2;
+          if (b[0] !== 0xff || b[1] !== 0xd8) throw new Error("JPEG ではありません");
+          while (i < b.length - 4 && b[i] === 0xff) {
+            const m = b[i + 1]; if (m === 0xda || m === 0xd9) break;
+            const L = (b[i + 2] << 8) | b[i + 3]; out.push({ m, s: i, e: i + 2 + L, body: b.subarray(i + 4, i + 2 + L) }); i += 2 + L;
+          }
+          return { out, rest: i };
+        }
+        const isExif = (sg) => sg.m === 0xe1 && sg.body[0] === 0x45 && sg.body[1] === 0x78 && sg.body[2] === 0x69 && sg.body[3] === 0x66;
+        const isXmp = (sg) => sg.m === 0xe1 && new TextDecoder().decode(sg.body.subarray(0, 28)) === "http://ns.adobe.com/xap/1.0/";
+        function readXmp(b) {
+          try {
+            const sg = segs(b).out.find(isXmp); if (!sg) return null;
+            const t = new TextDecoder().decode(sg.body), o = {};
+            for (const m of t.matchAll(/<photo:(\w+)>([\s\S]*?)<\/photo:\1>/g)) o[m[1]] = m[2].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+            return Object.keys(o).length ? o : null;
+          } catch (e) { return null; }
+        }
+        const xe = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        function xmpOf(m) {   // SiteBox と同じ形(電子小黒板 dcpadv 3.0 photoinfo)
+          const f = (k, v) => (v ? ` <photo:${k}>${xe(v)}</photo:${k}>` : "");
+          const s = `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?> <x:xmpmeta xmlns:x="adobe:ns:meta/"> <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"> <rdf:Description rdf:about="" xmlns:photo="http://dcpadv.org/schema/3.0/photoinfo" xmlns:measurement="http://dcpadv.org/schema/3.0/measurement" xmlns:item="http://dcpadv.org/schema/3.0/measurementitem" xmlns:kssb="http://www.kentem.jp/schema/3.0/kssb">` +
+            f("ConstructionName", kname()) + f("Contructor", S().contractor) + f("LargeClassification", "工事") + f("PhotoClassification", m.kubun) + f("ConstructionType", m.k) + f("MiddleClassification", m.m) + f("SmallClassification", m.s) + f("Title", (m.lines || []).join("\n").replace(/\s+$/, "").split("\n").join("__")) + f("ShootingSpot", m.spot) +
+            ` </rdf:Description> </rdf:RDF> </x:xmpmeta> <?xpacket end="w"?>`;
+          return s;
+        }
+        function app1(head, bytes) { const L = bytes.length + head.length + 2; const o = new Uint8Array(4 + head.length + bytes.length); o.set([0xff, 0xe1, L >> 8, L & 255]); o.set(head, 4); o.set(bytes, 4 + head.length); return o; }
+        function exifNew(W, H, d) {   // このアプリで撮った写真:説明「DCP PHOTO」・向き1・撮った日時(本当に撮った時刻)
+          const dt = `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}\0`;
+          return exifBuild([[0x010e, 2, "DCP PHOTO\0"], [0x0112, 3, 1], [0x011a, 5, [72, 1]], [0x011b, 5, [72, 1]], [0x0128, 3, 2], [0x0132, 2, dt]],
+            [[0x9000, 7, "0230"], [0x9003, 2, dt], [0x9004, 2, dt], [0xa001, 3, 1], [0xa002, 4, W], [0xa003, 4, H]]);
+        }
+        function exifMin() { return exifBuild([[0x010e, 2, "DCP PHOTO\0"], [0x0112, 3, 1]], null); }   // Exif の無い写真に足す最小のもの(日時は作らない)
+        function exifBuild(ifd0, exif) {   // リトルエンディアンの TIFF を組み立てる
+          const ents0 = ifd0.slice(); if (exif) ents0.push([0x8769, 4, 0]);
+          const n0 = ents0.length, n1 = exif ? exif.length : 0;
+          const off0 = 8, size0 = 2 + n0 * 12 + 4, offE = off0 + size0, sizeE = exif ? 2 + n1 * 12 + 4 : 0;
+          let dataOff = offE + sizeE; const data = [];
+          const buf = new DataView(new ArrayBuffer(4096)); const u8 = new Uint8Array(buf.buffer);
+          u8.set([0x49, 0x49, 0x2a, 0x00]); buf.setUint32(4, 8, true);
+          const putIfd = (at, ents) => {
+            buf.setUint16(at, ents.length, true);
+            ents.sort((a, b) => a[0] - b[0]).forEach(([tag, type, val], i) => {
+              const p = at + 2 + i * 12; buf.setUint16(p, tag, true); buf.setUint16(p + 2, type, true);
+              if (tag === 0x8769) { buf.setUint32(p + 4, 1, true); buf.setUint32(p + 8, offE, true); return; }
+              if (type === 2 || type === 7) {
+                const bytes = new TextEncoder().encode(val); buf.setUint32(p + 4, bytes.length, true);
+                if (bytes.length <= 4) u8.set(bytes, p + 8); else { buf.setUint32(p + 8, dataOff, true); data.push([dataOff, bytes]); dataOff += bytes.length + (bytes.length & 1); }
+              } else if (type === 3) { buf.setUint32(p + 4, 1, true); buf.setUint16(p + 8, val, true); }
+              else if (type === 4) { buf.setUint32(p + 4, 1, true); buf.setUint32(p + 8, val, true); }
+              else if (type === 5) { buf.setUint32(p + 4, 1, true); buf.setUint32(p + 8, dataOff, true); const b = new Uint8Array(8); const dv = new DataView(b.buffer); dv.setUint32(0, val[0], true); dv.setUint32(4, val[1], true); data.push([dataOff, b]); dataOff += 8; }
+            });
+            buf.setUint32(at + 2 + ents.length * 12, 0, true);
+          };
+          putIfd(off0, ents0); if (exif) putIfd(offE, exif.slice());
+          for (const [o, b] of data) u8.set(b, o);
+          return app1(new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0]), u8.slice(0, dataOff));
+        }
+        function exifNoThumb(seg) {   // 元の Exif のまま、サムネイル(IFD1)へのつなぎだけ外す(黒板の無い古い絵が残らないように)
+          const b = seg.slice(); const t = 4 + 6; const le = b[t] === 0x49; const dv = new DataView(b.buffer, b.byteOffset);
+          const g16 = (o) => dv.getUint16(t + o, le), g32 = (o) => dv.getUint32(t + o, le);
+          try { const o0 = g32(4), n = g16(o0); dv.setUint32(t + o0 + 2 + n * 12, 0, le); } catch (e) { /* そのまま */ }
+          return b;
+        }
+        function exifOrientation(seg) {
+          try { const b = seg; const t = 10, le = b[t] === 0x49, dv = new DataView(b.buffer, b.byteOffset); const o0 = dv.getUint32(t + 4, le), n = dv.getUint16(t + o0, le); for (let i = 0; i < n; i++) { const p = t + o0 + 2 + i * 12; if (dv.getUint16(p, le) === 0x0112) return dv.getUint16(p + 8, le); } } catch (e) { /* */ }
+          return 1;
+        }
+        function exifDate(seg) {
+          try {
+            const b = seg, t = 10, le = b[t] === 0x49, dv = new DataView(b.buffer, b.byteOffset);
+            const ifd = (o) => { const n = dv.getUint16(t + o, le), r = {}; for (let i = 0; i < n; i++) { const p = t + o + 2 + i * 12; r[dv.getUint16(p, le)] = { type: dv.getUint16(p + 2, le), cnt: dv.getUint32(p + 4, le), off: dv.getUint32(p + 8, le), p }; } return r; };
+            const z = ifd(dv.getUint32(t + 4, le)); const str = (e) => e ? new TextDecoder().decode(b.subarray(t + e.off, t + e.off + e.cnt - 1)) : "";
+            let s = ""; if (z[0x8769]) { const ex = ifd(z[0x8769].off); s = str(ex[0x9003]); } if (!s) s = str(z[0x0132]);
+            const m = s.match(/(\d{4}):(\d\d):(\d\d)/); return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+          } catch (e) { return ""; }
+        }
+        function putMeta(jpg, exifSeg, xmp) {   // JFIF のあとに Exif → XMP の順で入れる(SiteBox と同じ並び)。前からある Exif・XMP は外す
+          const { out } = segs(jpg); const keep = out.filter((s) => !isExif(s) && !isXmp(s));
+          const parts = [new Uint8Array([0xff, 0xd8])];
+          const jfif = keep.filter((s) => s.m === 0xe0), other = keep.filter((s) => s.m !== 0xe0);
+          for (const s of jfif) parts.push(jpg.subarray(s.s, s.e));
+          if (exifSeg) parts.push(exifSeg);
+          if (xmp) parts.push(app1(new TextEncoder().encode("http://ns.adobe.com/xap/1.0/\0"), new TextEncoder().encode(xmp)));
+          for (const s of other) parts.push(jpg.subarray(s.s, s.e));
+          const last = out.length ? out[out.length - 1].e : 2; parts.push(jpg.subarray(last));
+          const n = parts.reduce((a, p) => a + p.length, 0), o = new Uint8Array(n); let i = 0; for (const p of parts) { o.set(p, i); i += p.length; } return o;
+        }
+        function rawBitmap(b) {   // 画素を Exif の向きで回さずに読む(Exif を外してから読む)
+          const { out } = segs(b); const ex = out.find(isExif);
+          const u = ex ? new Blob([b.subarray(0, ex.s), b.subarray(ex.e)], { type: "image/jpeg" }) : new Blob([b], { type: "image/jpeg" });
+          return createImageBitmap(u);
+        }
+        async function thumbOf(blob) {
+          const bmp = await createImageBitmap(blob); const k = 360 / Math.max(bmp.width, bmp.height);
+          const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+          return canvasJpeg(c, 0.8);
+        }
+
+        // ------------------------------------------------------------ 写真を入れる
+        async function addPhoto({ jpg, raw, W, H, meta, kokuban, at, orig }) {
+          const id = uid(), blob = new Blob([jpg], { type: "image/jpeg" });
+          const rec = { id, site, at: at || Date.now(), W, H, meta, kokuban, jpeg: blob, raw: raw || null, orig: orig || null, thumb: await thumbOf(blob), file: fileName(at || Date.now(), id) };
+          await tx("photos", "readwrite", (st) => st.put(rec));
+          if (CFG.auto && A && A.photoDirName && A.photoDirName()) rec.saved = await saveToDir(rec, true);
+          return rec;
+        }
+        function fileName(at, id) { const d = new Date(at); return `UTS_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_${id.slice(-3)}.jpg`; }
+        async function importOne(f, withShot) {   // withShot があれば黒板を入れる(端末のカメラ)、無ければそのまま(SiteBox など)
+          const b = new Uint8Array(await f.arrayBuffer());
+          const { out } = segs(b); const ex = out.find(isExif), xmp = readXmp(b);
+          const exSeg = ex ? b.slice(ex.s, ex.e) : null;
+          const ori = exSeg ? exifOrientation(exSeg) : 1, date = exSeg ? exifDate(exSeg) : "";
+          const bmp = await rawBitmap(b);
+          const W = ori >= 5 ? bmp.height : bmp.width, H = ori >= 5 ? bmp.width : bmp.height;
+          if (!withShot) {
+            if (xmp && xmp.ConstructionType) {   // 電子小黒板の写真:何も変えずに入れる。工種ツリーにも足す
+              const node = addPath([xmp.ConstructionType, xmp.MiddleClassification, xmp.SmallClassification]); sortTree(); await saveTree();
+              const lines = String(xmp.Title || "").split("__");   // SiteBox の Title は「__」が改行(「____」は空の行をはさむ)
+              const meta = { kubun: xmp.PhotoClassification || "施工状況写真", node, k: xmp.ConstructionType || "", m: xmp.MiddleClassification || "", s: xmp.SmallClassification || "", spot: xmp.ShootingSpot || "", lines, name: (lines[0] || "").trim(), memo: "", date };
+              return addPhoto({ jpg: b, W, H, meta, kokuban: "sitebox", at: f.lastModified });
+            }
+            const meta = { kubun: "施工状況写真", node: "", k: "", m: "", s: "", spot: "", lines: [], name: f.name.replace(/\.\w+$/, ""), memo: "", date };
+            return addPhoto({ jpg: b, W, H, meta, kokuban: "none", at: f.lastModified, orig: null });
+          }
+          return composite(b, bmp, exSeg, ori, metaOf(withShot, null), date, f.lastModified);
+        }
+        async function composite(b, bmp, exSeg, ori, meta, date, at) {   // 黒板を入れる。Exif は元のまま(サムネイルだけ外す)
+          if (banned(meta.lines.join(" ")) || banned(meta.spot)) throw new Error("書類に入れない名前が黒板にあります");
+          const W = bmp.width, H = bmp.height; meta.date = date || meta.date || "";
+          const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d"); g.drawImage(bmp, 0, 0);
+          // 画素は向き(Exif の Orientation)を直さないまま。見たときに右下になるよう、向きに合わせて黒板を置く
+          const rot = { 1: 0, 3: 180, 6: 90, 8: 270 }[ori] || 0, vw = rot % 180 ? H : W, vh = rot % 180 ? W : H;
+          const r = boardRect(vw, vh); g.save();
+          if (rot === 90) g.setTransform(0, -1, 1, 0, 0, H);
+          if (rot === 180) g.setTransform(-1, 0, 0, -1, W, H);
+          if (rot === 270) g.setTransform(0, 1, -1, 0, W, 0);
+          drawBoard(g, r.x, r.y, r.w, r.h, boardInfo({ node: meta.node, spot: meta.spot, text: meta.lines.join("\n") }));
+          g.restore();
+          let jpg = new Uint8Array(await (await canvasJpeg(c, 0.92)).arrayBuffer());
+          jpg = putMeta(jpg, exSeg ? exifNoThumb(exSeg) : exifMin(), xmpOf(meta));
+          return addPhoto({ jpg, W: vw, H: vh, meta, kokuban: "composite", at, orig: new Blob([b], { type: "image/jpeg" }) });
+        }
+        $("impFile").addEventListener("change", async () => {
+          const fs = [...$("impFile").files]; $("impFile").value = ""; if (!fs.length) return;
+          let n = 0, sb = 0, bad = 0;
+          for (const f of fs) { try { const r = await importOne(f, null); n++; if (r.kokuban === "sitebox") sb++; } catch (e) { bad++; console.warn("import", f.name, e); } toast(`入れています… ${n + bad}/${fs.length}`, 60000); }
+          toast(`${n} 枚を入れました（電子小黒板 ${sb} 枚）${bad ? `。${bad} 枚は JPEG でないので入れませんでした` : ""}。`, 5000);
+          drawHome(); if (cur === "album") drawAlbum();
+        });
+
+        // ------------------------------------------------------------ 写真帳
+        const filt = { node: "", kubun: "" }; let selMode = false; const sel = new Set(); let shown = [];
+        async function drawAlbum() {
+          $("aKubun").innerHTML = `<option value="">区分：すべて</option>` + KUBUN.map((k) => `<option value="${esc(k)}" ${filt.kubun === k ? "selected" : ""}>${esc(KUBUN_SHORT[k])}</option>`).join("");
+          $("aPath").querySelector("span").textContent = filt.node ? pathText(filt.node) : "すべての写真";
+          const ps = (await bySite("photos", site)).sort((a, b) => b.at - a.at);
+          const under = filt.node ? new Set(tree.filter((n) => pathOf(n.id).some((p) => p.id === filt.node)).map((n) => n.id)) : null;
+          shown = ps.filter((p) => (!under || under.has(p.meta.node)) && (!filt.kubun || p.meta.kubun === filt.kubun));
+          $("aEmpty").hidden = shown.length > 0;
+          urls.forEach((u) => URL.revokeObjectURL(u)); urls = [];
+          $("aGrid").innerHTML = shown.map((p) => { const u = URL.createObjectURL(p.thumb); urls.push(u); return `<button type="button" class="th" data-id="${p.id}" aria-selected="${sel.has(p.id)}" style="background-image:url(${u})"><em>${esc(p.meta.name || p.meta.spot || KUBUN_SHORT[p.meta.kubun])}</em><span class="mk">${p.kokuban === "none" ? "⚪" : p.saved ? "💾" : ""}${!p.meta.spot ? "⚠" : ""}</span></button>`; }).join("");
+          $("aSelBar").hidden = !selMode; $("aSel").textContent = selMode ? "やめる" : "選ぶ"; $("aSelN").textContent = sel.size + " 枚";
+        }
+        let urls = [];
+        $("aPath").addEventListener("click", () => pickNode(filt.node, (id) => { filt.node = id; drawAlbum(); }, true));
+        $("aKubun").addEventListener("change", () => { filt.kubun = $("aKubun").value; drawAlbum(); });
+        $("aSel").addEventListener("click", () => { selMode = !selMode; sel.clear(); drawAlbum(); });
+        $("aGrid").addEventListener("click", (e) => {
+          const t = e.target.closest(".th"); if (!t) return;
+          if (selMode) { sel.has(t.dataset.id) ? sel.delete(t.dataset.id) : sel.add(t.dataset.id); t.setAttribute("aria-selected", sel.has(t.dataset.id)); $("aSelN").textContent = sel.size + " 枚"; return; }
+          detail(shown.find((p) => p.id === t.dataset.id));
+        });
+        const selected = () => shown.filter((p) => sel.has(p.id));
+        $("aDel").addEventListener("click", async () => { const s = selected(); if (!s.length || !confirmBox(`${s.length} 枚をこの端末から消しますか？（保存先のファイルは消えません）`)) return; await tx("photos", "readwrite", (st) => { s.forEach((p) => st.delete(p.id)); }); sel.clear(); drawAlbum(); });
+        $("aSave").addEventListener("click", async () => { const s = selected(); if (!s.length) return; if (!(A && A.photoDirName && A.photoDirName())) { alertBox("保存先のフォルダがまだ決まっていません（設定 › 写真の保存先）。この画面では ZIP にまとめて保存できます。"); return; } let ok = 0; for (const p of s) if (await saveToDir(p, true)) ok++; toast(`${ok} 枚を保存先に入れました。`); drawAlbum(); });
+        $("aZip").addEventListener("click", async () => { const s = selected(); if (!s.length) return; await zipPhotos(s, `写真_${safeName(site)}_${new Date().toISOString().slice(0, 10)}.zip`); });
+
+        function detail(p) {
+          const u = URL.createObjectURL(p.jpeg), m = p.meta;
+          sheet(m.name || "写真", `<div class="detail"><img src="${u}" alt="" />
+            <dl class="kv"><dt>写真区分</dt><dd>${esc(m.kubun)}</dd><dt>工種</dt><dd>${esc([m.k, m.m, m.s].filter(Boolean).join(" › ") || "—")}</dd><dt>測点</dt><dd>${m.spot ? esc(m.spot) : '<span class="warn">⚠ 空です</span>'}</dd><dt>撮影日</dt><dd>${m.date ? esc(m.date) : '<span class="warn">⚠ 分かりません（電子納品で要ります）</span>'}</dd><dt>黒板</dt><dd>${{ camera: "このアプリで撮影", composite: "あとから入れた", sitebox: "電子小黒板（SiteBox など）", none: "なし" }[p.kokuban] || ""}</dd><dt>大きさ</dt><dd>${p.W}×${p.H}（${Math.round(p.W * p.H / 1e4)} 万画素）</dd><dt>ファイル</dt><dd>${esc(relPath(p))}</dd></dl>
+            <label class="f" for="dName">写真の名前</label><input type="text" id="dName" value="${esc(m.name)}" />
+            <label class="f" for="dMemo">説明（写真帳）</label><input type="text" id="dMemo" value="${esc(m.memo || "")}" />
+            ${m.date ? "" : `<label class="f" for="dDate">撮影日（分かる人が入れる）</label><input type="date" id="dDate" data-noipx />`}
+            <div class="row" style="margin-top:10px">
+              <button type="button" class="btn grow" id="dSave">✓ 名前・説明を直す</button>
+              ${p.kokuban === "none" ? `<button type="button" class="btn pri grow" id="dBB">🧾 黒板を入れる</button>` : ""}
+              ${p.kokuban !== "sitebox" ? `<button type="button" class="btn grow" id="dInfo">工種・測点を直す</button>` : ""}
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button type="button" class="btn grow" id="dDir">💾 保存先へ</button>
+              <button type="button" class="btn grow" id="dDl">⬇ この写真</button>
+              <button type="button" class="btn grow" id="dDel">🗑 消す</button>
+            </div></div>`);
+          const upd = async (f) => { f(p); await tx("photos", "readwrite", (st) => st.put(p)); };
+          $("dSave").onclick = async () => { await upd((x) => { x.meta.name = $("dName").value.trim(); x.meta.memo = $("dMemo").value.trim(); if ($("dDate") && $("dDate").value) x.meta.date = $("dDate").value; }); toast("直しました。"); closeSheet(); drawAlbum(); };
+          $("dDl").onclick = async () => download(await p.jpeg.arrayBuffer(), p.file, "image/jpeg");
+          $("dDir").onclick = async () => { if (await saveToDir(p, true)) { toast("保存先に入れました。"); } };
+          $("dDel").onclick = async () => { if (!confirmBox("この写真をこの端末から消しますか？")) return; await tx("photos", "readwrite", (st) => st.delete(p.id)); closeSheet(); drawAlbum(); drawHome(); };
+          const reInfo = (needBB, o) => {   // 工種・測点・黒板の文字を直す(黒板を入れ直す)
+            o = o || { kubun: m.kubun, node: m.node, spot: m.spot, text: (m.lines || []).join("\n") };
+            sheet("工種・測点・黒板", `<label class="f">写真区分</label><select id="rK">${KUBUN.map((k) => `<option ${k === o.kubun ? "selected" : ""}>${esc(k)}</option>`).join("")}</select>
+              <label class="f">工種・種別・細別</label><button type="button" class="path" id="rP"><span>${esc(pathText(o.node) || "工種なし")}</span><small>選ぶ ›</small></button>
+              <label class="f" for="rS">測点</label><input type="text" id="rS" value="${esc(o.spot)}" />
+              <label class="f" for="rT">黒板の文字</label><textarea id="rT">${esc(o.text)}</textarea>
+              <button type="button" class="btn pri wide" id="rOk" style="margin-top:10px">${needBB || p.kokuban === "composite" || p.kokuban === "camera" ? "黒板を描いて入れ直す" : "直す"}</button>`);
+            const take = () => { o.kubun = $("rK").value; o.spot = $("rS").value.trim(); o.text = $("rT").value; };
+            $("rP").onclick = () => { take(); pickNode(o.node, (id) => { o.node = id; reInfo(needBB, o); }); };
+            $("rOk").onclick = async () => {
+              take();
+              if (!o.spot && (needBB || p.kokuban !== "sitebox")) { alertBox("測点が空のままでは黒板を入れません（施工の決まり：測点は推測で書かず、写真の標尺・札で確かめるか担当者に確認）。"); return; }
+              const nm = metaOf(o, null); nm.memo = m.memo; nm.date = m.date;
+              const src = p.orig || (p.kokuban === "none" ? p.jpeg : null);
+              try {
+                if (src) {
+                  const b = new Uint8Array(await src.arrayBuffer()), ex = segs(b).out.find(isExif), exSeg = ex ? b.slice(ex.s, ex.e) : null;
+                  const bmp = await rawBitmap(b);
+                  await composite(b, bmp, exSeg, exSeg ? exifOrientation(exSeg) : 1, nm, m.date, p.at);
+                  await tx("photos", "readwrite", (st) => st.delete(p.id)); toast("黒板を入れました。"); closeSheet(); drawAlbum(); return;
+                }
+                if (p.raw) {   // このアプリで撮った写真:黒板の前の絵から描き直す(Exif は撮ったときのまま)
+                  const bmp = await createImageBitmap(p.raw); const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height; const g = c.getContext("2d"); g.drawImage(bmp, 0, 0);
+                  const r = boardRect(c.width, c.height); drawBoard(g, r.x, r.y, r.w, r.h, boardInfo(o));
+                  const old = new Uint8Array(await p.jpeg.arrayBuffer()), ex = segs(old).out.find(isExif);
+                  let jpg = new Uint8Array(await (await canvasJpeg(c, 0.92)).arrayBuffer()); jpg = putMeta(jpg, ex ? old.slice(ex.s, ex.e) : exifMin(), xmpOf(nm));
+                  p.jpeg = new Blob([jpg], { type: "image/jpeg" }); p.thumb = await thumbOf(p.jpeg); p.meta = nm; p.saved = false;
+                  await tx("photos", "readwrite", (st) => st.put(p)); toast("黒板を描き直しました。"); closeSheet(); drawAlbum(); return;
+                }
+                p.meta = nm; await tx("photos", "readwrite", (st) => st.put(p)); toast("直しました。"); closeSheet(); drawAlbum();
+              } catch (er) { alertBox("できませんでした: " + (er.message || er)); }
+            };
+          };
+          if ($("dBB")) $("dBB").onclick = () => reInfo(true);
+          if ($("dInfo")) $("dInfo").onclick = () => reInfo(false);
+        }
+
+        // ------------------------------------------------------------ 保存先(フォルダ)・ZIP
+        function relPath(p) {   // 工事名 / 種別 / 細別 / 1_施工状況 / ファイル(施工の写真エンジンと同じ形)
+          const m = p.meta, top = safeName(kname());
+          if (FIXDIR[m.kubun] || (!m.node && m.kubun === "使用材料写真")) return [top, FIXDIR[m.kubun] || "91_使用材料（共通）", p.file].join("/");
+          const path = pathOf(m.node);
+          if (!path.length) return [top, "_工種なし", SUBDIR[m.kubun] || "", p.file].filter(Boolean).join("/");
+          const num = (n) => pad(kids(n.parent).indexOf(n) + 1) + "_" + safeName(n.name, 40);
+          const dirs = path.length > 1 ? path.slice(1).map(num) : [num(path[0])];
+          return [top, ...dirs, SUBDIR[m.kubun] || "1_施工状況", p.file].join("/");
+        }
+        function b64(u8) { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+        async function saveToDir(p, quiet) {
+          if (!(A && A.photoSave)) { if (!quiet) alertBox("この画面では保存先のフォルダに書けません。ZIP で保存してください。"); return false; }
+          const r = A.photoSave(relPath(p), b64(new Uint8Array(await p.jpeg.arrayBuffer())), true);
+          if (r === "ok") { p.saved = true; await tx("photos", "readwrite", (st) => st.put(p)); return true; }
+          toast(r === "nodir" ? "保存先のフォルダがまだ決まっていません（設定）。" : "保存先に書けません: " + r, 5000); return false;
+        }
+        const dirLabel = () => (A && A.photoDirName && A.photoDirName()) || "この端末の中（ZIP で書き出し）";
+        window.__utsDir = (name) => { drawSet(); drawHome(); if (name) toast("保存先を「" + name + "」にしました。"); putSiteSettings({ photoDir: name || "" }); };
+        // 圧縮しない ZIP(写真はもう JPEG なので縮まない)。名前は UTF-8
+        const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+        const crc32 = (u) => { let c = 0xffffffff; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+        function zipOf(files) {
+          const parts = [], cen = []; let off = 0;
+          for (const f of files) {
+            const nm = new TextEncoder().encode(f.name), d = f.data, c = crc32(d), h = new DataView(new ArrayBuffer(30));
+            h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true); h.setUint32(14, c, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nm.length, true);
+            parts.push(new Uint8Array(h.buffer), nm, d);
+            const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint32(16, c, true); ch.setUint32(20, d.length, true); ch.setUint32(24, d.length, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+            cen.push(new Uint8Array(ch.buffer), nm); off += 30 + nm.length + d.length;
+          }
+          const cs = cen.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22));
+          e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cs, true); e.setUint32(16, off, true);
+          return new Blob([...parts, ...cen, new Uint8Array(e.buffer)], { type: "application/zip" });
+        }
+        async function zipPhotos(ps, name, extra) {
+          const files = []; for (const p of ps) files.push({ name: relPath(p), data: new Uint8Array(await p.jpeg.arrayBuffer()) });
+          for (const x of extra || []) files.push(x);
+          download(await zipOf(files).arrayBuffer(), name, "application/zip");
+        }
+
+        // ------------------------------------------------------------ KSデータバンクへ
+        async function ksDialog() {
+          if (!needSite()) return;
+          const ps = await bySite("photos", site);
+          const ok = ps.filter((p) => p.kokuban !== "none"), noSpot = ps.filter((p) => !p.meta.spot).length, noDate = ps.filter((p) => !p.meta.date).length;
+          sheet("KSデータバンクへ", `<p class="note">このアプリの写真には、SiteBox と同じ形の情報（電子小黒板 dcpadv の XMP：工種・種別・細別・写真区分・測点・黒板の文字、Exif の「DCP PHOTO」）が入っています。</p>
+            <ol class="note" style="padding-left:18px"><li>下のボタンで写真を工種ごとのフォルダの ZIP にまとめます。</li><li>パソコンで ZIP を開き、KSデータバンク（工事データ）に写真をアップロードします（ドラッグ＆ドロップ）。</li><li>KSデータバンクでは「未分類」に入るので、分類フォルダーへ移してから写管屋に取り込みます。</li></ol>
+            <p class="note">写真 ${ps.length} 枚（黒板あり ${ok.length} 枚）。${noSpot ? `<span class="warn">測点の無い写真 ${noSpot} 枚。</span>` : ""}${noDate ? `<span class="warn">撮影日の分からない写真 ${noDate} 枚。</span>` : ""}</p>
+            <p class="note warn">あとから黒板を入れた写真には改ざんチェック値がありません（信憑性チェックでは「チェック値なし」）。電子納品に入れるのは発注者との協議が前提です。</p>
+            <button type="button" class="btn pri wide" id="ksZip">⬇ 黒板ありの写真を ZIP にまとめる</button>
+            <p class="note">PHOTO.XML（電子納品の形）での取込は次の版で入れます。</p>`);
+          $("ksZip").onclick = async () => { closeSheet(); await zipPhotos(ok, `KSデータバンク用_${safeName(kname())}_${new Date().toISOString().slice(0, 10)}.zip`); };
+        }
+
+        // ------------------------------------------------------------ 設定
+        function drawSet() {
+          const nm = A && A.photoDirName ? A.photoDirName() : "";
+          $("dirBox").innerHTML = A && A.photoDirPick
+            ? `<div class="row"><span class="grow">${nm ? "📁 " + esc(nm) : "まだ決まっていません（この端末の中だけ）"}</span><button type="button" class="btn sm blue" id="dirPick">${nm ? "変える" : "フォルダを選ぶ"}</button>${nm ? `<button type="button" class="btn sm" id="dirClr">外す</button>` : ""}</div>`
+            : `<p class="note">この画面（ブラウザ）ではフォルダに直接は書けません。写真帳で選んで「⬇ ZIP」で保存してください。Android の一発バーン アプリではフォルダを選べます。</p>`;
+          if ($("dirPick")) $("dirPick").onclick = () => A.photoDirPick();
+          if ($("dirClr")) $("dirClr").onclick = () => { A.photoDirClear(); drawSet(); drawHome(); };
+          $("cfAuto").checked = !!CFG.auto;
+          const s = S(); $("cfName").value = s.kname || site || ""; $("cfCon").value = s.contractor || ""; $("cfFrom").value = s.from || ""; $("cfTo").value = s.to || "";
+          $("cfColor").innerHTML = Object.entries(COLORS).map(([k, c]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.color === k}">${c.name}</button>`).join("");
+          $("cfPos").innerHTML = [["br", "右下"], ["bl", "左下"], ["tr", "右上"], ["tl", "左上"]].map(([k, t]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.pos === k}">${t}</button>`).join("");
+          $("cfRes").innerHTML = [["1600", "1600×1200（192万）"], ["2048", "2048×1536（315万）"], ["max", "カメラの最大"]].map(([k, t]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.res === k}">${t}</button>`).join("");
+          $("cfSize").value = CFG.size; $("cfSizeV").textContent = "：" + Math.round(CFG.size * 100) + "%";
+        }
+        $("cfAuto").addEventListener("change", () => { CFG.auto = $("cfAuto").checked; saveCfg(); });
+        for (const [id, key] of [["cfColor", "color"], ["cfPos", "pos"], ["cfRes", "res"]]) $(id).addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG[key] = b.dataset.v; saveCfg(); drawSet(); drawPrev(); });
+        $("cfSize").addEventListener("input", () => { CFG.size = Number($("cfSize").value); saveCfg(); $("cfSizeV").textContent = "：" + Math.round(CFG.size * 100) + "%"; drawPrev(); });
+        $("cfSave").addEventListener("click", async () => {
+          if (!needSite()) return;
+          const v = { kname: $("cfName").value.trim(), contractor: $("cfCon").value.trim(), from: $("cfFrom").value, to: $("cfTo").value };
+          if (banned(v.kname) || banned(v.contractor)) { alertBox("書類に入れない名前が入っています。"); return; }
+          await putSiteSettings(v); toast("現場の設定に入れました。"); drawHome(); drawPrev();
+        });
+
+        // ------------------------------------------------------------ 小窓
+        function sheet(title, html) { $("sheetBody").innerHTML = `<h3><span>${esc(title)}</span><button type="button" class="x" id="shX" aria-label="閉じる">✕</button></h3>` + html; $("sheet").hidden = false; $("shX").onclick = closeSheet; }
+        function closeSheet() { $("sheet").hidden = true; const b = $("sheetBody"); const n = b.cloneNode(false); b.replaceWith(n); }
+        $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) closeSheet(); });
+        function menu(title, items) { sheet(title, items.map((x, i) => `<button type="button" class="btn wide" data-i="${i}" style="margin-bottom:6px;justify-content:flex-start">${esc(x[0])}</button>`).join("")); $("sheetBody").addEventListener("click", (e) => { const b = e.target.closest("[data-i]"); if (!b) return; closeSheet(); items[Number(b.dataset.i)][1](); }); }
+        function askName(title, val, done) {
+          sheet(title, `<input type="text" id="anI" value="${esc(val)}" data-noipx /><button type="button" class="btn pri wide" id="anOk" style="margin-top:10px">決める</button>`);
+          setTimeout(() => $("anI") && $("anI").focus(), 50);
+          const ok = () => { const v = $("anI").value.trim(); if (!v) return; if (banned(v)) { alertBox("書類に入れない名前です。"); return; } closeSheet(); done(v); };
+          $("anOk").onclick = ok; $("anI").addEventListener("keydown", (e) => { if (e.key === "Enter") ok(); });
+        }
+        function confirmBox(t) { return window.confirm(t); }
+        function alertBox(t) { if (G && G.dialog) G.dialog("こっそり写し太郎", "", [{ label: "閉じる", ok: true }], esc(t)); else window.alert(t); }
+
+        function download(data, name, type) {
+          const blob = new Blob([data], { type });
+          const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
+          if (standalone && navigator.canShare) {
+            try {
+              const file = new File([blob], name, { type: "application/octet-stream" });
+              if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch((err) => { if (!err || err.name !== "AbortError") plainDownload(blob, name); }); return; }
+            } catch (e) { /* 共有できなければふつうに保存 */ }
+          }
+          return plainDownload(blob, name);
+        }
+        function plainDownload(blob, name) {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+        }
+
+        window.addEventListener("genba", (e) => { if (!e.detail || e.detail.type === "current" || e.detail.type === "put") loadSite(); });
+        loadSite();
+      })();
+    </script>
+    <script>
+      // ホーム画面アプリ: 電波がなくても開けるように、アプリをこの端末に覚えておく(sw.js)
+      if ("serviceWorker" in navigator) window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+    </script>
+  </body>
+</html>
