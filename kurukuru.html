@@ -625,6 +625,9 @@
       .pt-card .pt-xyz .v { font-variant-numeric: tabular-nums; font-size: 14px; }
       .ipx-badge.quick { max-width: none; color: #b45309; border-color: #f59e0b; font-weight: 700; }
       .ipx-badge.quick[aria-pressed="true"] { background: #f59e0b; color: #fff; border-color: transparent; }
+      .ctl-link { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; }
+      .ctl-link span { font-size: 13px; font-weight: 700; white-space: nowrap; }
+      .ctl-link button { flex: 1 1 0; min-height: 38px; padding: 4px 8px; font-size: 14px; }
     </style>
 
     <script>window.IPPATSU_APP = "kurukuru";</script>
@@ -2012,7 +2015,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.26.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.27.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2438,6 +2441,7 @@
     <div class="ovl ctl" id="ctlOvl" hidden>
       <div class="ovl-card">
         <div class="ovl-head"><b>🎛 操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ctlconn" id="ctlConnBtn" type="button">🔗 つなぐ</button><button class="ghost ovl-x ctl-x" type="button" data-close="ctlOvl" aria-label="操作盤を閉じる">✕</button><div class="ctl-msg" id="ctlStatus" aria-live="polite"></div></div>
+        <div class="ctl-link seg-toggle" id="ctlLink" role="group" aria-label="杭ナビへのつなぎ方"><span>つなぎ方</span><button type="button" data-l="wifi" aria-pressed="true">📶 Wi-Fi</button><button type="button" data-l="bt" aria-pressed="false">🔵 Bluetooth</button></div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
           <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
           <button type="button" data-t="list" aria-pressed="false">📋 座標リスト</button>
@@ -7254,7 +7258,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("fileInfo").hidden = true; $("zunouNote").hidden = true; $("ptOpenNote").hidden = true;
         }
         async function loadSite(n) {
-          setTimeout(() => { try { siLoad(); renderSiLine(); } catch (e) { /* */ } }, 0);
+          setTimeout(() => { try { siLoad(); renderSiLine(); siteCfgIn(n); } catch (e) { /* */ } }, 0);
           siteBusy = true;
           try {
             const st = await siteGet("state", n), fl = await siteGet("files", n);
@@ -7402,6 +7406,35 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("cfgMirror").value = v.toFixed(3); $("cfgMirror").dispatchEvent(new Event("change")); setStatus(`ミラー高を ${v.toFixed(3)} m にしました。`);
         });
         for (const k of CFG) $(k).addEventListener("change", () => { const c = {}; for (const q of CFG) c[q] = $(q).value; store("kr.cfg", JSON.stringify(c)); renderCtl(); });
+        // 測量器(杭ナビ・つなぎ方)は一発バーンの現場の設定と同じにする
+        let cfgSiteBusy = false;
+        function siteCfgIn(n) {
+          if (!window.Genba || !n) return;
+          Genba.get(n).then((r) => {
+            const s = (r && r.settings) || {}; let ch = false;
+            cfgSiteBusy = true;
+            try {
+              if (s.model && [...$("cfgModel").options].some((o) => o.text === s.model) && $("cfgModel").value !== s.model) { $("cfgModel").value = s.model; $("cfgModel").dispatchEvent(new Event("change")); ch = true; }
+              if ((s.link === "wifi" || s.link === "bt") && $("cfgLink").value !== s.link && !KuiNavi.ws) { $("cfgLink").value = s.link; $("cfgLink").dispatchEvent(new Event("change")); ch = true; }
+            } finally { cfgSiteBusy = false; }
+            if (ch) renderCtl();
+          }).catch(() => { });
+        }
+        for (const k of ["cfgModel", "cfgLink"]) $(k).addEventListener("change", () => {
+          if (cfgSiteBusy || !window.Genba || typeof site !== "string" || !site) return;
+          const v = { model: $("cfgModel").value, link: $("cfgLink").value };
+          Genba.get(site).then((r) => { if (r) { r.settings = { ...r.settings, ...v }; return Genba.put(r); } }).catch(() => { });
+        });
+        function setLink(v) {   // 📶 Wi-Fi ⇄ 🔵 Bluetooth を切り替える。つないでいたら、切ってから新しいつなぎ方でつなぎ直す
+          if ($("cfgLink").value === v) return;
+          $("cfgLink").value = v; $("cfgLink").dispatchEvent(new Event("change"));
+          const was = !!KuiNavi.ws;
+          if (was) KuiNavi.disconnect();
+          setStatus(v === "bt" ? "🔵 つなぎ方を Bluetooth にしました。" + (was ? "つなぎ直します…" : "「つなぐ」を押してください。") : "📶 つなぎ方を Wi-Fi にしました。" + (was ? "つなぎ直します…" : "「つなぐ」を押してください。"));
+          if (was) setTimeout(() => KuiNavi.connect(), 400);
+          renderCtl();
+        }
+        $("ctlLink").addEventListener("click", (e) => { const b = e.target.closest("button[data-l]"); if (b) setLink(b.dataset.l); });
 
         $("sndMeasTest").addEventListener("click", () => beep("meas", true));
         $("sndSearchTest").addEventListener("click", () => beep("search", true));
@@ -7486,6 +7519,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("ctlConn").textContent = KuiNavi.connected ? (KuiNavi.model || "接続中") : KuiNavi.ws ? "つないでいます" : "未接続";
           $("ctlConn").className = "badge " + (KuiNavi.connected ? "ok" : "ng");
           $("ctlConnBtn").textContent = KuiNavi.ws ? "切る" : $("cfgLink").value === "bt" ? "🔵 つなぐ" : "🔗 つなぐ";
+          for (const b of $("ctlLink").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.l === $("cfgLink").value));
           $("tileConn").textContent = KuiNavi.connected ? `接続中(${KuiNavi.model || "杭ナビ"})` : "未接続(くるくる中継を使う)";
           $("ctOrientNote").textContent = KuiNavi.hOff ? `向き:合わせ済み(ずれ ${dms(KuiNavi.hOff)})` : "向き:まだ合わせていません(杭ナビの水平角をそのまま方向角として使います)";
           renderKMeas();
