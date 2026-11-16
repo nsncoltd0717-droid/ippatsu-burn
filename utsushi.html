@@ -41,6 +41,11 @@
       textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
       .chips { display: flex; gap: 6px; flex-wrap: wrap; }
       .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+      .spots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+      .spots .chip { display: inline-flex; align-items: center; gap: 4px; }
+      .spots .chip.ed { border-color: #c0392b; color: #c0392b; }
+      .spots .sp-h { font-size: 12px; color: var(--sub); width: 100%; display: flex; justify-content: space-between; align-items: center; }
+      .spots .sp-h button { border: 0; background: none; color: var(--accent2); font-size: 12px; cursor: pointer; padding: 2px 4px; }
       .chip[aria-pressed=true] { background: var(--accent2); color: #fff; border-color: var(--accent2); }
       .path { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 8px 12px; text-align: left; border: 1px dashed var(--accent2); border-radius: 10px; background: #f4f5fd; cursor: pointer; }
       .path span { flex: 1 1 0; min-width: 0; }
@@ -957,7 +962,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.0</small></h1>
+      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.3</small></h1>
     </header>
 
     <!-- ホーム -->
@@ -984,10 +989,13 @@
         <label class="f">工種・種別・細別</label>
         <button type="button" class="path" id="sPath"><span>—</span><small>選ぶ ›</small></button>
         <label class="f" for="sSpot">測点（撮影箇所）</label>
-        <input type="text" id="sSpot" placeholder="例 No.12+5.0、重力式擁壁2" />
+        <div class="row"><input type="text" id="sSpot" class="grow" list="spotList" placeholder="例 No.12+5.0、重力式擁壁2" /><button type="button" class="btn" id="sSpotSave" title="この測点を保存">⭐ 保存</button></div>
+        <datalist id="spotList"></datalist>
+        <div class="spots" id="sSpots"></div>
         <label class="f" for="sText">黒板の文字（1行目が写真の名前になります）</label>
         <textarea id="sText" placeholder="例&#10;材料検収&#10;　流れ流末飲口桝&#10;　510×155×300"></textarea>
         <canvas class="bbprev" id="sPrev"></canvas>
+        <div class="row" style="margin-top:6px;align-items:center"><span class="note" style="margin:0">透明度</span><div class="chips" id="sAlpha"></div></div>
         <div class="row" style="margin-top:10px">
           <button type="button" class="btn grow" id="sFromBoard">🧾 ひな形から</button>
           <button type="button" class="btn grow" id="sToBoard">＋ ひな形に入れる</button>
@@ -1046,7 +1054,7 @@
         <h2>💾 写真の保存先</h2>
         <div id="dirBox"></div>
         <label class="f"><input type="checkbox" id="cfAuto" /> 撮ったらすぐ保存先にも入れる</label>
-        <p class="note">保存先の下に「工事名 › 種別 › 細別 › 1_施工状況 …」のフォルダを作って入れます（施工の工事写真作成エンジンと同じ形）。</p>
+        <p class="note">保存先を選ぶと、その中に<b>工事名のフォルダを自動で作り</b>、その下に「種別 › 細別 › 1_施工状況 …」のフォルダを作って入れます（施工の工事写真作成エンジンと同じ形）。工事名のフォルダそのものを選んだときは、その中に直接入れます。</p>
       </div>
       <div class="card">
         <h2>🏗 工事の情報（一発バーンの現場の設定）</h2>
@@ -1066,6 +1074,8 @@
         <div class="chips" id="cfColor"></div>
         <label class="f">黒板の形</label>
         <div class="chips" id="cfShape"></div>
+        <label class="f">黒板の透明度（地の色だけ透けます。線と文字はそのまま）</label>
+        <div class="chips" id="cfAlpha"></div>
         <label class="f" for="cfSize">黒板の大きさ<span id="cfSizeV"></span></label>
         <input type="range" id="cfSize" min="0.12" max="0.6" step="0.01" style="width:100%" />
         <label class="f">黒板の場所（撮る画面で指でずらせます）</label>
@@ -1102,6 +1112,7 @@
       <div class="side">
         <button type="button" id="camClose" aria-label="カメラを閉じる">✕</button>
         <button type="button" id="camOn" aria-label="黒板を入れる／入れない">🧾<small>ON</small></button>
+        <button type="button" id="camAlpha" aria-label="黒板の透明度">◐<small>不透明</small></button>
         <button type="button" id="camRot" aria-label="黒板の向き">⟳<small>自動</small></button>
         <button type="button" class="shot" id="camShot" aria-label="撮る"></button>
         <button type="button" id="camEdit" aria-label="黒板を直す">📝</button>
@@ -1134,7 +1145,7 @@
         const SKIP_UNDER = ["共通仮設", "共通仮設費", "間接工事費", "諸経費"];
         const LVCOL = ["#c2255c", "#2f3a8f", "#2b8a3e", "#c76a00"];
         const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* */ } } };
-        const CFG_DEF = { color: "green", size: 0.24, fx: 1, fy: 1, shape: "yoko", bbOn: true, rotAuto: true, res: "1600", q: "fine", auto: true };
+        const CFG_DEF = { color: "green", size: 0.24, fx: 1, fy: 1, shape: "yoko", alpha: 1, bbOn: true, rotAuto: true, res: "1600", q: "fine", auto: true };
         let CFG = { ...CFG_DEF };
         try { const o = JSON.parse(ls.get("ut.cfg") || "{}"); if (o.pos && o.fx == null) { o.fx = o.pos.includes("r") ? 1 : 0; o.fy = o.pos.includes("b") ? 1 : 0; } delete o.pos; CFG = { ...CFG_DEF, ...o }; } catch (e) { /* */ }
         const RES = { 1280: "1280×960（約120万）", 1600: "1600×1200（約190万）", 2048: "2048×1536（約310万）", max: "カメラの最大" };
@@ -1183,6 +1194,7 @@
           site = G ? G.current() : (ls.get("ut.site") || "");
           siteRec = G && site ? await G.get(site).catch(() => null) : null;
           tree = site ? (await tx("trees", "readonly", (st) => st.get(site))) || [] : [];
+          ensureKoujiDir(false);
           drawHome(); drawShoot(); if (cur === "album") drawAlbum(); if (cur === "tree") drawTree(); if (cur === "boards") drawBoards(); if (cur === "set") drawSet();
         }
         async function putSiteSettings(v) {
@@ -1473,6 +1485,9 @@
         }
 
         // ------------------------------------------------------------ これから撮る写真(撮影の情報)
+        const ALPHAS = [1, 0.8, 0.6, 0.4];
+        const bbAlpha = () => { const a = Number(CFG.alpha); return a > 0 && a <= 1 ? a : 1; };
+        const alphaName = (a) => a >= 1 ? "不透明" : Math.round(a * 100) + "%";
         const shot = { kubun: "施工状況写真", node: "", spot: "", text: "" };
         try { Object.assign(shot, JSON.parse(ls.get("ut.shot") || "{}")); } catch (e) { /* */ }
         const saveShot = () => ls.set("ut.shot", JSON.stringify(shot));
@@ -1483,7 +1498,7 @@
           $("sPath").querySelector("span").textContent = !TREE_K.has(shot.kubun) ? "（この区分は工種ツリーを使いません）" : pathText(shot.node) || "工種を選んでください";
           if (document.activeElement !== $("sSpot")) $("sSpot").value = shot.spot || "";
           if (document.activeElement !== $("sText")) $("sText").value = shot.text || "";
-          drawPrev();
+          drawSpots(); drawShootAlpha(); drawPrev();
           const w = [];
           if (!shot.spot) w.push("測点が空です（電子納品では撮影箇所が要ります）。");
           if (!shot.node && TREE_K.has(shot.kubun)) w.push("工種がまだ選ばれていません。");
@@ -1495,7 +1510,39 @@
         $("sSpot").addEventListener("change", () => { shot.spot = $("sSpot").value; saveShot(); drawShoot(); });
         $("sText").addEventListener("input", () => { shot.text = $("sText").value; saveShot(); drawPrev(); });
         $("sText").addEventListener("change", () => { shot.text = $("sText").value; saveShot(); drawPrev(); });
-        function drawPrev() { const c = $("sPrev"), info = boardInfo(shot); const k = CFG.shape === "tate" ? 1.3 : 0.78, w = CFG.shape === "tate" ? 250 : 360, h = Math.round(w * k); c.style.maxWidth = w + "px"; c.width = w * 2; c.height = h * 2; const g = c.getContext("2d"); g.scale(2, 2); drawBoard(g, 0, 0, w, h, info); }
+        // 測点の保存(現場ごと・この端末)。⭐保存で覚え、撮った測点も自動で足す。押すと測点に入る
+        let spotEdit = false;
+        const spotKey = () => "ut.spots." + (site || "_");
+        function getSpots() { try { const a = JSON.parse(ls.get(spotKey()) || "[]"); return Array.isArray(a) ? a.filter((x) => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } }
+        function putSpots(a) { ls.set(spotKey(), JSON.stringify(a.slice(0, 200))); }
+        function addSpot(v, quiet) {
+          v = String(v || "").trim(); if (!v) { if (!quiet) alertBox("測点が空です。入れてから ⭐ 保存 を押してください。"); return; }
+          if (banned(v)) { if (!quiet) alertBox(`「${banned(v)}」は書類に入れない名前です。`); return; }
+          const a = getSpots(), had = a.includes(v);
+          if (quiet && had) return;   // 撮ったときは並び順を変えない
+          putSpots([v, ...a.filter((x) => x !== v)]); drawSpots();
+          if (!quiet) toast(had ? `「${v}」はもう保存してあります(先頭へ)` : `測点「${v}」を保存しました`);
+        }
+        function drawSpots() {
+          const a = getSpots(), box = $("sSpots");
+          const key = JSON.stringify([a, spotEdit]);   // 一覧が同じなら選び直しの印だけ変える(打ちかけで押したボタンが消えないように)
+          if (box.dataset.key === key && a.length) { for (const c of box.querySelectorAll("[data-sp]")) c.setAttribute("aria-pressed", String(!spotEdit && c.dataset.sp === shot.spot)); return; }
+          box.dataset.key = key;
+          $("spotList").innerHTML = a.map((x) => `<option value="${esc(x)}"></option>`).join("");
+          if (!a.length) { box.innerHTML = `<div class="sp-h">保存した測点はまだありません(⭐ 保存で覚えます。撮った測点も自動で入ります)</div>`; return; }
+          box.innerHTML = `<div class="sp-h"><span>保存した測点 ${a.length}(押すと入ります)</span><button type="button" data-sp-ed>${spotEdit ? "✓ おわり" : "✏ 消す"}</button></div>` +
+            a.map((x) => `<button type="button" class="chip${spotEdit ? " ed" : ""}" data-sp="${esc(x)}" aria-pressed="${!spotEdit && x === shot.spot}">${spotEdit ? "✕ " : ""}${esc(x)}</button>`).join("");
+        }
+        $("sSpotSave").addEventListener("click", () => { shot.spot = $("sSpot").value.trim(); $("sSpot").value = shot.spot; saveShot(); addSpot(shot.spot); drawShoot(); });
+        $("sSpots").addEventListener("click", (e) => {
+          if (e.target.closest("[data-sp-ed]")) { spotEdit = !spotEdit; drawSpots(); return; }
+          const b = e.target.closest("[data-sp]"); if (!b) return; const v = b.dataset.sp;
+          if (spotEdit) { putSpots(getSpots().filter((x) => x !== v)); drawSpots(); return; }
+          shot.spot = v; saveShot(); drawShoot();
+        });
+        function drawShootAlpha() { const bx = $("sAlpha"); if (bx.children.length) { for (const c of bx.children) c.setAttribute("aria-pressed", String(bbAlpha() === Number(c.dataset.a))); return; } bx.innerHTML = ALPHAS.map((a) => `<button type="button" class="chip" data-a="${a}" aria-pressed="${bbAlpha() === a}">${a >= 1 ? "不透明" : Math.round(a * 100) + "%"}</button>`).join(""); }
+        $("sAlpha").addEventListener("click", (e) => { const b = e.target.closest("[data-a]"); if (!b) return; CFG.alpha = Number(b.dataset.a); saveCfg(); drawShootAlpha(); drawPrev(); });
+        function drawPrev() { const c = $("sPrev"), info = boardInfo(shot); const k = CFG.shape === "tate" ? 1.3 : 0.78, w = CFG.shape === "tate" ? 250 : 360, h = Math.round(w * k); c.style.maxWidth = w + "px"; c.width = w * 2; c.height = h * 2; const g = c.getContext("2d"); g.scale(2, 2); if (bbAlpha() < 1) { for (let yy = 0; yy < h; yy += 12) for (let xx = 0; xx < w; xx += 12) { g.fillStyle = ((xx + yy) / 12) % 2 ? "#c9ced6" : "#eef0f3"; g.fillRect(xx, yy, 12, 12); } } drawBoard(g, 0, 0, w, h, info); }
         function pickNode(sel, done, allowAll) {
           const rows = tree.map((n) => `<li class="tn${n.id === sel ? " sel" : ""}" style="padding-left:${(n.lv - 1) * 16}px" data-id="${n.id}"><span class="lvbar" style="background:${LVCOL[n.lv]}"></span><button type="button" class="nm">${esc(n.name)}<small>${LV[n.lv]}</small></button></li>`).join("");
           sheet(allowAll ? "しぼる" : "工種・種別・細別を選ぶ", (allowAll ? `<button type="button" class="btn wide" data-id="" style="margin-bottom:8px">すべての写真</button>` : `<button type="button" class="btn wide" data-id="" style="margin-bottom:8px">工種なし</button>`) +
@@ -1540,7 +1587,7 @@
         }
         function drawBoard(g, x, y, w, h, info) {
           const c = COLORS[CFG.color] || COLORS.green, lw = Math.max(1, w * 0.006), pad = w * 0.025;
-          g.save(); g.fillStyle = c.bg; g.fillRect(x, y, w, h);
+          g.save(); g.fillStyle = c.bg; g.globalAlpha = bbAlpha(); g.fillRect(x, y, w, h); g.globalAlpha = 1;   // 半透明は地の色だけ(線と文字ははっきり)
           g.strokeStyle = c.fg; g.fillStyle = c.fg; g.lineWidth = lw; g.textBaseline = "middle";
           const ix = x + pad, iy = y + pad, iw = w - pad * 2, ih = h - pad * 2;
           g.strokeRect(ix, iy, iw, ih);
@@ -1594,6 +1641,7 @@
         });
         function camBtns() {
           $("camOn").classList.toggle("off", !CFG.bbOn); $("camOn").querySelector("small").textContent = CFG.bbOn ? "ON" : "OFF";
+          $("camAlpha").querySelector("small").textContent = alphaName(bbAlpha()); $("camAlpha").disabled = !CFG.bbOn;
           $("camRot").querySelector("small").textContent = manRot == null ? (CFG.rotAuto ? "自動" : "縦") : { 0: "縦", 90: "横", 180: "逆さ", 270: "横" }[manRot];
           $("camRot").style.transform = `rotate(${camRotNow()}deg)`;
         }
@@ -1659,6 +1707,7 @@
         $("camSz").addEventListener("pointerup", szEnd); $("camSz").addEventListener("pointercancel", szEnd);
         $("sCam").addEventListener("click", openCam);
         $("camClose").addEventListener("click", closeCam);
+        $("camAlpha").addEventListener("click", () => { const i = ALPHAS.indexOf(bbAlpha()); CFG.alpha = ALPHAS[(i + 1) % ALPHAS.length]; saveCfg(); layoutBB(); drawShootAlpha(); toast("黒板の透明度：" + alphaName(CFG.alpha), 1200); });
         $("camOn").addEventListener("click", () => { CFG.bbOn = !CFG.bbOn; saveCfg(); layoutBB(); toast(CFG.bbOn ? "🧾 黒板を入れて撮ります" : "🚫 黒板なしで撮ります（あとから写真帳で入れられます）", 1800); });
         $("camRot").addEventListener("click", () => {   // 自動 → 縦 → 横 → 逆さ → 横(反対) → 自動
           const o = [null, 0, 90, 180, 270]; manRot = o[(o.indexOf(manRot) + 1) % o.length]; layoutBB();
@@ -1682,6 +1731,7 @@
           if (!CFG.bbOn) {   // 黒板なし:電子小黒板の印(DCP PHOTO・XMP)は入れない。工種・測点はこのアプリの中だけで覚える
             let jpg = new Uint8Array(await (await canvasJpeg(c, Q())).arrayBuffer()); jpg = putMeta(jpg, exifNew(W, H, now, true), null);
             const rec = await addPhoto({ jpg, W, H, meta, kokuban: "none", at: now.getTime() });
+            addSpot(meta.spot, true);
             $("camLast").style.backgroundImage = `url(${URL.createObjectURL(rec.thumb)})`;
             toast(`📸 黒板なしで入れました${rec.saved ? "（保存先にも）" : ""}`, 1800); return;
           }
@@ -1690,6 +1740,7 @@
           let jpg = new Uint8Array(await (await canvasJpeg(c, Q())).arrayBuffer());
           jpg = putMeta(jpg, exifNew(W, H, now), xmpOf(meta));
           const rec = await addPhoto({ jpg, raw, W, H, meta, kokuban: "camera", at: now.getTime() });
+          addSpot(meta.spot, true);
           $("camLast").style.backgroundImage = `url(${URL.createObjectURL(rec.thumb)})`;
           toast(`📸 ${rec.meta.name || "写真"} を入れました${rec.saved ? "（保存先にも）" : ""}`, 1800);
         });
@@ -1916,7 +1967,7 @@
             o = o || { kubun: m.kubun, node: m.node, spot: m.spot, text: (m.lines || []).join("\n") };
             sheet("工種・測点・黒板", `<label class="f">写真区分</label><select id="rK">${KUBUN.map((k) => `<option ${k === o.kubun ? "selected" : ""}>${esc(k)}</option>`).join("")}</select>
               <label class="f">工種・種別・細別</label><button type="button" class="path" id="rP"><span>${esc(pathText(o.node) || "工種なし")}</span><small>選ぶ ›</small></button>
-              <label class="f" for="rS">測点</label><input type="text" id="rS" value="${esc(o.spot)}" />
+              <label class="f" for="rS">測点</label><input type="text" id="rS" list="spotList" value="${esc(o.spot)}" />
               <label class="f" for="rT">黒板の文字</label><textarea id="rT">${esc(o.text)}</textarea>
               <button type="button" class="btn pri wide" id="rOk" style="margin-top:10px">${needBB || p.kokuban === "composite" || p.kokuban === "camera" ? "黒板を描いて入れ直す" : "直す"}</button>`);
             const take = () => { o.kubun = $("rK").value; o.spot = $("rS").value.trim(); o.text = $("rT").value; };
@@ -1950,14 +2001,25 @@
         }
 
         // ------------------------------------------------------------ 保存先(フォルダ)・ZIP
+        // 保存先の中の「工事名」フォルダ。選んだフォルダがもう工事名のフォルダなら、その中に直接入れる(泉の広場/泉の広場 にしない)
+        function photoDir() { return (A && A.photoDirName && A.photoDirName()) || ""; }
+        function topDir() { const t = safeName(kname()); const d = photoDir(); return d && nk(d) === nk(t) ? "" : t; }
+        var madeTop = "";
+        function ensureKoujiDir(say) {   // 保存先と現場が決まったら、工事名のフォルダをすぐ作る
+          if (!(A && A.photoMkdir) || !photoDir() || !site) return;
+          const t = topDir(), key = photoDir() + "|" + t; if (!t || key === madeTop) return;
+          const r = A.photoMkdir(t);
+          if (r === "ok") { madeTop = key; if (say) toast(`保存先に「${t}」のフォルダを作りました。`); }
+          else if (say) toast("工事名のフォルダを作れません: " + r, 5000);
+        }
         function relPath(p) {   // 工事名 / 種別 / 細別 / 1_施工状況 / ファイル(施工の写真エンジンと同じ形)
-          const m = p.meta, top = safeName(kname());
-          if (!usesTree(m.kubun, m.node)) return [top, FIXDIR[m.kubun] || "99_その他（災害・事故・環境等）", p.file].join("/");
+          const m = p.meta, top = topDir();
+          if (!usesTree(m.kubun, m.node)) return [top, FIXDIR[m.kubun] || "99_その他（災害・事故・環境等）", p.file].filter(Boolean).join("/");
           const path = pathOf(m.node);
           if (!path.length) return [top, "_工種なし", SUBDIR[m.kubun] || "", p.file].filter(Boolean).join("/");
           const num = (n) => pad(kids(n.parent).indexOf(n) + 1) + "_" + safeName(n.name, 40);
           const dirs = path.length > 1 ? path.slice(1).map(num) : [num(path[0])];
-          return [top, ...dirs, SUBDIR[m.kubun] || "1_施工状況", p.file].join("/");
+          return [top, ...dirs, SUBDIR[m.kubun] || "1_施工状況", p.file].filter(Boolean).join("/");
         }
         function b64(u8) { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
         async function saveToDir(p, quiet) {
@@ -1967,7 +2029,7 @@
           toast(r === "nodir" ? "保存先のフォルダがまだ決まっていません（設定）。" : "保存先に書けません: " + r, 5000); return false;
         }
         const dirLabel = () => (A && A.photoDirName && A.photoDirName()) || "この端末の中（ZIP で書き出し）";
-        window.__utsDir = (name) => { drawSet(); drawHome(); if (name) toast("保存先を「" + name + "」にしました。"); putSiteSettings({ photoDir: name || "" }); };
+        window.__utsDir = (name) => { madeTop = ""; ensureKoujiDir(!!name); drawSet(); drawHome(); if (name) toast("保存先を「" + name + "」にしました。"); putSiteSettings({ photoDir: name || "" }); };
         // 圧縮しない ZIP(写真はもう JPEG なので縮まない)。名前は UTF-8
         const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
         const crc32 = (u) => { let c = 0xffffffff; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
@@ -2008,7 +2070,7 @@
         function drawSet() {
           const nm = A && A.photoDirName ? A.photoDirName() : "";
           $("dirBox").innerHTML = A && A.photoDirPick
-            ? `<div class="row"><span class="grow">${nm ? "📁 " + esc(nm) : "まだ決まっていません（この端末の中だけ）"}</span><button type="button" class="btn sm blue" id="dirPick">${nm ? "変える" : "フォルダを選ぶ"}</button>${nm ? `<button type="button" class="btn sm" id="dirClr">外す</button>` : ""}</div>`
+            ? `<div class="row"><span class="grow">${nm ? "📁 " + esc(nm) + (site ? (topDir() ? ` › <b>${esc(topDir())}</b>` : "（工事名のフォルダ）") : "") : "まだ決まっていません（この端末の中だけ）"}</span><button type="button" class="btn sm blue" id="dirPick">${nm ? "変える" : "フォルダを選ぶ"}</button>${nm ? `<button type="button" class="btn sm" id="dirClr">外す</button>` : ""}</div>`
             : `<p class="note">この画面（ブラウザ）ではフォルダに直接は書けません。写真帳で選んで「⬇ ZIP」で保存してください。Android の一発バーン アプリではフォルダを選べます。</p>`;
           if ($("dirPick")) $("dirPick").onclick = () => A.photoDirPick();
           if ($("dirClr")) $("dirClr").onclick = () => { A.photoDirClear(); drawSet(); drawHome(); };
@@ -2017,6 +2079,7 @@
           $("cfColor").innerHTML = Object.entries(COLORS).map(([k, c]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${CFG.color === k}">${c.name}</button>`).join("");
           const chips = (list, val) => list.map(([k, t]) => `<button type="button" class="chip" data-v="${k}" aria-pressed="${String(val) === String(k)}">${t}</button>`).join("");
           $("cfShape").innerHTML = chips([["yoko", "▭ 横長"], ["tate", "▯ 縦長"]], CFG.shape);
+          $("cfAlpha").innerHTML = chips(ALPHAS.map((a) => [a, a >= 1 ? "■ 不透明" : "◐ " + Math.round(a * 100) + "%"]), bbAlpha());
           $("cfPos").innerHTML = chips([["11", "右下"], ["01", "左下"], ["10", "右上"], ["00", "左上"]], `${CFG.fx}${CFG.fy}`);
           $("cfOn").innerHTML = chips([["1", "🧾 黒板を入れる"], ["0", "🚫 黒板なし"]], CFG.bbOn ? 1 : 0);
           $("cfRot").checked = !!CFG.rotAuto;
@@ -2026,6 +2089,7 @@
         }
         $("cfAuto").addEventListener("change", () => { CFG.auto = $("cfAuto").checked; saveCfg(); });
         for (const [id, key] of [["cfColor", "color"], ["cfShape", "shape"], ["cfRes", "res"], ["cfQ", "q"]]) $(id).addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG[key] = b.dataset.v; saveCfg(); drawSet(); drawPrev(); });
+        $("cfAlpha").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG.alpha = Number(b.dataset.v); saveCfg(); drawSet(); drawPrev(); });
         $("cfPos").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG.fx = Number(b.dataset.v[0]); CFG.fy = Number(b.dataset.v[1]); saveCfg(); drawSet(); });
         $("cfOn").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (!b) return; CFG.bbOn = b.dataset.v === "1"; saveCfg(); drawSet(); });
         $("cfRot").addEventListener("change", () => { CFG.rotAuto = $("cfRot").checked; saveCfg(); });
@@ -2034,7 +2098,7 @@
           if (!needSite()) return;
           const v = { kname: $("cfName").value.trim(), contractor: $("cfCon").value.trim(), from: $("cfFrom").value, to: $("cfTo").value };
           if (banned(v.kname) || banned(v.contractor)) { alertBox("書類に入れない名前が入っています。"); return; }
-          await putSiteSettings(v); toast("現場の設定に入れました。"); drawHome(); drawPrev();
+          await putSiteSettings(v); toast("現場の設定に入れました。"); ensureKoujiDir(true); drawSet(); drawHome(); drawPrev();
         });
 
         // ------------------------------------------------------------ 小窓
