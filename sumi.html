@@ -877,11 +877,16 @@
   window.addEventListener("unhandledrejection", function (e) { var r = e.reason; rec("promise", r && r.message ? r.message : String(r), "", r && r.stack); });
   var ce = console.error; console.error = function () { try { rec("console", [].map.call(arguments, function (a) { return a && a.message ? a.message : typeof a === "string" ? a : (function () { try { return JSON.stringify(a); } catch (x) { return String(a); } })(); }).join(" "), ""); } catch (e) { /* */ } return ce.apply(console, arguments); };
   // ---- 送る(送り先フォルダへ書く。書けなければ貯めておいて次に送る)
-  function queue(x, later) { var q = jget(QUE); x.info = x.info || info(); x.id = x.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6); q.push(x); ls.set(QUE, JSON.stringify(q.slice(-300)));
-    if (mailReady()) { var mq = jget(MQ); mq.push(x); ls.set(MQ, JSON.stringify(mq.slice(-300))); clearTimeout(queue.m); queue.m = setTimeout(mailFlush, later ? 4000 : 50); } if (later) { clearTimeout(queue.t); queue.t = setTimeout(flush, 4000); } else flush(); }
+  function queue(x, later) { var q = jget(QUE); x.info = x.info || info(); x.id = x.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6); q.push(x); ls.set(QUE, JSON.stringify(q.slice(-300))); if (later) { clearTimeout(queue.t); queue.t = setTimeout(flush, 4000); } else flush(); }
   function dirName() { return call("fbDirName"); }
+  // ふだんは送り先フォルダへ書く。書けなかったもの(フォルダが無い・書けない)だけ、メールの設定があればメールへ回す(メールは任意)
+  function toMail(items) {
+    if (!items.length || !mailReady()) return items;
+    var mq = jget(MQ); ls.set(MQ, JSON.stringify(mq.concat(items).slice(-300))); setTimeout(mailFlush, 50); return [];
+  }
   function flush() {
-    var q = jget(QUE); if (!q.length || !dirName()) return q.length;
+    var q = jget(QUE); if (!q.length) return 0;
+    if (!dirName()) { var keep = toMail(q); ls.set(QUE, JSON.stringify(keep)); badge(); return keep.length; }
     var errs = q.filter(function (x) { return x.type === "エラー"; }), reqs = q.filter(function (x) { return x.type !== "エラー"; }), left = [], st = stamp();
     reqs.forEach(function (x, i) {
       var r = call("fbSave", "要望/" + st + (i ? "_" + i : "") + "_" + (x.info.app || "app") + "_" + dev + ".json", JSON.stringify(x, null, 1), false);
@@ -891,7 +896,7 @@
       var r = call("fbSave", "エラー/" + st + "_" + (APP || "app") + "_" + dev + ".json", JSON.stringify({ type: "エラー", info: info(), items: errs.map(function (x) { return x.item; }) }, null, 1), false);
       if (r !== "ok") left = left.concat(errs);
     }
-    ls.set(QUE, JSON.stringify(left)); badge(); return left.length;
+    left = toMail(left); ls.set(QUE, JSON.stringify(left)); badge(); return left.length;
   }
   // ---- メールで送る(Android アプリの中から SMTP。要望はすぐ、エラーは10分に1通までまとめて)
   function mcfg() { try { return JSON.parse(call("mailConfigGet") || "{}"); } catch (e) { return {}; } }
@@ -925,15 +930,15 @@
   function mailDialog() {
     var G = window.Genba, esc = G.esc, c = mcfg();
     var d = G.dialog("✉ メールの設定",
-      '<div class="ipx-fbd"><div class="m">改善要望とエラーの記録を、この端末から自動でメールします。送るのに使うアカウントは、Gmail なら「アプリ パスワード」（Google アカウント › セキュリティ › 2 段階認証 › アプリ パスワード）を入れてください。ふだんのパスワードは使えません。設定はこの端末の中だけに置きます。<\/div>' +
+      '<div class="ipx-fbd"><div class="m">（入れなくてもかまいません）ふだんは送り先フォルダへ自動で送ります。フォルダに送れないとき（フォルダを選んでいない・書けない）だけ、ここで決めたアドレスへこの端末からメールします。送るのに使うアカウントは、Gmail なら「アプリ パスワード」（Google アカウント › セキュリティ › 2 段階認証 › アプリ パスワード）を入れてください。ふだんのパスワードは使えません。設定はこの端末の中だけに置きます。<\/div>' +
       '<label class="m">送り先（, で何人でも）<\/label><input id="ipxMto" type="email" data-noipx style="width:100%;box-sizing:border-box;padding:8px" value="' + esc(c.to || "") + '">' +
       '<label class="m">送るのに使うアドレス<\/label><input id="ipxMuser" type="email" data-noipx style="width:100%;box-sizing:border-box;padding:8px" value="' + esc(c.user || "") + '" placeholder="例: genba.report@gmail.com">' +
       '<label class="m">アプリ パスワード' + (c.hasPass ? "（入れてあります。変えるときだけ入れる）" : "") + '<\/label><input id="ipxMpass" type="password" data-noipx autocomplete="off" style="width:100%;box-sizing:border-box;padding:8px">' +
       '<div style="display:flex;gap:8px"><div style="flex:1"><label class="m">サーバー<\/label><input id="ipxMhost" type="text" data-noipx style="width:100%;box-sizing:border-box;padding:8px" value="' + esc(c.host || "smtp.gmail.com") + '"><\/div>' +
       '<div style="width:90px"><label class="m">ポート<\/label><select id="ipxMport" style="width:100%;padding:8px"><option' + (c.port == 587 ? "" : " selected") + '>465<\/option><option' + (c.port == 587 ? " selected" : "") + '>587<\/option><\/select><\/div><\/div>' +
-      '<label class="m" style="display:block;margin-top:8px"><input type="checkbox" id="ipxMon" style="width:auto;display:inline;vertical-align:middle"' + (c.on === false ? "" : " checked") + '> 自動でメールする<\/label>' +
+      '<label class="m" style="display:block;margin-top:8px"><input type="checkbox" id="ipxMon" style="width:auto;display:inline;vertical-align:middle"' + (c.on === false ? "" : " checked") + '> 送れないときにメールする<\/label>' +
       '<div class="m" id="ipxMres"><\/div><\/div>',
-      [{ label: "保存", ok: true, run: function (el) { save(el); toast(mailReady() ? "✉ メールの設定を保存しました" : "✉ 保存しました（足りないところがあります）"); mailFlush(); } },
+      [{ label: "保存", ok: true, run: function (el) { save(el); toast("✉ メールの設定を保存しました"); flush(); mailFlush(); } },
        { label: "テスト送信", run: function (el) { save(el); var r = el.querySelector("#ipxMres"); if (!mailReady()) { r.textContent = "送り先・アドレス・アプリ パスワードを入れてください。"; return false; } r.textContent = "送っています…"; var k = "t" + Date.now(); mailCb[k] = function (x) { r.textContent = x === "ok" ? "✓ 送れました。受信箱を見てください。" : "✗ " + x; }; A.mailSend(k, "【テスト】一発バーンの改善要望メール", "これはテストです。\n" + report("（テスト）", info(), [])); return false; } },
        { label: "閉じる" }]);
     function save(el) { A.mailConfigSet(JSON.stringify({ to: el.querySelector("#ipxMto").value.trim(), user: el.querySelector("#ipxMuser").value.trim(), pass: el.querySelector("#ipxMpass").value, host: el.querySelector("#ipxMhost").value.trim() || "smtp.gmail.com", port: Number(el.querySelector("#ipxMport").value), on: el.querySelector("#ipxMon").checked })); el.querySelector("#ipxMpass").value = ""; }
@@ -958,7 +963,7 @@
   }
   function state() {
     var d = dirName(), n = unsent(), e = errCount();
-    var mc = mcfg(), ml = mailReady() ? "✉ メール：" + window.Genba.esc(mc.to) + " へ自動で送ります<br>" : A && A.mailSend ? "✉ メールはまだ設定していません（「メールの設定」）<br>" : "";
+    var mc = mcfg(), ml = mailReady() ? "✉ 送り先フォルダに送れないときは " + window.Genba.esc(mc.to) + " へメールします<br>" : "";
     return ml + (d ? "送り先：📁 " + window.Genba.esc(d) : A && A.fbDirPick ? "送り先フォルダがまだありません（下の「送り先」で共有ドライブの 改善要望 フォルダを選んでください）" : "この画面（ブラウザ）からは自動で送れません。「コピー」して送ってください。") +
       "<br>エラーの記録 " + e + " 件" + (n ? "・まだ送っていないもの " + n + " 件" : "");
   }
@@ -968,8 +973,8 @@
     if (bad) { toast("「" + bad + "」は書類に入れない名前です。消してから送ってください"); return false; }
     var errs = jget(ERR).slice(-20);
     queue({ type: "要望", text: text, recentErrors: errs });
-    if (mailReady()) toast("✉ メールで送っています…");
-    else if (dirName()) toast(unsent() ? "送れなかったので、あとでもう一度送ります" : "💡 送りました。ありがとうございます");
+    if (dirName()) toast(unsent() ? "送れなかったので、あとでもう一度送ります" : "💡 送りました。ありがとうございます");
+    else if (mailReady()) toast("✉ メールで送っています…");
     else if (A && A.shareText) { A.shareText("【改善要望】" + (NAMES[APP] || ""), report(text)); }
     else { copy(report(text)); }
     return true;
