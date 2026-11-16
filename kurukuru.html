@@ -646,6 +646,9 @@
       .ar-fr { font-size: 17px; margin-bottom: 8px; }
       .ar-btns { display: flex; gap: 8px; } .ar-b { flex: 0 0 56px; padding: 12px 0; background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 12px; font-size: 18px; }
       .ar-b.ar-cal { flex: 1; font-size: 16px; font-weight: 700; background: #0f766e; border-color: #14b8a6; }
+      /* 操作盤・AR を開いているときは、上に浮かぶボタン(🗻・3D・💡)を出さない(操作盤のボタンや映像にかぶるため) */
+      .ctl-link[hidden] { display: none !important; }
+      body.kr-ctl-open .ipx-xsbtn, body.kr-ctl-open .ipx-fb { display: none !important; }
     </style>
 
     <script>window.IPPATSU_APP = "kurukuru";</script>
@@ -2228,7 +2231,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.28.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.29.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2654,13 +2657,12 @@
     <div class="ovl ctl" id="ctlOvl" hidden>
       <div class="ovl-card">
         <div class="ovl-head"><b>🎛 操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ctlconn" id="ctlConnBtn" type="button">🔗 つなぐ</button><button class="ghost ovl-x ctl-x" type="button" data-close="ctlOvl" aria-label="操作盤を閉じる">✕</button><div class="ctl-msg" id="ctlStatus" aria-live="polite"></div></div>
-        <div class="ctl-link seg-toggle" id="ctlLink" role="group" aria-label="杭ナビへのつなぎ方"><span>つなぎ方</span><button type="button" data-l="wifi" aria-pressed="true">📶 Wi-Fi</button><button type="button" data-l="bt" aria-pressed="false">🔵 Bluetooth</button></div>
+        <div class="ctl-link seg-toggle" id="ctlLink" hidden role="group" aria-label="杭ナビへのつなぎ方"><span>つなぎ方</span><button type="button" data-l="wifi" aria-pressed="true">📶 Wi-Fi</button><button type="button" data-l="bt" aria-pressed="false">🔵 Bluetooth</button></div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
           <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
           <button type="button" data-t="list" aria-pressed="false">📋 座標リスト</button>
           <button type="button" data-t="setup" aria-pressed="true">器械設置</button>
           <button type="button" data-t="stake" aria-pressed="false">杭打ち</button>
-          <button type="button" class="ar-open" data-ar="1">🥽 AR</button>
           <button type="button" data-t="radial" aria-pressed="false">放射観測</button>
           <button type="button" data-t="precheck" aria-pressed="false">始業前点検</button>
         </div>
@@ -7024,9 +7026,6 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             this.autoSearch(was, L);
             if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
             if (L.h != null) liveHd = this.az(L.h);
-            // 回っている(角度が E11x・向きが変わっている・サーチ中・点の方へ回っている)最後の時刻。映像はこれより遅れて届く
-            const ph = this.prevH; this.prevH = L.h;
-            if (L.h == null || L.trk === 3 || L.lay === 3 || (ph != null && Math.abs(((L.h - ph) * 360 + 540) % 360 - 180) > 0.02)) this.movingAt = L.t;
             const now = performance.now();
             if (now - (this.drawn || 0) > 200) { this.drawn = now; renderKMeas(); renderGuide(); if (!$("ctlOvl").hidden && ctlTab === "live") renderLive(); if (inst && (L.trk === 2 || was === 2)) draw(); }
           },
@@ -7070,7 +7069,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
                 const v = { rotL1: 2 * sp, rotL2: 4 * sp, rotR1: -2 * sp, rotR2: -4 * sp }[cmd];   // 実機で左右が逆だったので入れ替え(2026/11/13)
                 this.noAuto = true; this.raw("RSSPD", 0, v); if (!this.holding) setTimeout(() => this.raw("SMOTR"), 500); return null;
               }
-              case "stop": case "stopSearch": this.noAuto = true; clearTimeout(this.tdT1); clearTimeout(this.tdT2); this.raw("SMOTR"); return null;   // タッチドライブの続き(水平角で回す)も取りやめる
+              case "stop": case "stopSearch": this.noAuto = true; this.raw("SMOTR"); return null;
               case "search": case "rotSearch": this.startSearch("手動"); return null;
               case "track": if (a.on) this.startSearch("手動"); else { this.noAuto = true; this.raw("SMOTR"); } return null;
               case "guide": if (a.on) this.raw("LGLON", 0, 2); else this.raw("LGLOF"); return null;
@@ -7097,11 +7096,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
                     let moved = L && L.h != null ? (L.h - h0) * 360 : 0;   // E115(回転中)なら L.h は null = 回っている
                     if (L && L.h == null) return;
                     moved = ((moved + 540) % 360) - 180;
-                    // CMPOS で回った量から、映像の横の画角を覚える(次のタップから角度の見込みが合う)
-                    const px = (a.fx - 0.5) * 1280;
-                    if (Math.abs(px) > 120 && Math.abs(moved) > 0.2) liveLearnFov(Math.abs(moved) / (Math.abs(px) / 1280));
-                    // 少しでも回っていれば CMPOS が効いている。重ねて回すと行き過ぎるので、ほとんど動かなかったときだけ水平角で回す
-                    if (Math.abs(moved) >= 0.05) return;
+                    if (Math.abs(moved) >= Math.abs(dH) * 0.3) return;
                     const h1 = ((h0 + dH / 360) % 1 + 1) % 1, dist = L0 && L0.sd ? L0.sd * Math.sin(L0.v * 2 * Math.PI) : 20;
                     ctlLogAdd(`タッチドライブ:CMPOS で回らなかったので、水平角で回します(${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°)`);
                     this.raw("RLAYO", h1.toFixed(8), Math.max(1, dist).toFixed(3));
@@ -7875,6 +7870,9 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         new MutationObserver(() => { const c = $("ctlStatus"); if (!c) return; c.textContent = statusEl.textContent; c.className = "ctl-msg" + (statusEl.classList.contains("warn") ? " warn" : ""); })
           .observe(statusEl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["class"] });
         let ctlTab = "setup";
+        // 操作盤・AR を開いている間は body に印をつける(浮かぶボタンを隠す)
+        { const mark = () => document.body.classList.toggle("kr-ctl-open", !$("ctlOvl").hidden || !$("arOvl").hidden);
+          const mo = new MutationObserver(mark); mo.observe($("ctlOvl"), { attributes: true, attributeFilter: ["hidden"] }); mo.observe($("arOvl"), { attributes: true, attributeFilter: ["hidden"] }); }
         function setCtlTab(t) {
           ctlTab = t;
           for (const b of $("ctlTabs").children) b.setAttribute("aria-pressed", String(b.dataset.t === t));
@@ -7985,15 +7983,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         // 映像と杭ナビの向きは、つながったら KuiNavi から liveFrame()・liveHeading() に入れてもらう。
         // いまは未接続なので、向きの針はボタンに合わせて動く「見本」。
         const LIVE_ACTS = ["rotSearch", "turnTarget", "panorama"];
-        let CAM_FOV = Number(load("kr.camfov")) || 30;   // 映像の横の画角(度)。はじめは仮の 30°、タッチドライブで回った量から覚える
-        function liveLearnFov(f) {
-          if (!(f > 8 && f < 80)) return;
-          CAM_FOV = CAM_FOV * 0.6 + f * 0.4; store("kr.camfov", CAM_FOV.toFixed(2));
-          ctlLogAdd(`映像の画角を ${CAM_FOV.toFixed(1)}° と覚えました(タッチドライブで回った量から)`);
-        }
-        const LIVE_LAG = 700;   // 杭ナビが止まってから、止まった映像が届くまでの見込み(ms)
-        const liveStale = () => KuiNavi.connected && KuiNavi.movingAt && Date.now() - KuiNavi.movingAt < LIVE_LAG;
-        let liveDrawn = null;   // 映像を描いた所(canvas の中・CSS の px)
+        const CAM_FOV = 30;                       // 映像の横の画角(度・仮)
         let liveHd = null, liveAnim = null, lsRange = 360, lsDir = "R", liveConnected = false;
         const norm = (a) => ((a % 360) + 360) % 360;
         const dAng = (a, b) => { let d = norm(b - a); if (d > 180) d -= 360; return d; };   // a から b へ(右回り +)
@@ -8008,7 +7998,6 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           const k = Math.min(c.width / iw, c.height / ih), dw = iw * k, dh = ih * k, g = c.getContext("2d");   // 縦横の比を保って真ん中に(十字=画面の中心)
           if (Math.abs(dw - c.width) > 1 || Math.abs(dh - c.height) > 1) { g.fillStyle = "#000"; g.fillRect(0, 0, c.width, c.height); }
           g.drawImage(img, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
-          liveDrawn = { x: (c.width - dw) / 2 / dpr, y: (c.height - dh) / 2 / dpr, w: dw / dpr, h: dh / dpr };   // タップの位置はこの絵の上で計る
           const now = performance.now(); liveTimes.push(now); while (liveTimes.length && now - liveTimes[0] > 2000) liveTimes.shift();
           if (!liveConnected || now - liveFpsAt > 1000) { liveFpsAt = now; liveConnected = true; renderLive(); }
         }
@@ -8076,18 +8065,10 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         //   スワイプ:映像をつかんで動かす向き(左へなぞる → 映像が左へ流れる → 杭ナビは右へ回る)
         let lvSw = null;
         function liveImgRect() {   // 映像は枠の中に縦横比を保って描いているので、その絵の部分の位置と大きさ
-          const r = $("liveView").getBoundingClientRect();
-          if (liveConnected && liveDrawn && liveDrawn.w > 0) { const c = $("liveImg").getBoundingClientRect(); return { left: c.left + liveDrawn.x, top: c.top + liveDrawn.y, width: liveDrawn.w, height: liveDrawn.h, box: r }; }
-          const k = Math.min(r.width / 1280, r.height / 720), w = 1280 * k, h = 720 * k;
+          const r = $("liveView").getBoundingClientRect(), k = Math.min(r.width / 1280, r.height / 720), w = 1280 * k, h = 720 * k;
           return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h, box: r };
         }
         function liveDrive(fx, fy, how) {
-          if (liveStale()) {
-            // 回っている途中の映像は少し前の向きのもの。そのまま回すと、タップした所とちがう方へ行くので、止めてからタップし直してもらう
-            KuiNavi.send("stop");
-            setStatus("✋ 杭ナビが回っている途中だったので止めました。映像が止まってから(「回転中」が消えてから)もう一度タップしてください。");
-            renderLive(); setTimeout(renderLive, LIVE_LAG + 400); return;
-          }
           fx = Math.max(0, Math.min(1, fx)); fy = Math.max(0, Math.min(1, fy));
           const dH = (fx - 0.5) * CAM_FOV, dV = (0.5 - fy) * CAM_FOV * 720 / 1280;
           KuiNavi.send("touchDrive", { 水平: `${dH >= 0 ? "右" : "左"} ${Math.abs(dH).toFixed(1)}°`, 鉛直: `${dV >= 0 ? "上" : "下"} ${Math.abs(dV).toFixed(1)}°`, fx: +fx.toFixed(3), fy: +fy.toFixed(3), dH: KuiNavi.hSign * dH });
@@ -8143,10 +8124,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("liveDial").innerHTML = g;
           // 映像の上の表示
           const lv = $("cfgModel").value === "LN-1000i";
-          const mv = liveStale();
-          $("liveSt").textContent = liveConnected ? `LIVE ${liveFps().toFixed(1)}コマ/秒` + (mv ? "・回転中" : "") : "映像なし"; $("liveSt").className = "badge " + (liveConnected && !mv ? "ok" : "ng");
-          $("liveView").classList.toggle("moving", !!mv);
-          if (mv) { clearTimeout(renderLive.t); renderLive.t = setTimeout(renderLive, LIVE_LAG); }
+          $("liveSt").textContent = liveConnected ? `LIVE ${liveFps().toFixed(1)}コマ/秒` : "映像なし"; $("liveSt").className = "badge " + (liveConnected ? "ok" : "ng");
           $("liveTgt").textContent = p ? `出す点 ${p.name}` : "出す点 --";
           $("liveMsg").textContent = liveConnected ? "" : KuiNavi.connected && lv ? (KuiNavi.vidNote ? "映像を待っています… 中継より:" + KuiNavi.vidNote : "映像を待っています…(中継 v2 以降が必要です。来ないときは Termux の画面の「映像:」の行と、ダウンロードの kurukuru_video.bin を送ってください)") : lv
             ? "杭ナビ(LN-1000i)につながると、ここにカメラ映像が出ます。映像をタップするとその方へ回ります(タッチドライブ)。"
