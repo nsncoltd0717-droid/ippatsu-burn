@@ -649,6 +649,47 @@
       /* 操作盤・AR を開いているときは、上に浮かぶボタン(🗻・3D・💡)を出さない(操作盤のボタンや映像にかぶるため) */
       .ctl-link[hidden] { display: none !important; }
       body.kr-ctl-open .ipx-xsbtn, body.kr-ctl-open .ipx-fb { display: none !important; }
+      /* 器械設置(2026-11-16 ゆきちゃんの動画の形):据え方の大きいボタン・点のボタン・1〜4点目の枠。タブは 3 列 2 段 */
+      .ovl.ctl .ctl-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; overflow: visible; }
+      .ovl.ctl .ctl-tabs button { width: 100%; padding-left: 4px; padding-right: 4px; min-height: 40px; }
+      .ctl-linkchip { width: auto; min-height: 30px; padding: 2px 8px; font-size: 12px; border-radius: 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; font-weight: 700; white-space: nowrap; }
+      .ctl-linkchip.bt { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+      .kwiz { margin: 0 0 8px; }
+      .kwiz .ezsteps { display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: center; font-size: 12px; color: var(--sub); margin: 0 0 6px; }
+      .kwiz .ezsteps span { padding: 1px 6px; border-radius: 6px; background: #f1f5f9; }
+      .kwiz .ezsteps span.done { background: #dcfce7; color: #15803d; }
+      .kwiz .ezsteps span.cur { background: #2563eb; color: #fff; font-weight: 800; }
+      .kwiz .ezbig { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .kwiz .ezbig button { min-height: 76px; font-size: 16px; font-weight: 800; line-height: 1.35; white-space: normal; background: #4c9a63; color: #fff; border: 0; }
+      .kwiz .ezbig button small { display: block; font-weight: 600; font-size: 12px; opacity: .9; margin-top: 2px; }
+      .kwiz .ezbig button[aria-pressed="true"] { outline: 3px solid #f59e0b; outline-offset: 1px; background: #2f8a4b; }
+      .kwiz .ezbig button[aria-pressed="false"] { opacity: .8; }
+      .kwiz .kw-more { display: flex; gap: 6px; margin-top: 6px; } .kwiz .kw-more button { flex: 1; min-height: 36px; font-size: 13px; }
+      .kwiz .kw-more button[aria-pressed="true"] { background: #2563eb; color: #fff; }
+      .kwiz .kw-h { font-weight: 800; font-size: 15px; margin: 10px 0 4px; }
+      .kwiz .kw-sub { font-size: 12px; color: var(--sub); margin: 8px 0 2px; }
+      .kwiz .kw-sel { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 15px; }
+      .kwiz .kw-sel b { font-size: 17px; }
+      .kwiz .kw-sel button { width: auto; min-height: 32px; padding: 2px 10px; font-size: 13px; }
+      .kwiz .ezpts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 6px; }
+      .kwiz .ezpts.more { max-height: 30vh; overflow: auto; }
+      .kwiz .ezpts button { min-height: 44px; font-size: 15px; font-weight: 800; padding: 4px; line-height: 1.2; background: #3b5bdb; color: #fff; border: 0; }
+      .kwiz .ezpts button small { display: block; font-weight: 600; font-size: 11px; opacity: .85; }
+      .kwiz .ezpts button.on { background: #f59e0b; color: #111; }
+      .kslots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+      .kslot { border: 1px dashed var(--line); border-radius: 10px; padding: 6px 8px; min-height: 64px; font-size: 13px; position: relative; background: var(--panel, #fff); }
+      .kslot .kt { display: flex; justify-content: space-between; font-weight: 800; font-size: 12px; }
+      .kslot .kt em { font-style: normal; font-weight: 600; color: var(--sub); font-size: 11px; }
+      .kslot b { display: block; font-size: 17px; }
+      .kslot small { color: var(--sub); font-size: 11.5px; display: block; }
+      .kslot.cur { border: 2px solid #f59e0b; background: #fffbeb; }
+      .kslot.cur .kt em { color: #b45309; font-weight: 800; }
+      .kslot.done { border: 1px solid #86efac; background: #f0fdf4; }
+      .kslot button { position: absolute; right: 4px; bottom: 4px; width: auto; min-height: 28px; padding: 0 8px; font-size: 12px; }
+      .kmeas { background: #2f8a4b !important; border-color: #2f8a4b !important; color: #fff !important; margin-top: 8px; }
+      .kw-adv { margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+      .kw-adv summary { font-weight: 700; font-size: 14px; cursor: pointer; }
+      #ctMethod, .kseq-next { display: none !important; }
     </style>
 
     <script>window.IPPATSU_APP = "kurukuru";</script>
@@ -2231,7 +2272,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.29.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.30.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2656,7 +2697,7 @@
     <!-- 杭ナビ操作盤(まだ杭ナビとはつながらない見本) -->
     <div class="ovl ctl" id="ctlOvl" hidden>
       <div class="ovl-card">
-        <div class="ovl-head"><b>🎛 操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ctlconn" id="ctlConnBtn" type="button">🔗 つなぐ</button><button class="ghost ovl-x ctl-x" type="button" data-close="ctlOvl" aria-label="操作盤を閉じる">✕</button><div class="ctl-msg" id="ctlStatus" aria-live="polite"></div></div>
+        <div class="ovl-head"><b>🎛 操作盤</b><span class="badge" id="ctlConn">未接続</span><button class="ctl-linkchip" id="ctlLinkChip" type="button" aria-label="つなぎ方を切り替える">📶 Wi-Fi</button><button class="ctlconn" id="ctlConnBtn" type="button">🔗 つなぐ</button><button class="ghost ovl-x ctl-x" type="button" data-close="ctlOvl" aria-label="操作盤を閉じる">✕</button><div class="ctl-msg" id="ctlStatus" aria-live="polite"></div></div>
         <div class="ctl-link seg-toggle" id="ctlLink" hidden role="group" aria-label="杭ナビへのつなぎ方"><span>つなぎ方</span><button type="button" data-l="wifi" aria-pressed="true">📶 Wi-Fi</button><button type="button" data-l="bt" aria-pressed="false">🔵 Bluetooth</button></div>
         <div class="ctl-tabs seg-toggle" id="ctlTabs">
           <button type="button" data-t="live" aria-pressed="false">📹 LIVE</button>
@@ -2746,7 +2787,8 @@
         </div>
         <!-- 器械設置 -->
         <div class="ctl-pane" data-pane="setup">
-          <div class="chips" id="ctMethod">
+          <div class="kwiz" id="kWiz"></div>
+          <div class="chips" id="ctMethod" hidden>
             <button type="button" data-m="free" aria-pressed="true">任意点設置(後方交会)</button>
             <button type="button" data-m="known" aria-pressed="false">既知点設置</button>
             <button type="button" data-m="bm" aria-pressed="false">BM測定</button>
@@ -2756,11 +2798,11 @@
             <button type="button" data-d="3d" aria-pressed="true">3D(後視点の標高で高さも)</button>
             <button type="button" data-d="2d" aria-pressed="false">2D(高さは BM で)</button>
           </div>
-          <p class="step-note" id="ctMethodNote" style="margin:0 0 8px"></p>
+          <p class="step-note" id="ctMethodNote" hidden></p>
           <div class="kseq-wrap" id="kSeqWrap">
             <div class="kseq" id="kSeq"></div>
-            <div class="kseq-next"><span id="kNextName">既知点1:未選択</span><button type="button" class="ghost" data-clpick="next">📋 次の既知点を選ぶ</button></div>
-            <button type="button" class="big primary" id="kMeasBtn">📏 計測</button>
+            <div class="kseq-next" hidden><span id="kNextName">既知点1:未選択</span><button type="button" class="ghost" data-clpick="next">📋 次の既知点を選ぶ</button></div>
+            <button type="button" class="big primary kmeas" id="kMeasBtn">📏 計測</button>
             <div class="field2" style="margin-top:6px">
               <button type="button" class="big" id="kDone">✓ 終了して計算</button>
               <button type="button" class="big ghost" id="kReset">はじめから</button>
@@ -2773,8 +2815,11 @@
             <div><small>ずれ X</small><b id="sgX">--- mm</b></div><div><small>Y</small><b id="sgY">--- mm</b></div><div><small>Z</small><b id="sgZ">--- mm</b></div>
           </div>
           <p class="step-note" id="ctSigmaNote" style="margin:4px 0 10px"></p>
+          <details class="kw-adv"><summary>そのほか(向きだけ合わせる)</summary>
+          <p class="step-note">器械点がもう決まっていて、向きだけを合わせ直すときに使います(ふつうは上の手順で済みます)。</p>
           <button type="button" class="big" id="ctOrient">🧭 向きを合わせる(既知点1のプリズムを追尾して押す)</button>
           <p class="step-note" id="ctOrientNote" style="margin:4px 0 10px"></p>
+          </details>
         </div>
         <!-- 杭打ち -->
         <div class="ctl-pane" data-pane="stake" hidden>
@@ -7548,20 +7593,89 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           setStatus(`後方交会 ${N} 点:標準偏差 X ${sg(0).toFixed(1)} mm・Y ${sg(1).toFixed(1)} mm。残差を確かめて「✓ この器械点で決定」か「測り直す」を押してください。`, kBad);
           renderCtl();
         }
+        // 器械設置の手順(2026-11-16 ゆきちゃんの動画の形【ECPから】):据え方 → 既知点を測る → 計算・確認
+        const SLOT = [["1点目", "必須"], ["2点目", "必須"], ["3点目", "確かめ(おすすめ)"], ["4点目", "任意"]];
+        function renderKWiz() {
+          const box = $("kWiz"); if (!box) return;
+          const known = ctMethod === "known", free = ctMethod === "free";
+          const A = byName(k1), B = byName(k2);
+          const done = !$("kResult").hidden && !!$("kResult").querySelector(".kr-done");
+          const pend = !!kPending && !$("kResult").hidden;
+          let L, cur;
+          if (known) { L = ["据え方", "器械点", "後視点", "後視を測る", "確認"]; cur = !A ? 1 : !B ? 2 : pend || done ? 4 : 3; }
+          else { L = ["据え方", "既知点を測る", "計算・確認"]; cur = pend || done ? 2 : 1; }
+          if (done) cur = L.length;
+          let h = `<div class="ezsteps">${L.map((x, i) => `<span class="${i < cur ? "done" : i === cur ? "cur" : ""}">${i + 1} ${x}</span>`).join("")}</div>`;
+          h += `<div class="ezbig"><button type="button" data-kwm="known" aria-pressed="${known}">📍 既知点の上に据える<small>既知点設置(器械点と後視点)</small></button>` +
+            `<button type="button" data-kwm="free" aria-pressed="${free}">🎯 好きな所に据える<small>後方交会(既知点を 2 点以上)</small></button></div>` +
+            `<div class="kw-more"><button type="button" class="ghost" data-kwm="bm" aria-pressed="${ctMethod === "bm"}">BM 測定(高さだけ)</button><button type="button" class="ghost" data-kwm="last" aria-pressed="${ctMethod === "last"}">前回の設置を使う</button></div>`;
+          // 点のボタン:既知点を先に、そのあとにほかの登録した点(選ぶと既知点になる)
+          const ks = knowns(), others = picks.filter((p) => roleOf(p) !== "known" && !p.temp);
+          const btn = (which, p, sel, dist) => `<button type="button" data-kpt="${which}" data-n="${esc(p.name)}" class="${p.name === sel ? "on" : ""}">${esc(p.name)}${dist && A ? `<small>${dm(A, p).toFixed(1)} m</small>` : ""}</button>`;
+          const list = (which, excl, sel, dist) => {
+            const a = ks.filter((p) => !excl.includes(p.name)), o = others.filter((p) => !excl.includes(p.name));
+            if (!a.length && !o.length) return `<p class="step-note">点がありません。座標ファイル(SIMA・CSV)を入れてください。</p>`;
+            return (a.length ? `<div class="ezpts">${a.map((p) => btn(which, p, sel, dist)).join("")}</div>` : `<p class="step-note">既知点はまだありません。下の点から選ぶと既知点になります。</p>`) +
+              (o.length ? `<div class="kw-sub">ほかの登録した点(${o.length} 点。選ぶと既知点になります)</div><div class="ezpts more">${o.map((p) => btn(which, p, sel, dist)).join("")}</div>` : "");
+          };
+          if (known) {
+            h += A ? `<div class="kw-sel">器械点 <b>${esc(A.name)}</b><button type="button" class="ghost" data-kch="k1">変える</button></div>`
+              : `<div class="kw-h">② 器械点(杭ナビを据えた既知点)を選ぶ</div>` + list("k1", [], null, false);
+            if (A) h += B ? `<div class="kw-sel">後視点 <b>${esc(B.name)}</b>(器械点から ${dm(A, B).toFixed(3)} m)<button type="button" class="ghost" data-kch="k2">変える</button></div>`
+              : `<div class="kw-h">③ 後視点(プリズムを立てる既知点)を選ぶ</div>` + list("k2", [A.name], null, true);
+            if (A && B && !pend && !done) h += `<div class="kw-h">④ 後視点 ${esc(B.name)} にプリズムを立てて追尾(🔍 サーチ)→「📏 計測」→「✓ 計算する」</div>`;
+          } else if (free) {
+            const measured = kSeq.map((q) => q.name);
+            if (!pend && !done) h += `<div class="kw-h">② ${kSeq.length + 1} 点目に測る既知点を選ぶ(選んでプリズムを立てて追尾 →「📏 計測」)</div>` + list("next", measured, kNext, false) +
+              (kSeq.length >= 2 ? `<p class="step-note">${kSeq.length} 点 測りました。3 点目も測ると確かめができます(おすすめ)。終わったら「✓ 計算する」。</p>` : "");
+          } else {
+            h += `<p class="step-note">${METHOD_NOTE[ctMethod] || ""}</p>`;
+          }
+          if (pend) h += `<div class="kw-h">${known ? "⑤" : "③"} 結果を確かめて「✓ この器械点で決定」</div>`;
+          if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; }
+          $("kSeqWrap").hidden = !(known || free);
+        }
+        $("kWiz").addEventListener("click", (e) => {
+          const m = e.target.closest("[data-kwm]");
+          if (m) { ctMethod = m.dataset.kwm; store("kr.method", ctMethod); kSeq = []; kNext = null; kPending = null; $("kResult").hidden = true; $("kResult").innerHTML = ""; KuiNavi.send("method", { method: ctMethod }); renderCtl(); return; }
+          const c = e.target.closest("[data-kch]");
+          if (c) { if (c.dataset.kch === "k1") { k1 = null; k2 = null; } else k2 = null; kSeq = []; kNext = null; kPending = null; $("kResult").hidden = true; $("kResult").innerHTML = ""; afterChange(); renderCtl(); return; }
+          const b = e.target.closest("[data-kpt]"); if (!b) return;
+          const p = byName(b.dataset.n); if (!p) return;
+          const w = b.dataset.kpt;
+          if (w === "next") { setKnown("next", p); return; }
+          if (w === "k1") { k1 = p.name; if (k2 === k1) k2 = null; kSeq = []; setStatus(`器械点を ${p.name} にしました。次は後視点を選んでください。`); }
+          else { k2 = p.name; kNext = p.name; setStatus(`後視点を ${p.name} にしました。プリズムを立てて追尾し「📏 計測」を押してください。`); }
+          if (roleOf(p) !== "known") p.role = "known";
+          afterChange(); renderCtl();
+        });
         function renderKSeq() {
           if (!$("kSeq")) return;
           if (!kNext || kSeq.some((q) => q.name === kNext)) kNext = nextKnown();
+          renderKWiz();
           const need = ctMethod === "known" ? 1 : 2;
-          $("kSeq").innerHTML = (ctMethod === "known" ? `<div class="kseq-row inst"><b>器械点</b><span>${esc(k1 || "未選択")}</span><button type="button" class="ghost" data-clpick="k1">📋 選ぶ</button></div>` : "") +
-            kSeq.map((q, i) => `<div class="kseq-row"><b>${ctMethod === "known" ? "後視" : "既知点"}${i + 1}</b><span>${esc(q.name)}</span><small>${q.hd.toFixed(3)} m${q.r != null ? `・ずれ ${q.r.toFixed(1)} mm` : ""}</small><button type="button" class="ghost" data-kdel="${esc(q.name)}" aria-label="${esc(q.name)} を消す">✕</button></div>`).join("") +
-            (kSeq.length ? "" : `<p class="step-note" style="margin:0">まだ計測していません。</p>`);
-          const lbl = ctMethod === "known" ? `後視${kSeq.filter((q) => q.name !== k1).length + 1}` : `既知点${kSeq.length + 1}`;
+          const row = (q, lb) => `<div class="kseq-row"><b>${lb}</b><span>${esc(q.name)}</span><small>${q.hd.toFixed(3)} m${q.r != null ? `・ずれ ${q.r.toFixed(1)} mm` : ""}</small><button type="button" class="ghost" data-kdel="${esc(q.name)}" aria-label="${esc(q.name)} を消す">✕</button></div>`;
+          if (ctMethod === "known") {
+            $("kSeq").innerHTML = `<div class="kseq-row inst"><b>器械点</b><span>${esc(k1 || "未選択")}</span></div>` + kSeq.map((q, i) => row(q, "後視" + (i + 1))).join("") +
+              (kSeq.length ? "" : `<p class="step-note" style="margin:0">まだ計測していません。</p>`);
+          } else {
+            // 1点目〜4点目の枠(測った点・いま測る点・まだの点)
+            const n = Math.max(4, kSeq.length + 1), cells = [];
+            for (let i = 0; i < n; i++) {
+              const [t, why] = SLOT[i] || [`${i + 1}点目`, "任意"], q = kSeq[i];
+              if (q) cells.push(`<div class="kslot done"><div class="kt">${t}<em>✓ 計測済み</em></div><b>${esc(q.name)}</b><small>${q.hd.toFixed(3)} m${q.r != null ? `・ずれ ${q.r.toFixed(1)} mm` : ""}</small><button type="button" class="ghost" data-kdel="${esc(q.name)}" aria-label="${esc(q.name)} を消す">✕</button></div>`);
+              else if (i === kSeq.length) cells.push(`<div class="kslot cur"><div class="kt">${t}<em>▶ いま測る</em></div>${kNext ? `<b>${esc(kNext)}</b><small>プリズムを立てて追尾 →「📏 計測」</small>` : `<small>(上の点のボタンで選ぶ)</small>`}</div>`);
+              else cells.push(`<div class="kslot"><div class="kt">${t}<em>${why}</em></div><small>(まだ選んでいない)</small></div>`);
+            }
+            $("kSeq").innerHTML = `<div class="kslots">${cells.join("")}</div>`;
+          }
+          const lbl = ctMethod === "known" ? `後視${kSeq.filter((q) => q.name !== k1).length + 1}` : `${kSeq.length + 1}点目`;
           $("kNextName").textContent = kNext ? `${lbl}:${kNext}` : `${lbl}:未選択`;
           $("kMeasBtn").textContent = kNext ? `📏 計測(${lbl} ${kNext})` : "📏 計測(先に既知点を選ぶ)";
           $("kMeasBtn").disabled = !kNext;
           $("kDone").disabled = false;   // 足りないときは押すと理由を出す
           $("kDone").classList.toggle("primary", kSeq.filter((q) => ctMethod !== "known" || q.name !== k1).length >= need);
-          $("kDone").textContent = `✓ 終了して計算(${kSeq.length} 点)`;
+          $("kDone").textContent = `✓ 計算する(${kSeq.length} 点)`;
         }
         $("kSeqWrap").addEventListener("click", (e) => {
           const d = e.target.closest("[data-kdel]"); if (!d) return;
@@ -7831,6 +7945,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (was) setTimeout(() => KuiNavi.connect(), 400);
           renderCtl();
         }
+        $("ctlLinkChip").addEventListener("click", () => setLink($("cfgLink").value === "bt" ? "wifi" : "bt"));
         $("ctlLink").addEventListener("click", (e) => { const b = e.target.closest("button[data-l]"); if (b) setLink(b.dataset.l); });
 
         $("sndMeasTest").addEventListener("click", () => beep("meas", true));
@@ -7920,6 +8035,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("ctlConn").className = "badge " + (KuiNavi.connected ? "ok" : "ng");
           $("ctlConnBtn").textContent = KuiNavi.ws ? "切る" : $("cfgLink").value === "bt" ? "🔵 つなぐ" : "🔗 つなぐ";
           for (const b of $("ctlLink").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.l === $("cfgLink").value));
+          { const bt = $("cfgLink").value === "bt", c = $("ctlLinkChip"); c.textContent = bt ? "🔵 BT" : "📶 Wi-Fi"; c.classList.toggle("bt", bt); }
           $("tileConn").textContent = KuiNavi.connected ? `接続中(${KuiNavi.model || "杭ナビ"})` : "未接続(くるくる中継を使う)";
           $("ctOrientNote").textContent = KuiNavi.hOff ? `向き:合わせ済み(ずれ ${dms(KuiNavi.hOff)})` : "向き:まだ合わせていません(杭ナビの水平角をそのまま方向角として使います)";
           renderKMeas();

@@ -70,6 +70,13 @@
       .tn .lvbar { width: 5px; align-self: stretch; border-radius: 3px; }
       .tn .nm { flex: 1 1 0; min-width: 0; text-align: left; border: 0; background: none; padding: 8px 4px; cursor: pointer; font-size: 15px; }
       .tn .nm small { color: var(--sub); font-size: 11px; margin-left: 6px; }
+      .ks { display: flex; align-items: center; gap: 6px; min-height: 46px; border-bottom: 1px solid #ddd; background: #fdf2f8; }
+      .ks .lvbar { width: 5px; align-self: stretch; border-radius: 3px; }
+      .ks .nm { flex: 1 1 0; min-width: 0; text-align: left; border: 0; background: none; padding: 8px 4px; cursor: pointer; font-size: 15px; font-weight: 700; color: inherit; }
+      .ks .nm small { color: var(--sub); font-size: 11px; margin-left: 6px; font-weight: 400; }
+      .ks .more, .ks .cnt { flex: none; }
+      .ktop { display: flex; align-items: baseline; gap: 8px; padding: 10px 4px; border-bottom: 2px solid #c2255c; font-size: 17px; }
+      .ktop small { color: var(--sub); font-size: 12px; }
       .tn .cnt { color: var(--accent2); font-size: 12px; font-weight: 700; }
       .tn .more { border: 0; background: none; font-size: 20px; width: 36px; height: 36px; cursor: pointer; color: var(--sub); }
       .tn.sel { background: #fdeef3; }
@@ -950,7 +957,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.1</small></h1>
+      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.0</small></h1>
     </header>
 
     <!-- ホーム -->
@@ -1018,11 +1025,11 @@
     <section class="view wrap" id="vTree" hidden>
       <div class="card">
         <div class="row">
-          <b class="grow">工種ツリー</b>
+          <b class="grow">工事・区分・工種ツリー</b>
           <button type="button" class="btn sm" id="tAdd">＋ 工種</button>
           <button type="button" class="btn sm" id="tImp">📄 読み込む</button>
         </div>
-        <p class="note">工種 › 種別 › 細別 の3段です（SiteBox・デキスパートと同じ並び）。写真の XMP にこの名前が入るので、写管屋に取り込むと同じツリーに入ります。行の「⋮」で、下に足す・名前を変える・消す。</p>
+        <p class="note">工事 › 区分（着手前及び完成・施工状況・出来形管理・安全管理・品質管理・使用材料・事故・仮設工・履行報告）の順です。施工状況と出来形管理の下は同じ工種ツリー（工種 › 種別 › 細別、SiteBox・デキスパートと同じ並び）。写真の XMP にこの名前が入るので、写管屋に取り込むと同じツリーに入ります。行の「⋮」で、下に足す・名前を変える・消す。</p>
       </div>
       <ul class="tree card" id="tList" style="padding:4px 8px"></ul>
     </section>
@@ -1114,10 +1121,15 @@
         const A = window.KurukuruAndroid || null;
         const G = window.Genba || null;
         const BANNED = ["中谷行寿", "松本光市", "今村正人"];   // 書類に入れない名前(施工の決まり)
-        const KUBUN = ["着手前及び完成写真", "施工状況写真", "安全管理写真", "使用材料写真", "品質管理写真", "出来形管理写真", "災害写真", "事故写真", "その他（公害、環境、補償等）"];
-        const KUBUN_SHORT = { "着手前及び完成写真": "着手前・完成", "施工状況写真": "施工状況", "安全管理写真": "安全管理", "使用材料写真": "使用材料", "品質管理写真": "品質管理", "出来形管理写真": "出来形管理", "災害写真": "災害", "事故写真": "事故", "その他（公害、環境、補償等）": "その他" };
+        // 区分(ゆきちゃん指定の順 2026-11-16)。施工状況・出来形管理だけ工種ツリーを使う(同じツリー)。ほかはツリーなしで区分のフォルダへ
+        const KUBUN = ["着手前及び完成写真", "施工状況写真", "出来形管理写真", "安全管理写真", "品質管理写真", "使用材料写真", "事故写真", "仮設工", "履行報告", "災害写真", "その他（公害、環境、補償等）"];
+        const KUBUN_SHORT = { "着手前及び完成写真": "着手前・完成", "施工状況写真": "施工状況", "出来形管理写真": "出来形管理", "安全管理写真": "安全管理", "品質管理写真": "品質管理", "使用材料写真": "使用材料", "事故写真": "事故", "仮設工": "仮設工", "履行報告": "履行報告", "災害写真": "災害", "その他（公害、環境、補償等）": "その他" };
+        const TREE_K = new Set(["施工状況写真", "出来形管理写真"]);
+        const ASK_K = new Set(["品質管理写真", "使用材料写真"]);   // 取り込んだときに知らせる区分
+        const XMP_K = { "仮設工": "施工状況写真", "履行報告": "その他（公害、環境、補償等）" };   // 電子納品の写真区分にない名前は、近い区分で XMP に書く
         const SUBDIR = { "施工状況写真": "1_施工状況", "使用材料写真": "2_使用材料", "品質管理写真": "3_品質管理", "出来形管理写真": "4_出来形管理" };
-        const FIXDIR = { "着手前及び完成写真": "00_着手前・完成", "安全管理写真": "90_安全管理", "災害写真": "99_その他（災害・事故・環境等）", "事故写真": "99_その他（災害・事故・環境等）", "その他（公害、環境、補償等）": "99_その他（災害・事故・環境等）" };
+        const FIXDIR = { "着手前及び完成写真": "00_着手前・完成", "仮設工": "80_仮設工", "安全管理写真": "90_安全管理", "使用材料写真": "91_使用材料（共通）", "品質管理写真": "92_品質管理（共通）", "履行報告": "95_履行報告", "災害写真": "99_その他（災害・事故・環境等）", "事故写真": "99_その他（災害・事故・環境等）", "その他（公害、環境、補償等）": "99_その他（災害・事故・環境等）" };
+        const usesTree = (k, node) => TREE_K.has(k) || (!!node && !!SUBDIR[k]);   // 前の版で工種を付けた品質・材料の写真は、今までどおりツリーの下
         const SKIP = ["直接工事費", "間接工事費", "共通仮設費", "共通仮設", "純工事費", "現場管理費", "工事原価", "一般管理費", "一般管理費等", "工事価格", "消費税", "消費税相当額", "工事費", "本工事費", "率計上", "合計", "小計", "計"];
         const SKIP_UNDER = ["共通仮設", "共通仮設費", "間接工事費", "諸経費"];
         const LVCOL = ["#c2255c", "#2f3a8f", "#2b8a3e", "#c76a00"];
@@ -1239,25 +1251,44 @@
           const out = []; const walk = (pid) => kids(pid).forEach((n) => { out.push(n); walk(n.id); }); walk(""); tree = out;
         }
         let treeCount = {};
+        // ツリーの画面:工事(大項目) › 区分の順。施工状況・出来形管理の下に同じ工種ツリーを出す。ほかの区分はツリーなし
+        const KUBUN_VIEW = KUBUN.slice(0, 9);
+        let tCol = {}; try { tCol = JSON.parse(ls.get("ut.tcol") || "{}") || {}; } catch (e) { /* */ }   // たたんだ区分   // 災害・その他は写真があるときだけ出す
         async function drawTree() {
           const ps = site ? await bySite("photos", site) : [];
-          treeCount = {};
-          for (const p of ps) for (const n of pathOf(p.node)) treeCount[n.id] = (treeCount[n.id] || 0) + 1;
-          const ul = $("tList");
-          if (!tree.length) { ul.innerHTML = `<li class="empty">まだありません。「＋ 工種」で作るか、「📄 読み込む」で設計書（PDF）・写真・CKD から作ります。</li>`; return; }
-          ul.innerHTML = tree.map((n) => `<li class="tn" style="padding-left:${(n.lv - 1) * 16}px" data-id="${n.id}"><span class="lvbar" style="background:${LVCOL[n.lv] || "#999"}"></span><button type="button" class="nm">${esc(n.name)}<small>${LV[n.lv] || ""}</small></button>${treeCount[n.id] ? `<span class="cnt">[${treeCount[n.id]}]</span>` : ""}<button type="button" class="more" aria-label="${esc(n.name)} のメニュー">⋮</button></li>`).join("");
+          treeCount = {}; const kc = {};
+          for (const p of ps) {
+            const k = p.meta.kubun; kc[k] = (kc[k] || 0) + 1;
+            if (usesTree(k, p.meta.node)) for (const n of pathOf(p.meta.node)) { const key = (TREE_K.has(k) ? k : "施工状況写真") + "|" + n.id; treeCount[key] = (treeCount[key] || 0) + 1; }
+          }
+          const top = tree.filter((n) => n.lv === 1).map((n) => n.name).join("・");
+          const rows = [`<li class="ktop"><span>🏗</span><b>${esc(top || "工事")}</b><small>${esc(kname())}</small></li>`];
+          for (const k of KUBUN.filter((k) => KUBUN_VIEW.includes(k) || kc[k])) {
+            rows.push(`<li class="ks" data-k="${esc(k)}"><span class="lvbar" style="background:${TREE_K.has(k) ? "#c2255c" : "#94a3b8"}"></span><button type="button" class="nm">${TREE_K.has(k) ? (tCol[k] ? "▸ " : "▾ ") : ""}${esc(k)}<small>${TREE_K.has(k) ? "工種ツリー" : ASK_K.has(k) ? "ツリーなし・取り込み時にお知らせ" : "ツリーなし"}</small></button>${kc[k] ? `<span class="cnt">[${kc[k]}]</span>` : ""}<button type="button" class="more" aria-label="${esc(k)} のメニュー">⋮</button></li>`);
+            if (!TREE_K.has(k) || tCol[k]) continue;
+            if (!tree.length) { rows.push(`<li class="empty" style="padding-left:22px">工種ツリーがまだありません。「📄 読み込む」で設計書（PDF）・SiteBox の写真から作ります。</li>`); continue; }
+            for (const n of tree) { const c = treeCount[k + "|" + n.id]; rows.push(`<li class="tn" style="padding-left:${n.lv * 16}px" data-id="${n.id}" data-k="${esc(k)}"><span class="lvbar" style="background:${LVCOL[n.lv] || "#999"}"></span><button type="button" class="nm">${esc(n.name)}<small>${LV[n.lv] || ""}</small></button>${c ? `<span class="cnt">[${c}]</span>` : ""}<button type="button" class="more" aria-label="${esc(n.name)} のメニュー">⋮</button></li>`); }
+          }
+          $("tList").innerHTML = rows.join("");
         }
         $("tList").addEventListener("click", (e) => {
+          if (!(e.target.closest(".more") || e.target.closest(".nm"))) return;
+          const ks = e.target.closest(".ks");
+          if (ks) { const k = ks.dataset.k; if (TREE_K.has(k) && e.target.closest(".nm")) { tCol[k] = !tCol[k]; ls.set("ut.tcol", JSON.stringify(tCol)); drawTree(); } else kubunMenu(k); return; }
           const li = e.target.closest(".tn"); if (!li) return;
-          const n = nodeOf(li.dataset.id); if (!n) return;
-          if (e.target.closest(".more") || e.target.closest(".nm")) nodeMenu(n);
+          const n = nodeOf(li.dataset.id); if (n) nodeMenu(n, li.dataset.k);
         });
-        function nodeMenu(n) {
+        function kubunMenu(k) {
+          const b = [["📸 この区分で撮る", () => { shot.kubun = k; saveShot(); go("shoot"); }], ["🖼 この区分の写真を見る", () => { filt.kubun = k; filt.node = ""; go("album"); }]];
+          if (TREE_K.has(k)) b.push(["＋ 工種を足す", () => $("tAdd").click()], ["📄 工種ツリーを読み込む", () => $("tImp").click()]);
+          menu(k, b);
+        }
+        function nodeMenu(n, k) {
           const b = [];
           if (n.lv < 3) b.push([`＋ この下に${LV[n.lv + 1]}を足す`, () => askName(LV[n.lv + 1] + "の名前", "", (nm) => { tree.push({ id: uid(), parent: n.id, lv: n.lv + 1, name: nm }); sortTree(); saveTree().then(drawTree); })]);
           b.push(["✏ 名前を変える", () => askName("名前", n.name, (nm) => { n.name = nm; saveTree().then(drawTree); })]);
           b.push(["↑ 上へ", () => move(n, -1)], ["↓ 下へ", () => move(n, 1)]);
-          b.push(["📸 この工種で撮る", () => { shot.node = n.id; go("shoot"); }]);
+          b.push(["📸 この工種で撮る", () => { shot.node = n.id; if (k) shot.kubun = k; saveShot(); go("shoot"); }]);
           b.push(["🗑 消す（下の段も）", () => {
             const del = new Set([n.id]); let more = true;
             while (more) { more = false; for (const k of tree) if (!del.has(k.id) && del.has(k.parent)) { del.add(k.id); more = true; } }
@@ -1272,7 +1303,7 @@
         }
         $("tAdd").addEventListener("click", () => askName("工種の名前（例 公園工事）", "", (nm) => { tree.push({ id: uid(), parent: "", lv: 1, name: nm }); sortTree(); saveTree().then(drawTree); }));
         $("tImp").addEventListener("click", () => menu("工種ツリーを読み込む", [
-          ["📄 設計書（PDF）から", () => { treeMode = "pdf"; $("treeFile").accept = ".pdf,application/pdf"; $("treeFile").click(); }],
+          ["📄 設計書（PDF）から", () => { treeMode = "pdf"; $("treeFile").accept = ".pdf,application/pdf,.txt,text/plain"; $("treeFile").click(); }],
           ["📷 写真（SiteBox の黒板入り）から", () => { treeMode = "photo"; $("treeFile").accept = "image/jpeg,image/*"; $("treeFile").multiple = true; $("treeFile").click(); }],
           ["🗂 CKD ファイルから", () => { treeMode = "ckd"; $("treeFile").accept = "*/*"; $("treeFile").click(); }],
           ["📋 文字で入れる（字下げで段）", pasteTree],
@@ -1286,7 +1317,7 @@
             let n0 = tree.length, msg = "";
             if (treeMode === "json") { const o = JSON.parse(await fs[0].text()); for (const p of flatPaths(o.tree || [])) addPath(p); }
             else if (treeMode === "photo") { let k = 0; for (const f of fs) { const x = readXmp(new Uint8Array(await f.arrayBuffer())); if (x && x.ConstructionType) { addPath([x.ConstructionType, x.MiddleClassification, x.SmallClassification]); k++; } } msg = `写真 ${fs.length} 枚のうち ${k} 枚から。`; }
-            else if (treeMode === "pdf") { const r = await treeFromPdf(fs[0]); for (const p of r.paths) addPath(p); msg = r.msg; if (r.info && r.info.工事名 && !S().kname) await putSiteSettings({ kname: r.info.工事名 }); }
+            else if (treeMode === "pdf") { const r = /\.txt$/i.test(fs[0].name) || fs[0].type === "text/plain" ? treeFromText(await fs[0].text()) : await treeFromPdf(fs[0]); for (const p of r.paths) addPath(p); msg = r.msg; if (r.info && r.info.工事名 && !S().kname) await putSiteSettings({ kname: r.info.工事名 }); }
             else if (treeMode === "ckd") { const r = await treeFromCkd(fs[0]); if (!r.paths.length) { alertBox(r.msg); return; } for (const p of r.paths) addPath(p); msg = r.msg; }
             sortTree(); await saveTree(); drawTree(); drawHome();
             toast(`工種ツリーに ${tree.length - n0} 段を足しました。${msg}`, 5000);
@@ -1332,8 +1363,38 @@
           }
           return pages;
         }
+        // 行の文字だけで読む(「本工事費 公園工事」「基盤整備 式 1 A- 1号内訳書」「A- 1号 内訳書」「擁壁工 式 1 B- 4号明細書」)。
+        // 泉の広場の設計書の形。字の位置に頼らないので、PDF の作りがちがっても読める
+        function treeFromText(text) {
+          const info = {}, root = [], refp = {}; let mode = "", key = "", lv1 = "";
+          const m0 = text.match(/工\s*事\s*名\s*称?\s+(\S[^\n]*)/); if (m0) info.工事名 = m0[1].trim();
+          for (const raw of text.split(/\r?\n/)) {
+            const line = raw.replace(/\s+/g, " ").trim(), k = nk(line); if (!line) continue;
+            if (k.startsWith("本工事内訳書")) { mode = "root"; continue; }
+            const h = k.match(/^([A-Z])-(\d+)号(?:1式当たり)?(内訳書|明細書|単価表)/);
+            if (h && k.length < 24) { mode = h[3] === "単価表" ? "" : "ref"; key = h[1] + "-" + h[2]; refp[key] = refp[key] || []; continue; }
+            if (/^(工事区分|工種|名称)/.test(k)) continue;
+            if (mode === "root") {
+              if (k.startsWith("直接工事費")) { mode = ""; continue; }
+              const b = line.match(/^本工事費\s+(\S+)/); if (b) { lv1 = b[1]; continue; }
+              const r = line.match(/^(\S.*?)\s+式\s+1\s+([A-Z])-\s*(\d+)号/); if (r && lv1) root.push([lv1, r[1], r[2] + "-" + r[3]]);
+            } else if (mode === "ref") {
+              const r = line.match(/^(\S.*?)\s+(?:式|ｍ3|m3|㎥|㎡|m2|ｍ|m|本|箇所|基|枚|個|t|ｔ|kg|台|組|棟|ヶ所|か所|人|日|式)\s+[\d,.]+(?:\s+([A-Z])-\s*(\d+)号)?/);
+              if (r) refp[key].push([r[1].trim(), r[2] ? r[2] + "-" + r[3] : ""]);
+            }
+          }
+          const items = []; let seen = null;
+          for (const [a, b2, ref] of root) {
+            if (a !== seen) { items.push({ name: a, lv: 1 }); seen = a; }
+            items.push({ name: b2, lv: 2 });
+            for (const [c] of refp[ref] || []) items.push({ name: c, lv: 3 });
+          }
+          const paths = designTree(items);
+          return { paths, info, msg: paths.length ? `内訳書の参照から ${paths.length} 行。` : "工種が読めませんでした。" };
+        }
         async function treeFromPdf(file) {
           const pages = await pdfPages(file);
+          { const r = treeFromText(pages.map((pg) => pg.text).join("\n")); if (r.paths.length >= 2) return r; }
           const REF = /([A-Z])-\s*(\d+)号/;
           const info = {}, refp = {}, root = [];
           for (const pg of pages) {
@@ -1350,7 +1411,7 @@
               }
               continue;
             }
-            const m = head.match(/([A-Z])-(\d+)号1式当たり(内訳書|明細書)/);
+            const m = head.match(/([A-Z])-(\d+)号(?:1式当たり)?(内訳書|明細書)/);
             if (m) {
               const rows = [];
               for (const row of pg.rows.filter((r) => r[0].top > 125)) {
@@ -1387,7 +1448,7 @@
             const name = String(it.name || "").replace(/\s+/g, " ").trim(), lv = it.lv; if (!name || !lv) continue;
             const key = nk(name.replace(/[（(].*?[)）]$/, ""));
             if (lv === 1) { skipping = skipU.some((s) => key.startsWith(s)); c1 = name; c2 = ""; continue; }
-            if (skipping || skip.has(key)) continue;
+            if (skipping || skip.has(key) || (lv === 3 && key === "仮設工")) continue;   // 仮設工は区分(ツリーなし)にした(2026-11-16 ゆきちゃん)
             if (lv === 2) { c2 = name; out.set([c1, name, ""].join("\t"), 1); }
             else if (lv === 3 && c2) { out.delete([c1, c2, ""].join("\t")); out.set([c1, c2, name].join("\t"), 1); }
           }
@@ -1419,13 +1480,13 @@
         function pathText(id) { const p = pathOf(id); return p.length ? p.map((n) => n.name).join(" › ") : ""; }
         function drawShoot() {
           $("sKubun").innerHTML = KUBUN.map((k) => `<button type="button" class="chip" data-k="${esc(k)}" aria-pressed="${shot.kubun === k}">${esc(KUBUN_SHORT[k])}</button>`).join("");
-          $("sPath").querySelector("span").textContent = pathText(shot.node) || (FIXDIR[shot.kubun] ? "（この区分は工種なしでも可）" : "工種を選んでください");
+          $("sPath").querySelector("span").textContent = !TREE_K.has(shot.kubun) ? "（この区分は工種ツリーを使いません）" : pathText(shot.node) || "工種を選んでください";
           if (document.activeElement !== $("sSpot")) $("sSpot").value = shot.spot || "";
           if (document.activeElement !== $("sText")) $("sText").value = shot.text || "";
           drawPrev();
           const w = [];
           if (!shot.spot) w.push("測点が空です（電子納品では撮影箇所が要ります）。");
-          if (!shot.node && !FIXDIR[shot.kubun]) w.push("工種がまだ選ばれていません。");
+          if (!shot.node && TREE_K.has(shot.kubun)) w.push("工種がまだ選ばれていません。");
           $("sNote").innerHTML = w.map((x) => `<span class="warn">⚠ ${esc(x)}</span>`).join("<br>");
         }
         $("sKubun").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (!b) return; shot.kubun = b.dataset.k; saveShot(); drawShoot(); });
@@ -1469,8 +1530,8 @@
         // ------------------------------------------------------------ 黒板を描く
         const COLORS = { green: { bg: "#224b2d", fg: "#ffffff", name: "緑" }, black: { bg: "#1d1f22", fg: "#ffffff", name: "黒" }, white: { bg: "#ffffff", fg: "#111111", name: "白" } };
         function boardInfo(o) {
-          const t = treeNames(o.node);
-          return { kname: kname(), kousyu: t.k ? [t.k, t.m, t.s].filter(Boolean).slice(-1)[0] : "", spot: o.spot || "", lines: String(o.text || "").split(/\r?\n/).slice(0, 8) };
+          const t = o.kubun && !TREE_K.has(o.kubun) ? { k: "" } : treeNames(o.node);   // 黒板の「工種」は SiteBox と同じく工種(例 公園工事)。ツリーを使わない区分は空
+          return { kname: kname(), kousyu: t.k || "", spot: o.spot || "", lines: String(o.text || "").split(/\r?\n/).slice(0, 8) };
         }
         function fitText(g, s, maxW, size, bold) {
           let z = size; g.font = `${bold ? "bold " : ""}${z}px "Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif`;
@@ -1633,8 +1694,8 @@
           toast(`📸 ${rec.meta.name || "写真"} を入れました${rec.saved ? "（保存先にも）" : ""}`, 1800);
         });
         function metaOf(o, d) {
-          const t = treeNames(o.node), lines = String(o.text || "").split(/\r?\n/);
-          return { kubun: o.kubun, node: o.node || "", k: t.k, m: t.m, s: t.s, spot: o.spot || "", lines, name: (lines[0] || "").trim(), memo: "", date: d ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : "" };
+          const t = TREE_K.has(o.kubun) ? treeNames(o.node) : { k: "", m: "", s: "" }, lines = String(o.text || "").split(/\r?\n/);
+          return { kubun: o.kubun, node: TREE_K.has(o.kubun) ? o.node || "" : "", k: t.k, m: t.m, s: t.s, spot: o.spot || "", lines, name: (lines[0] || "").trim(), memo: "", date: d ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : "" };
         }
 
         // 端末のカメラ(撮った写真の Exif はそのまま残して黒板を入れる)
@@ -1669,7 +1730,7 @@
         function xmpOf(m) {   // SiteBox と同じ形(電子小黒板 dcpadv 3.0 photoinfo)
           const f = (k, v) => (v ? ` <photo:${k}>${xe(v)}</photo:${k}>` : "");
           const s = `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?> <x:xmpmeta xmlns:x="adobe:ns:meta/"> <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"> <rdf:Description rdf:about="" xmlns:photo="http://dcpadv.org/schema/3.0/photoinfo" xmlns:measurement="http://dcpadv.org/schema/3.0/measurement" xmlns:item="http://dcpadv.org/schema/3.0/measurementitem" xmlns:kssb="http://www.kentem.jp/schema/3.0/kssb">` +
-            f("ConstructionName", kname()) + f("Contructor", S().contractor) + f("LargeClassification", "工事") + f("PhotoClassification", m.kubun) + f("ConstructionType", m.k) + f("MiddleClassification", m.m) + f("SmallClassification", m.s) + f("Title", (m.lines || []).join("\n").replace(/\s+$/, "").split("\n").join("__")) + f("ShootingSpot", m.spot) +
+            f("ConstructionName", kname()) + f("Contructor", S().contractor) + f("LargeClassification", "工事") + f("PhotoClassification", XMP_K[m.kubun] || m.kubun) + f("ConstructionType", m.k) + f("MiddleClassification", m.m) + f("SmallClassification", m.kubun === "仮設工" && !m.s ? "仮設工" : m.s) + f("Title", (m.lines || []).join("\n").replace(/\s+$/, "").split("\n").join("__")) + f("ShootingSpot", m.spot) +
             ` </rdf:Description> </rdf:RDF> </x:xmpmeta> <?xpacket end="w"?>`;
           return s;
         }
@@ -1763,10 +1824,12 @@
           const bmp = await rawBitmap(b);
           const W = ori >= 5 ? bmp.height : bmp.width, H = ori >= 5 ? bmp.width : bmp.height;
           if (!withShot) {
-            if (xmp && xmp.ConstructionType) {   // 電子小黒板の写真:何も変えずに入れる。工種ツリーにも足す
-              const node = addPath([xmp.ConstructionType, xmp.MiddleClassification, xmp.SmallClassification]); sortTree(); await saveTree();
+            if (xmp && (xmp.ConstructionType || xmp.PhotoClassification)) {   // 電子小黒板の写真:何も変えずに入れる。施工状況・出来形は工種ツリーにも足す
+              const kb = xmp.PhotoClassification || "施工状況写真";
+              let node = "";
+              if (xmp.ConstructionType && TREE_K.has(kb)) { node = addPath([xmp.ConstructionType, xmp.MiddleClassification, xmp.SmallClassification]); sortTree(); await saveTree(); }
               const lines = String(xmp.Title || "").split("__");   // SiteBox の Title は「__」が改行(「____」は空の行をはさむ)
-              const meta = { kubun: xmp.PhotoClassification || "施工状況写真", node, k: xmp.ConstructionType || "", m: xmp.MiddleClassification || "", s: xmp.SmallClassification || "", spot: xmp.ShootingSpot || "", lines, name: (lines[0] || "").trim(), memo: "", date };
+              const meta = { kubun: kb, node, k: xmp.ConstructionType || "", m: xmp.MiddleClassification || "", s: xmp.SmallClassification || "", spot: xmp.ShootingSpot || "", lines, name: (lines[0] || "").trim(), memo: "", date };
               return addPhoto({ jpg: b, W, H, meta, kokuban: "sitebox", at: f.lastModified });
             }
             const meta = { kubun: "施工状況写真", node: "", k: "", m: "", s: "", spot: "", lines: [], name: f.name.replace(/\.\w+$/, ""), memo: "", date };
@@ -1792,9 +1855,11 @@
         }
         $("impFile").addEventListener("change", async () => {
           const fs = [...$("impFile").files]; $("impFile").value = ""; if (!fs.length) return;
-          let n = 0, sb = 0, bad = 0;
-          for (const f of fs) { try { const r = await importOne(f, null); n++; if (r.kokuban === "sitebox") sb++; } catch (e) { bad++; console.warn("import", f.name, e); } toast(`入れています… ${n + bad}/${fs.length}`, 60000); }
+          let n = 0, sb = 0, bad = 0; const got = [];
+          for (const f of fs) { try { const r = await importOne(f, null); n++; got.push(r); if (r.kokuban === "sitebox") sb++; } catch (e) { bad++; console.warn("import", f.name, e); } toast(`入れています… ${n + bad}/${fs.length}`, 60000); }
           toast(`${n} 枚を入れました（電子小黒板 ${sb} 枚）${bad ? `。${bad} 枚は JPEG でないので入れませんでした` : ""}。`, 5000);
+          const ask = {}; for (const r of got) if (ASK_K.has(r.meta.kubun)) (ask[r.meta.kubun] = ask[r.meta.kubun] || []).push(r);
+          if (Object.keys(ask).length) importNotice(ask);
           drawHome(); if (cur === "album") drawAlbum();
         });
 
@@ -1887,7 +1952,7 @@
         // ------------------------------------------------------------ 保存先(フォルダ)・ZIP
         function relPath(p) {   // 工事名 / 種別 / 細別 / 1_施工状況 / ファイル(施工の写真エンジンと同じ形)
           const m = p.meta, top = safeName(kname());
-          if (FIXDIR[m.kubun] || (!m.node && m.kubun === "使用材料写真")) return [top, FIXDIR[m.kubun] || "91_使用材料（共通）", p.file].join("/");
+          if (!usesTree(m.kubun, m.node)) return [top, FIXDIR[m.kubun] || "99_その他（災害・事故・環境等）", p.file].join("/");
           const path = pathOf(m.node);
           if (!path.length) return [top, "_工種なし", SUBDIR[m.kubun] || "", p.file].filter(Boolean).join("/");
           const num = (n) => pad(kids(n.parent).indexOf(n) + 1) + "_" + safeName(n.name, 40);
@@ -1984,6 +2049,11 @@
           $("anOk").onclick = ok; $("anI").addEventListener("keydown", (e) => { if (e.key === "Enter") ok(); });
         }
         function confirmBox(t) { return window.confirm(t); }
+        function importNotice(ask) {   // 品質管理・使用材料の写真を取り込んだときのお知らせ(工種ツリーには入れない)
+          const parts = Object.keys(ask).map((k) => `${k} ${ask[k].length} 枚`).join("・");
+          const t = `${parts} を取り込みました。\n\nこの区分は工種ツリーを使いません。保存先では「${Object.keys(ask).map((k) => FIXDIR[k]).join("」「")}」のフォルダにまとめます。\n\n黒板の文字（何の試験・材料か、測点）を写真帳で確かめてください。直すときは写真を押して「工種・測点・黒板」。`;
+          if (G && G.dialog) G.dialog("📢 品質管理・使用材料の写真", "", [{ label: "写真帳で見る", run: () => { filt.kubun = Object.keys(ask)[0]; filt.node = ""; go("album"); } }, { label: "わかった", ok: true }], esc(t).replace(/\n/g, "<br>")); else window.alert(t);
+        }
         function alertBox(t) { if (G && G.dialog) G.dialog("こっそり写し太郎", "", [{ label: "閉じる", ok: true }], esc(t)); else window.alert(t); }
 
         function download(data, name, type) {
