@@ -628,6 +628,24 @@
       .ctl-link { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; }
       .ctl-link span { font-size: 13px; font-weight: 700; white-space: nowrap; }
       .ctl-link button { flex: 1 1 0; min-height: 38px; padding: 4px 8px; font-size: 14px; }
+      /* AR 誘導 */
+      .ctl-tabs .ar-open { background: #0f766e; color: #fff; border-color: #0f766e; font-weight: 700; }
+      .ar-open.big { background: #0f766e; color: #fff; border-color: #0f766e; width: 100%; }
+      .ar { position: fixed; inset: 0; z-index: 5000; background: #000; color: #fff; overflow: hidden; touch-action: none; }
+      .ar[hidden] { display: none; }
+      .ar video, .ar canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      .ar-top { position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; display: flex; align-items: center; gap: 8px; background: linear-gradient(rgba(0,0,0,.65), rgba(0,0,0,0)); }
+      .ar-tt { flex: 1; display: flex; flex-direction: column; } .ar-tt b { font-size: 18px; } .ar-tt small { font-size: 12px; opacity: .85; }
+      .ar-x { width: auto; padding: 8px 14px; background: rgba(0,0,0,.5); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 10px; font-size: 15px; }
+      .ar-prism { position: absolute; right: 10px; top: calc(64px + env(safe-area-inset-top)); background: rgba(0,0,0,.6); border: 2px solid #f59e0b; border-radius: 12px; padding: 6px 10px; text-align: right; min-width: 130px; }
+      .ar-prism small { display: block; font-size: 11px; opacity: .85; } .ar-prism b { font-size: 24px; display: block; } .ar-prism span { font-size: 12px; display: block; }
+      .ar-prism.ok { border-color: #22c55e; } .ar-prism.ok b { color: #4ade80; } .ar-prism.none { border-color: #6b7280; opacity: .8; }
+      .ar-bot { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); text-align: center; background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.75) 30%); }
+      .ar-src { font-size: 12px; opacity: .9; } .ar-src.warn { color: #fbbf24; }
+      .ar-r { font-size: 52px; font-weight: 900; line-height: 1.1; text-shadow: 0 2px 6px #000; } .ar-r.ok { color: #4ade80; }
+      .ar-fr { font-size: 17px; margin-bottom: 8px; }
+      .ar-btns { display: flex; gap: 8px; } .ar-b { flex: 0 0 56px; padding: 12px 0; background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 12px; font-size: 18px; }
+      .ar-b.ar-cal { flex: 1; font-size: 16px; font-weight: 700; background: #0f766e; border-color: #14b8a6; }
     </style>
 
     <script>window.IPPATSU_APP = "kurukuru";</script>
@@ -2210,7 +2228,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.27.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.28.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2642,6 +2660,7 @@
           <button type="button" data-t="list" aria-pressed="false">📋 座標リスト</button>
           <button type="button" data-t="setup" aria-pressed="true">器械設置</button>
           <button type="button" data-t="stake" aria-pressed="false">杭打ち</button>
+          <button type="button" class="ar-open" data-ar="1">🥽 AR</button>
           <button type="button" data-t="radial" aria-pressed="false">放射観測</button>
           <button type="button" data-t="precheck" aria-pressed="false">始業前点検</button>
         </div>
@@ -2776,6 +2795,7 @@
             <button type="button" class="big" data-act="guideToPt">この点の方向へ回す</button>
             <button type="button" class="big primary" data-act="stakeDone">✓ 杭を打った</button>
           </div>
+          <button type="button" class="big ar-open" data-ar="1" style="margin-top:8px">🥽 AR で誘導(カメラ・GPS)</button>
         </div>
         <!-- 放射観測 -->
         <div class="ctl-pane" data-pane="radial" hidden>
@@ -2892,6 +2912,27 @@
           <li>これは<b>テスト版</b>です。</li>
         </ul>
         <button class="ghost close" id="helpClose" type="button">閉じる</button>
+      </div>
+    </div>
+
+    <!-- AR 誘導(スマホのカメラ + プリズム/GPS + 方位センサー)。叩き台 -->
+    <div class="ar" id="arOvl" hidden>
+      <video id="arVid" playsinline muted autoplay></video>
+      <canvas id="arCv"></canvas>
+      <div class="ar-top">
+        <div class="ar-tt"><b id="arTitle">AR 誘導</b><small id="arHead">向き:--</small></div>
+        <button type="button" class="ar-x" id="arClose">✕ 閉じる</button>
+      </div>
+      <div class="ar-prism" id="arPrism"><small>プリズムの誤差</small><b id="arPr">---</b><span id="arPrFR"></span></div>
+      <div class="ar-bot">
+        <div class="ar-src" id="arSrc">位置:--</div>
+        <div class="ar-r" id="arR">---</div>
+        <div class="ar-fr" id="arFR"></div>
+        <div class="ar-btns">
+          <button type="button" class="ar-b" id="arPrev" aria-label="前の点">◀</button>
+          <button type="button" class="ar-b ar-cal" id="arCal">🎯 杭ナビに向けて合わせる</button>
+          <button type="button" class="ar-b" id="arNext" aria-label="次の点">▶</button>
+        </div>
       </div>
     </div>
     <script>
@@ -7168,6 +7209,172 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("gArrow").classList.toggle("ok", ok);
           guideNow = { r, ok };
         }
+        // ================================================================ AR 誘導(叩き台):スマホのカメラ映像に、出す点の向き・距離を重ねる
+        // 位置:プリズムを追尾しているときはプリズム(杭ナビ)の位置。無いときはスマホの GPS を平面直角座標(現場の情報の「系」)に直して使う。
+        //       プリズムと GPS が両方あるときは、その差(GPS のずれ)を覚えて、プリズムが切れた後の GPS を直す。
+        // 向き:スマホの方位センサー。「🎯 杭ナビに向けて合わせる」で、スマホを杭ナビに向けたときの向きを 杭ナビの方向角 に合わせる。
+        let arIos = false, arOn = false, arStream = null, arGps = null, arGpsOff = null, arHeadRaw = null, arPitch = 0, arHeadOff = null, arAbs = false, arWatch = null, arRaf = 0;
+        const AR_ZO = [[33, 129.5], [33, 131], [36, 132 + 1 / 6], [33, 133.5], [36, 134 + 1 / 3], [36, 136], [36, 137 + 1 / 6], [36, 138.5], [36, 139 + 5 / 6], [40, 140 + 5 / 6], [44, 140.25], [44, 142.25], [44, 144.25], [26, 142], [26, 127.5], [26, 124], [26, 131], [20, 136], [26, 154]];
+        // 緯度経度(度) → 平面直角座標 X(北)・Y(東) m(GRS80・ガウス・クリューゲル、河瀬の式)と子午線収差角 γ(度)
+        function llToXY(lat, lon, zone) {
+          const o = AR_ZO[zone - 1]; if (!o) return null;
+          const a = 6378137, F = 298.257222101, n = 1 / (2 * F - 1), m0 = 0.9999, d = Math.PI / 180;
+          const p = lat * d, l = (lon - o[1]) * d, p0 = o[0] * d;
+          const A = [1 + n ** 2 / 4 + n ** 4 / 64, -1.5 * (n - n ** 3 / 8 - n ** 5 / 64), 15 / 16 * (n ** 2 - n ** 4 / 4), -35 / 48 * (n ** 3 - 5 / 16 * n ** 5), 315 / 512 * n ** 4, -693 / 1280 * n ** 5];
+          const al = [0, n / 2 - 2 / 3 * n ** 2 + 5 / 16 * n ** 3 + 41 / 180 * n ** 4, 13 / 48 * n ** 2 - 3 / 5 * n ** 3 + 557 / 1440 * n ** 4, 61 / 240 * n ** 3 - 103 / 140 * n ** 4, 49561 / 161280 * n ** 4];
+          const S0 = m0 * a / (1 + n) * (A[0] * p0 + A.slice(1).reduce((s, c, j) => s + c * Math.sin(2 * (j + 1) * p0), 0));
+          const Ab = m0 * a / (1 + n) * A[0], k = 2 * Math.sqrt(n) / (1 + n);
+          const t = Math.sinh(Math.atanh(Math.sin(p)) - k * Math.atanh(k * Math.sin(p))), tb = Math.sqrt(1 + t * t);
+          const xi = Math.atan2(t, Math.cos(l)), eta = Math.atanh(Math.sin(l) / tb);
+          let X = xi, Y = eta;
+          for (let j = 1; j <= 4; j++) { X += al[j] * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta); Y += al[j] * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta); }
+          return { X: Ab * X - S0, Y: Ab * Y, gam: Math.atan(Math.tan(l) * Math.sin(p)) / d };
+        }
+        window.kurukuruLlToXY = llToXY;
+        // 今の位置(mm、x=東・y=北)
+        function arPos() {
+          const P = prismPos();
+          if (P) {
+            if (arGps && Date.now() - arGps.t < 3000) arGpsOff = { dx: P.x - arGps.x, dy: P.y - arGps.y, t: Date.now() };   // GPS のずれを覚える
+            return { x: P.x, y: P.y, src: "prism", P };
+          }
+          if (arGps && Date.now() - arGps.t < 10000) {
+            const off = arGpsOff && Date.now() - arGpsOff.t < 15 * 60000 ? arGpsOff : null;
+            return { x: arGps.x + (off ? off.dx : 0), y: arGps.y + (off ? off.dy : 0), src: "gps", acc: arGps.acc, off: !!off };
+          }
+          return null;
+        }
+        // 方位センサー:背面カメラの向き(北から右回りの度)と、上下の傾き
+        function arOrient(e) {
+          if (e.alpha == null) return;
+          if (e.type === "deviceorientation" && arAbs && !e.webkitCompassHeading) return;   // 絶対の方位が来ているときはそちらを使う
+          if (e.type === "deviceorientationabsolute") arAbs = true;
+          const d = Math.PI / 180, A = e.alpha * d, B = (e.beta || 0) * d, G = (e.gamma || 0) * d;
+          const cA = Math.cos(A), sA = Math.sin(A), cB = Math.cos(B), sB = Math.sin(B), cG = Math.cos(G), sG = Math.sin(G);
+          const vx = -(cG * sA * sB + cA * sG), vy = -(sA * sG - cA * cG * sB), vz = -(cB * cG);   // 背面カメラの向き(東・北・上)
+          arPitch = Math.asin(Math.max(-1, Math.min(1, vz))) / d;
+          let h;
+          if (e.webkitCompassHeading != null) { h = e.webkitCompassHeading; arIos = true; }                        // iPhone
+          else if (Math.hypot(vx, vy) > 0.3) h = Math.atan2(vx, vy) / d;
+          else h = Math.atan2(-cB * sA, cA * cB) / d;                                              // 平らに持っているときは画面の上の向き
+          arHeadRaw = norm(h);
+        }
+        // 座標の上の方向角(度)。合わせてあればその向き、無ければ 磁北 → 真北(偏角 西へ約 7.5°)→ 座標の北(子午線収差角)で近い値
+        function arHeading() {
+          if (arHeadRaw == null) return null;
+          if (arHeadOff != null) return norm(arHeadRaw + arHeadOff);
+          if (!arAbs && !arIos) return null;   // 絶対の方位が無い端末は、🎯で合わせるまで向きを出さない
+          return norm(arHeadRaw - 7.5 - (arGps ? arGps.gam : 0));
+        }
+        async function arOpen() {
+          arOn = true; $("arOvl").hidden = false;
+          try { if (window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission(); } catch (e) { /* iPhone で断られたとき */ }
+          window.addEventListener("deviceorientationabsolute", arOrient); window.addEventListener("deviceorientation", arOrient);
+          try {
+            arStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }, audio: false });
+            $("arVid").srcObject = arStream; await $("arVid").play().catch(() => {});
+          } catch (e) { $("arSrc").textContent = "カメラが使えません(" + (e.name || e) + ")"; }
+          if (navigator.geolocation && SI.zone) {
+            arWatch = navigator.geolocation.watchPosition((g) => {
+              const q = llToXY(g.coords.latitude, g.coords.longitude, Number(SI.zone)); if (!q) return;
+              arGps = { x: q.Y * 1000, y: q.X * 1000, acc: g.coords.accuracy, gam: q.gam, t: Date.now() };
+            }, (er) => { arGps = null; arGpsErr = er.code === 1 ? "GPS の許可がありません" : "GPS が取れません"; }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
+          }
+          arLoop();
+        }
+        let arGpsErr = "";
+        function arClose() {
+          arOn = false; $("arOvl").hidden = true; cancelAnimationFrame(arRaf);
+          window.removeEventListener("deviceorientationabsolute", arOrient); window.removeEventListener("deviceorientation", arOrient);
+          if (arStream) { for (const t of arStream.getTracks()) t.stop(); arStream = null; }
+          if (arWatch != null && navigator.geolocation) navigator.geolocation.clearWatch(arWatch); arWatch = null;
+        }
+        for (const b of document.querySelectorAll("[data-ar]")) b.addEventListener("click", arOpen);
+        $("arClose").addEventListener("click", arClose);
+        const arAct = (a) => { const b = document.querySelector(`#ctlOvl [data-act="${a}"]`); if (b) b.click(); };
+        $("arPrev").addEventListener("click", () => arAct("prevPt"));
+        $("arNext").addEventListener("click", () => arAct("nextPt"));
+        $("arCal").addEventListener("click", () => {
+          const P = arPos();
+          if (!inst) { setStatus("先に器械設置をしてください(杭ナビの位置がいります)。", true); $("arHead").textContent = "向き:器械設置がまだです"; return; }
+          if (!P) { $("arHead").textContent = "向き:今の位置がわかりません(プリズムか GPS)"; return; }
+          if (arHeadRaw == null) { $("arHead").textContent = "向き:方位センサーが動いていません"; return; }
+          arHeadOff = norm(azimuth(P, inst) - arHeadRaw);
+          beep && beep("meas");
+        });
+        // 画面に重ねる絵
+        function arDraw(cv, rel, d, ok) {
+          const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+          if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+          const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+          if (rel == null) return;
+          const hf = 50 * Math.PI / 180 / 2, vf = Math.atan(Math.tan(hf) * H / W), r = ((rel + 540) % 360) - 180;
+          // 出す点のピン(カメラに写る範囲にあるとき)
+          if (d != null && Math.abs(r) < 80) {
+            const px = W / 2 + Math.tan(r * Math.PI / 180) / Math.tan(hf) * W / 2;
+            const dep = Math.atan2(-1.2, Math.max(d, 0.05)) - arPitch * Math.PI / 180;   // 目の高さ 1.2 m から見下ろす角
+            const py = H / 2 - Math.tan(dep) / Math.tan(vf) * H / 2;
+            if (px > -40 && px < W + 40 && py > -60 && py < H + 60) {
+              c.fillStyle = ok ? "#22c55e" : "#f97316"; c.strokeStyle = "#fff"; c.lineWidth = 3;
+              c.beginPath(); c.arc(px, py - 34, 16, Math.PI, 0); c.lineTo(px, py); c.closePath(); c.fill(); c.stroke();
+              c.font = "bold 16px system-ui,sans-serif"; c.textAlign = "center"; c.fillStyle = "#fff"; c.strokeStyle = "#000"; c.lineWidth = 4;
+              c.strokeText(target || "", px, py - 58); c.fillText(target || "", px, py - 58);
+            }
+          }
+          // 足もとの矢印(進む向き)
+          const ax = W / 2, ay = H * 0.62;
+          c.save(); c.translate(ax, ay); c.rotate(r * Math.PI / 180);
+          c.fillStyle = ok ? "rgba(34,197,94,.9)" : "rgba(34,197,94,.85)"; c.strokeStyle = "#fff"; c.lineWidth = 3;
+          c.beginPath();
+          if (ok) { c.arc(0, 0, 40, 0, Math.PI * 2); } else { c.moveTo(0, -70); c.lineTo(40, -10); c.lineTo(14, -10); c.lineTo(14, 50); c.lineTo(-14, 50); c.lineTo(-14, -10); c.lineTo(-40, -10); c.closePath(); }
+          c.fill(); c.stroke(); c.restore();
+        }
+        function arTag(cv, rel, label) {   // 杭ナビの印(画面の中か、はしに)
+          if (rel == null) return;
+          const W = cv.clientWidth, H = cv.clientHeight, c = cv.getContext("2d"), hf = 25, r = ((rel + 540) % 360) - 180;
+          const inView = Math.abs(r) < hf, x = inView ? W / 2 + Math.tan(r * Math.PI / 180) / Math.tan(hf * Math.PI / 180) * W / 2 : (r < 0 ? 46 : W - 46);
+          const y = H * 0.36, t = inView ? label : r < 0 ? "← " + label : label + " →";
+          c.font = "bold 14px system-ui,sans-serif"; c.textAlign = "center";
+          const w = c.measureText(t).width + 16; c.fillStyle = "rgba(37,99,235,.85)"; c.fillRect(x - w / 2, y - 14, w, 26); c.fillStyle = "#fff"; c.fillText(t, x, y + 4);
+        }
+        function arLoop() {
+          if (!arOn) return;
+          arRaf = requestAnimationFrame(arLoop);
+          const now = performance.now(); if (arLoop.t && now - arLoop.t < 80) return; arLoop.t = now;
+          renderAr();
+        }
+        function renderAr() {
+          const p = byName(target), pos = arPos(), hd = arHeading(), tol = Number($("cfgTol").value || 10), cv = $("arCv");
+          $("arTitle").textContent = p ? `${p.name} へ誘導` : "出す点を選んでください";
+          $("arHead").textContent = "向き:" + (arHeadRaw == null ? "方位センサー待ち" : arHeadOff != null ? "杭ナビで合わせ済み" : (arAbs || arIos) ? "方位センサー(だいたい)・🎯で合わせると正確" : "🎯 杭ナビに向けて合わせてください");
+          // 位置の出どころ
+          const src = $("arSrc");
+          src.classList.toggle("warn", !pos || pos.src === "gps");
+          src.textContent = !pos ? (!SI.zone ? "位置:プリズムを追尾してください(GPS は「現場の情報」で系を選ぶと使えます)" : arGpsErr || "位置:プリズムか GPS を待っています…")
+            : pos.src === "prism" ? "位置:プリズム(杭ナビ)" : `位置:GPS ±${pos.acc.toFixed(1)} m` + (pos.off ? "(プリズムで補正済み)" : "(補正なし・目安)");
+          // プリズムの誤差(杭ナビの向き基準。杭打ちの画面と同じ)
+          const pr = $("arPrism");
+          if (p && pos && pos.src === "prism") {
+            const dx = p.x - pos.x, dy = p.y - pos.y, a = pos.P.az * Math.PI / 180, r = Math.hypot(dx, dy), ok = r <= tol;
+            const along = dx * Math.sin(a) + dy * Math.cos(a), side = dx * Math.cos(a) - dy * Math.sin(a), fw = -along, rt = -side;
+            $("arPr").textContent = ok ? `◎ ${fmtLen(r)}` : fmtLen(r);
+            $("arPrFR").textContent = `${fw >= 0 ? "杭ナビへ" : "後ろへ"} ${fmtLen(fw)}・${rt >= 0 ? "右" : "左"} ${fmtLen(rt)}`;
+            pr.className = "ar-prism" + (ok ? " ok" : "");
+          } else { $("arPr").textContent = "---"; $("arPrFR").textContent = pos && pos.src === "gps" ? "プリズム追尾なし" : ""; pr.className = "ar-prism none"; }
+          if (!p || !pos) { $("arR").textContent = "---"; $("arR").className = "ar-r"; $("arFR").textContent = ""; arDraw(cv, null); return; }
+          const dx = p.x - pos.x, dy = p.y - pos.y, r = Math.hypot(dx, dy), ok = r <= tol && pos.src === "prism";
+          const brg = azimuth(pos, p), rel = hd == null ? null : norm(brg - hd);
+          $("arR").textContent = ok ? `◎ ${fmtLen(r)}` : pos.src === "gps" ? `${(r / 1000).toFixed(2)} m` : fmtLen(r); $("arR").className = "ar-r" + (ok ? " ok" : "");
+          if (rel != null) {
+            const q = rel * Math.PI / 180, fw = r * Math.cos(q), rt = r * Math.sin(q);
+            $("arFR").textContent = `${fw >= 0 ? "前へ" : "後ろへ"} ${(Math.abs(fw) / 1000).toFixed(2)} m・${rt >= 0 ? "右へ" : "左へ"} ${(Math.abs(rt) / 1000).toFixed(2)} m`;
+          } else $("arFR").textContent = "向きがわからないので、矢印は出せません";
+          arDraw(cv, rel, r / 1000, ok);
+          if (inst && hd != null) arTag(cv, norm(azimuth(pos, inst) - hd), "杭ナビ");
+          if (pos.src === "prism") guideNow = { r, ok };   // 近づき音はプリズムのときだけ(GPS では mm まで合わない)
+        }
+        window.kurukuruAr = { open: arOpen, close: arClose, render: renderAr, state: () => ({ arHeadRaw, arHeadOff, arGps, arGpsOff, arPitch }) };
+
         // 近づき音:残りの距離で音の高さと間隔を変える(遠い:低くゆっくり → 近い:高く速く → 範囲内:ピロリン)
         const NEAR = [   // [この距離(mm)まで, 音の高さ Hz, 間隔 ms]
           [100, 2400, 150], [300, 1800, 300], [1000, 1200, 600], [3000, 800, 1100],
@@ -7175,7 +7382,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         let nearLast = 0, nearOk = false;
         setInterval(() => {
           const on = ($("cfgSndNear") || {}).value !== "off";
-          const active = on && guideNow && ((!$("ctlOvl").hidden && ctlTab === "stake") || (typeof mode !== "undefined" && mode === "stake"));
+          const active = on && guideNow && (arOn || (!$("ctlOvl").hidden && ctlTab === "stake") || (typeof mode !== "undefined" && mode === "stake"));
           if (!active) { nearOk = false; return; }
           const now = Date.now(), g = guideNow;
           if (g.ok) { if (!nearOk || now - nearLast > 1500) { nearOk = true; nearLast = now; playTones(SOUNDS.pirorin); } return; }

@@ -1,5 +1,5 @@
 // 一発バーン(ホーム画面アプリ)。電波があるときは新しい版を取りに行き、無いときは覚えている版で開く
-const CACHE = "ippatsu-3f15905449";
+const CACHE = "ippatsu-7c52c9a85a";
 const PARTS = "ippatsu-parts-1";   // DWG の部品(vendor/)。版を上げても消さない
 const FILES = ["./", "index.html", "nomiso.html", "sumi.html", "kamashi.html", "kurukuru.html", "utsushi.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
