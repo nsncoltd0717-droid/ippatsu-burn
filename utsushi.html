@@ -8,6 +8,7 @@
       :root { --bg: #f5f3ee; --card: #fff; --ink: #1f2430; --sub: #6a6f7c; --line: #dcd8cf; --accent: #c2255c; --accent2: #2f3a8f; --ok: #2b8a3e; --warn: #c76a00; --ng: #c92a2a; }
       * { box-sizing: border-box; }
       html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; -webkit-text-size-adjust: 100%; }
+      html, body { overflow-x: hidden; max-width: 100%; }   /* 長い名前で画面が横にずれないように */
       body { min-height: 100dvh; padding-bottom: 76px; }
       header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--line); }
       header h1 { font-size: 17px; margin: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -19,7 +20,10 @@
       .site { border-left: 6px solid var(--accent); }
       .site b { display: block; font-size: 17px; }
       .site small { color: var(--sub); display: block; margin-top: 2px; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+      .grid > * { min-width: 0; }
+      .tile b, .tile small, .site b, .site small, .card, .note { overflow-wrap: anywhere; word-break: break-word; }
+      .tile small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
       .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 96px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); text-align: left; cursor: pointer; }
       .tile i { font-style: normal; font-size: 28px; line-height: 1; }
       .tile b { font-size: 15px; }
@@ -863,7 +867,8 @@
   }
   window.__fbDir = function (name) { if (name) { var n = jget(QUE).length, l = flush(); toast(name ? "送り先：" + name + (n ? "（" + (n - l) + " 件送りました）" : "") : ""); } if (dlg) open(); };
   // ---- 画面
-  var CSS = ".ipx-fb{position:fixed;left:6px;z-index:60;display:flex;align-items:center;gap:4px;border:1px solid rgba(0,0,0,.15);border-radius:999px;background:rgba(255,255,255,.92);color:#333;font:600 12px/1 system-ui,sans-serif;padding:6px 10px;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer}" +
+  var CSS = ".ipx-fb{position:fixed;right:8px;z-index:60;display:flex;align-items:center;justify-content:center;gap:2px;width:34px;height:34px;border:1px solid rgba(0,0,0,.12);border-radius:999px;background:rgba(255,255,255,.7);color:#333;font:16px/1 system-ui,sans-serif;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.15);cursor:pointer;opacity:.55}.ipx-fb:active{opacity:1}" +
+    ".ipx-fb em{position:absolute;top:-4px;right:-4px}.ipx-fbslot{display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.15);background:transparent;font:600 14px/1.2 system-ui,sans-serif;color:inherit;cursor:pointer}" +
     ".ipx-fb em{font-style:normal;background:#c2255c;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px}" +
     ".ipx-fbbox{margin:18px 12px 24px;padding:12px;border:1px dashed #999;border-radius:12px;font:14px/1.5 system-ui,sans-serif;color:inherit}" +
     ".ipx-fbbox h4{margin:0 0 6px;font-size:15px}.ipx-fbbox textarea,.ipx-fbd textarea{width:100%;box-sizing:border-box;min-height:84px;font:inherit;padding:8px;border-radius:8px;border:1px solid #bbb}" +
@@ -875,7 +880,7 @@
   function unsent() { return jget(QUE).length; }
   function badge() {
     var n = unsent(), t = n ? "<em>" + n + "<\/em>" : "";
-    if (pill) pill.innerHTML = "💡 改善要望" + t;
+    if (pill) pill.innerHTML = (pill.classList.contains("ipx-fbslot") ? "💡 改善要望・エラーの記録" : "💡") + t;
     if (box) { var m = box.querySelector(".ipx-fbm"); if (m) m.innerHTML = state(); }
   }
   function state() {
@@ -933,7 +938,10 @@
       box.querySelector(".go").onclick = function () { var t = box.querySelector("textarea"); if (send(t.value)) t.value = ""; };
       box.querySelector(".more").onclick = function () { open(box.querySelector("textarea").value); };
       if (box.querySelector(".mail")) box.querySelector(".mail").onclick = function () { mailDialog(); };
-    } else {   // 画面いっぱいのアプリ:左下の小さなボタン(下にタブがあればその上)
+    } else if (document.getElementById("ipxFbSlot")) {   // アプリが置き場所を用意しているとき(設定の中など):浮かべない
+      pill = document.createElement("button"); pill.type = "button"; pill.className = "ipx-fbslot"; pill.setAttribute("aria-label", "改善要望");
+      pill.onclick = function () { open(); }; document.getElementById("ipxFbSlot").appendChild(pill);
+    } else {   // 画面いっぱいのアプリ:右下の小さな 💡 だけ(下にタブがあればその上。じゃまにならないよう薄く)
       pill = document.createElement("button"); pill.type = "button"; pill.className = "ipx-fb"; pill.setAttribute("aria-label", "改善要望");
       var nav = document.querySelector("nav.tabs"), h = nav ? nav.getBoundingClientRect().height : 0;
       pill.style.bottom = "calc(" + (h + 6) + "px + env(safe-area-inset-bottom, 0px))";
@@ -962,7 +970,7 @@
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.3</small></h1>
+      <h1>こっそり写し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.3.5</small></h1>
     </header>
 
     <!-- ホーム -->
@@ -1056,6 +1064,7 @@
         <label class="f"><input type="checkbox" id="cfAuto" /> 撮ったらすぐ保存先にも入れる</label>
         <p class="note">保存先を選ぶと、その中に<b>工事名のフォルダを自動で作り</b>、その下に「種別 › 細別 › 1_施工状況 …」のフォルダを作って入れます（施工の工事写真作成エンジンと同じ形）。工事名のフォルダそのものを選んだときは、その中に直接入れます。</p>
       </div>
+      <div class="card"><h2>💡 改善要望</h2><p class="note">使いにくいところ・止まったところを送れます（エラーの記録もここ）。</p><div id="ipxFbSlot"></div></div>
       <div class="card">
         <h2>🏗 工事の情報（一発バーンの現場の設定）</h2>
         <label class="f" for="cfName">工事名（黒板・XMP に入れる正式な名前）</label>
@@ -2052,6 +2061,81 @@
           download(await zipOf(files).arrayBuffer(), name, "application/zip");
         }
 
+        // ------------------------------------------------------------ 電子納品の形(PHOTO.XML・Shift_JIS)
+        // KSデータバンクは、改ざんチェック値(J-COMSIA 認定アプリの印)の無い写真を「未分類」に入れる。
+        // 分類つきで入れるには、デジタル写真管理情報基準の PHOTO.XML(写真区分・工種・種別・細別)をつけて「成果品データ」として取り込む。
+        let SJ = null;
+        function sjisMap() {
+          if (SJ) return SJ; SJ = new Map(); const td = new TextDecoder("shift_jis");
+          for (let a = 0x81; a <= 0xfc; a++) { if (a > 0x9f && a < 0xe0) continue; for (let b = 0x40; b <= 0xfc; b++) { if (b === 0x7f) continue; const c = td.decode(new Uint8Array([a, b])); if (c.length === 1 && c !== "\ufffd" && !SJ.has(c)) SJ.set(c, [a, b]); } }
+          for (let a = 0xa1; a <= 0xdf; a++) SJ.set(td.decode(new Uint8Array([a])), [a]);
+          return SJ;
+        }
+        function toSjis(str, bad, dep) {
+          const m = sjisMap(), out = [];
+          for (const ch of str) { const k = ch.codePointAt(0); if (k < 0x80) { out.push(k); continue; } const v = m.get(ch); if (v) { out.push(...v); if (dep && v.length === 2 && (v[0] === 0x87 || v[0] >= 0xed)) dep.add(ch); } else { out.push(0x81, 0x48); if (bad) bad.add(ch); } }   // 入らない字は「？」
+          return new Uint8Array(out);
+        }
+        const px = (t) => String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        function photoXml(ps) {
+          const rows = ps.map((p, i) => {
+            const m = p.meta, kb = XMP_K[m.kubun] || m.kubun, tree = TREE_K.has(m.kubun) || m.kubun === "仮設工";
+            const title = (m.name || (m.lines || [])[0] || KUBUN_SHORT[m.kubun] || "写真").trim().slice(0, 127);
+            return `  <写真情報>
+    <写真ファイル情報>
+      <シリアル番号>${i + 1}</シリアル番号>
+      <写真ファイル名>${px(p.pic)}</写真ファイル名>
+      <写真ファイル日本語名></写真ファイル日本語名>
+      <メディア番号>1</メディア番号>
+    </写真ファイル情報>
+    <撮影工種区分>
+      <写真-大分類>工事</写真-大分類>
+      <写真区分>${px(kb)}</写真区分>
+      <工種>${tree ? px(m.k) : ""}</工種>
+      <種別>${tree ? px(m.m) : ""}</種別>
+      <細別>${tree ? px(m.kubun === "仮設工" && !m.s ? "仮設工" : m.s) : ""}</細別>
+      <写真タイトル>${px(title)}</写真タイトル>
+      <工種区分予備></工種区分予備>
+    </撮影工種区分>
+    <撮影情報>
+      <撮影箇所>${px(m.spot)}</撮影箇所>
+      <撮影年月日>${px(m.date)}</撮影年月日>
+    </撮影情報>
+    <代表写真>0</代表写真>
+    <提出頻度写真>0</提出頻度写真>
+    <施工管理値></施工管理値>
+    <請負者説明文>${px((m.memo || (m.lines || []).slice(1).join(" ")).trim().slice(0, 127))}</請負者説明文>
+  </写真情報>`;
+          }).join("\n");
+          return `<?xml version="1.0" encoding="Shift_JIS"?>
+<!DOCTYPE photodata SYSTEM "PHOTO05.DTD">
+<photodata DTD_version="05">
+  <基礎情報>
+    <写真フォルダ名>PHOTO/PIC</写真フォルダ名>
+    <参考図フォルダ名>PHOTO/DRA</参考図フォルダ名>
+    <適用要領基準>土木202303-01</適用要領基準>
+  </基礎情報>
+${rows}
+  <ソフトメーカ用TAG></ソフトメーカ用TAG>
+</photodata>
+`;
+        }
+        async function zipPhotoXml(ps) {
+          const ord = (p) => KUBUN.indexOf(p.meta.kubun);
+          ps = ps.slice().sort((a, b) => ord(a) - ord(b) || String(pathText(a.meta.node)).localeCompare(String(pathText(b.meta.node)), "ja") || a.at - b.at);
+          ps = ps.map((p, i) => Object.assign({}, p, { pic: "P" + String(i + 1).padStart(7, "0") + ".JPG" }));
+          const bad = new Set(), dep = new Set(), xml = toSjis(photoXml(ps), bad, dep), files = [{ name: "PHOTO/PHOTO.XML", data: xml }];
+          for (const p of ps) files.push({ name: "PHOTO/PIC/" + p.pic, data: new Uint8Array(await p.jpeg.arrayBuffer()) });
+          download(await zipOf(files).arrayBuffer(), `電子納品PHOTO_${safeName(kname())}_${new Date().toISOString().slice(0, 10)}.zip`, "application/zip");
+          const noTree = ps.filter((p) => TREE_K.has(p.meta.kubun) && !p.meta.k).length;
+          let msg = `PHOTO.XML つきで ${ps.length} 枚をまとめました。`;
+          if (noTree) msg += `\n\n工種の入っていない施工状況・出来形の写真が ${noTree} 枚あります（分類が「工種なし」になります）。`;
+          if (bad.size) msg += `\n\nShift_JIS に入らない字（${[...bad].join(" ")}）は「？」にしました。黒板の文字を直すと消えます。`;
+          if (dep.size) msg += `\n\n機種依存文字（${[...dep].join(" ")}）が入っています。KSデータバンクには入りますが、電子納品のチェックでは注意が出ることがあります（例 ② → (2)）。`;
+          msg += "\n\nパソコンで ZIP を開き、KSデータバンクの「成果品データの取込」で PHOTO フォルダを選んでください。";
+          alertBox(msg);
+        }
+
         // ------------------------------------------------------------ KSデータバンクへ
         async function ksDialog() {
           if (!needSite()) return;
@@ -2061,8 +2145,11 @@
             <ol class="note" style="padding-left:18px"><li>下のボタンで写真を工種ごとのフォルダの ZIP にまとめます。</li><li>パソコンで ZIP を開き、KSデータバンク（工事データ）に写真をアップロードします（ドラッグ＆ドロップ）。</li><li>KSデータバンクでは「未分類」に入るので、分類フォルダーへ移してから写管屋に取り込みます。</li></ol>
             <p class="note">写真 ${ps.length} 枚（黒板あり ${ok.length} 枚）。${noSpot ? `<span class="warn">測点の無い写真 ${noSpot} 枚。</span>` : ""}${noDate ? `<span class="warn">撮影日の分からない写真 ${noDate} 枚。</span>` : ""}</p>
             <p class="note warn">あとから黒板を入れた写真には改ざんチェック値がありません（信憑性チェックでは「チェック値なし」）。電子納品に入れるのは発注者との協議が前提です。</p>
-            <button type="button" class="btn pri wide" id="ksZip">⬇ 黒板ありの写真を ZIP にまとめる</button>
-            <p class="note">PHOTO.XML（電子納品の形）での取込は次の版で入れます。</p>`);
+            <div class="card" style="margin:10px 0;border:2px solid var(--accent2)"><b>分類つきで入れたいとき（おすすめ）</b>
+            <p class="note">KSデータバンクは、認定アプリの改ざんチェック値が無い写真を「未分類」に入れます（このアプリの写真もそうなります）。分類つきで入れるには、電子納品の形（PHOTO.XML に写真区分・工種・種別・細別・測点・撮影日）でまとめて、KSデータバンクの「成果品データの取込」から入れてください。</p>
+            <button type="button" class="btn pri wide" id="ksXml">📦 PHOTO.XML つき（電子納品の形）で ZIP にまとめる</button></div>
+            <button type="button" class="btn wide" id="ksZip">⬇ 写真だけ工種ごとのフォルダの ZIP にまとめる</button>`);
+          $("ksXml").onclick = async () => { closeSheet(); await zipPhotoXml(ok); };
           $("ksZip").onclick = async () => { closeSheet(); await zipPhotos(ok, `KSデータバンク用_${safeName(kname())}_${new Date().toISOString().slice(0, 10)}.zip`); };
         }
 

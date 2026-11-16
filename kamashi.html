@@ -968,7 +968,8 @@
   }
   window.__fbDir = function (name) { if (name) { var n = jget(QUE).length, l = flush(); toast(name ? "送り先：" + name + (n ? "（" + (n - l) + " 件送りました）" : "") : ""); } if (dlg) open(); };
   // ---- 画面
-  var CSS = ".ipx-fb{position:fixed;left:6px;z-index:60;display:flex;align-items:center;gap:4px;border:1px solid rgba(0,0,0,.15);border-radius:999px;background:rgba(255,255,255,.92);color:#333;font:600 12px/1 system-ui,sans-serif;padding:6px 10px;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer}" +
+  var CSS = ".ipx-fb{position:fixed;right:8px;z-index:60;display:flex;align-items:center;justify-content:center;gap:2px;width:34px;height:34px;border:1px solid rgba(0,0,0,.12);border-radius:999px;background:rgba(255,255,255,.7);color:#333;font:16px/1 system-ui,sans-serif;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.15);cursor:pointer;opacity:.55}.ipx-fb:active{opacity:1}" +
+    ".ipx-fb em{position:absolute;top:-4px;right:-4px}.ipx-fbslot{display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.15);background:transparent;font:600 14px/1.2 system-ui,sans-serif;color:inherit;cursor:pointer}" +
     ".ipx-fb em{font-style:normal;background:#c2255c;color:#fff;border-radius:999px;padding:2px 6px;font-size:11px}" +
     ".ipx-fbbox{margin:18px 12px 24px;padding:12px;border:1px dashed #999;border-radius:12px;font:14px/1.5 system-ui,sans-serif;color:inherit}" +
     ".ipx-fbbox h4{margin:0 0 6px;font-size:15px}.ipx-fbbox textarea,.ipx-fbd textarea{width:100%;box-sizing:border-box;min-height:84px;font:inherit;padding:8px;border-radius:8px;border:1px solid #bbb}" +
@@ -980,7 +981,7 @@
   function unsent() { return jget(QUE).length; }
   function badge() {
     var n = unsent(), t = n ? "<em>" + n + "<\/em>" : "";
-    if (pill) pill.innerHTML = "💡 改善要望" + t;
+    if (pill) pill.innerHTML = (pill.classList.contains("ipx-fbslot") ? "💡 改善要望・エラーの記録" : "💡") + t;
     if (box) { var m = box.querySelector(".ipx-fbm"); if (m) m.innerHTML = state(); }
   }
   function state() {
@@ -1038,7 +1039,10 @@
       box.querySelector(".go").onclick = function () { var t = box.querySelector("textarea"); if (send(t.value)) t.value = ""; };
       box.querySelector(".more").onclick = function () { open(box.querySelector("textarea").value); };
       if (box.querySelector(".mail")) box.querySelector(".mail").onclick = function () { mailDialog(); };
-    } else {   // 画面いっぱいのアプリ:左下の小さなボタン(下にタブがあればその上)
+    } else if (document.getElementById("ipxFbSlot")) {   // アプリが置き場所を用意しているとき(設定の中など):浮かべない
+      pill = document.createElement("button"); pill.type = "button"; pill.className = "ipx-fbslot"; pill.setAttribute("aria-label", "改善要望");
+      pill.onclick = function () { open(); }; document.getElementById("ipxFbSlot").appendChild(pill);
+    } else {   // 画面いっぱいのアプリ:右下の小さな 💡 だけ(下にタブがあればその上。じゃまにならないよう薄く)
       pill = document.createElement("button"); pill.type = "button"; pill.className = "ipx-fb"; pill.setAttribute("aria-label", "改善要望");
       var nav = document.querySelector("nav.tabs"), h = nav ? nav.getBoundingClientRect().height : 0;
       pill.style.bottom = "calc(" + (h + 6) + "px + env(safe-area-inset-bottom, 0px))";
