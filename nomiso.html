@@ -246,8 +246,10 @@
       header .hopen button { width: auto; padding: 8px 12px; font-size: 15px; font-weight: 700; }
       header .help-btn { margin-left: 0 !important; flex: 0 0 auto; padding: 8px 12px !important; }
       .zoombar button#zSel { font-size: 13px; }
-      main { min-height: 52vh !important; }
-      .sheet { max-height: 44vh !important; padding-top: 10px !important; }
+      main { min-height: 34vh !important; }
+      .sheet { height: 50vh; max-height: 50vh !important; padding-top: 10px !important; }   /* 2026-11-17 ゆきちゃん:図面を少しせまく、下のコマンドを選びやすく */
+      #eOverBox { margin: 10px 0 4px; }
+      #eOverBox .note { font-size: 12.5px; color: var(--sub); margin: 6px 0 0; line-height: 1.5; }
       .modes { position: sticky; top: -10px; z-index: 2; background: var(--panel); padding-top: 0; }
       .status { font-size: 15px !important; padding: 9px 12px !important; margin-bottom: 10px !important; }
       #eTool button { font-size: 13.5px; padding: 6px 2px; }
@@ -266,6 +268,24 @@
   "use strict";
   if (window.Genba) return;
   var APP = window.IPPATSU_APP || "", RO = !!window.IPPATSU_READONLY;
+  // 見た目(黒基調)をアプリごとに少し変えるための印。見出し(⌂ ホームへ戻る列)が作業中に上へ消えないようにする(2026-11-17 ゆきちゃん)
+  try { document.documentElement.setAttribute("data-ipx", APP || "menu"); } catch (e) { /* */ }
+  (function () {
+    // 墨太郎の4本は画面の高さに合わせた作り(body は動かない)。入力や「その位置へ寄せる」動きで画面全体が上へずれると、
+    // 見出しが上に消えたまま戻せなくなるので、入力が終わったら元の位置(一番上)に戻す。
+    var fixedBody = function () { var b = document.body; if (!b) return false; var o = getComputedStyle(b).overflowY; return o === "hidden" || o === "clip"; };
+    var typing = function () { var a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+    var back = function () {
+      if (!fixedBody() || typing()) return;
+      var se = document.scrollingElement || document.documentElement;
+      if (window.scrollY || se.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); se.scrollTop = 0; document.body.scrollTop = 0; }
+    };
+    var later = function (ms) { clearTimeout(later.t); later.t = setTimeout(back, ms); };
+    window.addEventListener("scroll", function () { later(150); }, { passive: true });
+    document.addEventListener("focusout", function () { later(300); }, true);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", function () { later(350); });
+    window.IPPATSU_TOP = back;
+  })();
   var CUR = "ippatsu.genba", LIST = "ippatsu.genba.list";
   var ls = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -382,8 +402,9 @@
       });
     },
     filePut: function (n, f, from) {
-      if (RO) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));
+      if (RO && !(f && f.save)) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));   // 脳みそバーンの「💾 上書き保存」(f.save)だけは入れる
       var rec = { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: f.bytes, at: Date.now(), from: from || APP };
+      if (f.base) rec.base = f.base;   // 脳みそバーンで直した図面:元の図面の名前
       return tx("files", "readwrite", function (st) { return st.put(rec, FK(n, f.name)); })
         .then(function () { return G.get(n); }).then(function (r) { if (r) { r.mainFile = f.name; return G.put(r); } })
         .then(function () { emit("file", { name: n, file: f.name }); });
@@ -1826,19 +1847,106 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="一発バーン" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#0d3f8f" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="theme-color" content="#0b0c0e" /><!-- #0d3f8f -->
     <link rel="apple-touch-icon" href="icon-180.png" />
     <style>
       body { padding-top: env(safe-area-inset-top); }
       header .menuback { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px;
         border-radius: 8px; border: 1px solid var(--line, #ccd); color: inherit; text-decoration: none; font-size: 18px; margin-right: 2px; }
     </style>
+    <style id="ipx-theme">
+/* 一発バーン 共通の見た目(黒基調)。2026-11-17 ゆきちゃん:「古臭くAIで作った感が出ているので黒基調に。①〜⑤とも」
+   make_apps.py が menu と ①〜⑤ の <head> の最後に入れる(写真ペン太郎は別の人の作なので入れない)。
+   色はここだけで決める。アプリの中の色の名前(--bg・--panel・--ink など)を黒基調の値に置きかえる。 */
+:root, :root:root {
+  color-scheme: dark;
+  --bg: #0b0c0e; --panel: #15171b; --card: #15171b; --surface2: #1d2025;
+  --ink: #eceef1; --fg: #eceef1; --sub: #9aa1ab; --line: #2b2f36;
+  --grid: #c3cad4;
+  --accent: #3d8bfd; --accent2: #ff8a3d; --ok: #2fbf71; --ng: #ff6161; --warn: #ffa94d; --warnc: #ffb545;
+  --known: #2fbf71; --inst: #a48bff;
+}
+html { background: #0b0c0e; }
+body { background: var(--bg) !important; color: var(--ink); -webkit-font-smoothing: antialiased; }
+::selection { background: rgba(61,139,253,.45); }
+
+/* 見出し(ホームへ戻る列):いつも一番上に見える */
+header { background: rgba(15,16,19,.94) !important; border-bottom: 1px solid var(--line) !important; box-shadow: none !important;
+  position: sticky; top: 0; z-index: 40; -webkit-backdrop-filter: saturate(140%) blur(10px); backdrop-filter: saturate(140%) blur(10px); }
+header h1, header h1 * { letter-spacing: .01em; }
+header .menuback, .menuback { background: var(--surface2) !important; border-color: var(--line) !important; color: var(--ink) !important; }
+.ipx-chips { background: var(--bg); position: relative; z-index: 39; }
+
+/* 入力・ボタン:平らに、角は少し丸く */
+input, select, textarea { background: #0f1114; color: var(--ink); border-color: var(--line); }
+input::placeholder, textarea::placeholder { color: #6b727c; }
+select option { background: #15171b; color: var(--ink); }
+button { box-shadow: none; }
+button:disabled { opacity: .42; }
+details.adv, .step, .card, .site, .tile, .app, .sheet, .status, .infobox, .stakecard { border-color: var(--line) !important; }
+.step, .card, .site, .tile, .app { box-shadow: none !important; }
+hr { border-color: var(--line); }
+table th { color: var(--sub); }
+table td, table th { border-color: var(--line) !important; }
+a { color: #78aefe; }
+
+/* 小窓 */
+.ipx-ovl { background: rgba(0,0,0,.62) !important; }
+.ipx-card { background: #17191d !important; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(0,0,0,.6) !important; }
+.ipx-card input, .ipx-card textarea, .ipx-card select { background: #0f1114 !important; }
+.ipx-fb { background: rgba(30,32,37,.8) !important; color: #ddd !important; border-color: #333 !important; }
+.ipx-fbslot { border-color: var(--line) !important; }
+.ipx-fbbox textarea, .ipx-fbd textarea { background: #0f1114; color: var(--ink); border-color: var(--line) !important; }
+.ipx-fbd pre { background: #0f1114 !important; color: #ccc !important; }
+.ipx-badge.mode { color: #3ccfb8 !important; border-color: #2a8f80 !important; }
+
+/* スクロールバー */
+* { scrollbar-color: #3a3f47 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #34383f; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 3D 断面 */
+canvas.xs-3d { background: #0b0c0e !important; }
+
+/* ④ くるくる回し太郎 */
+[data-ipx=kurukuru] .cl-pickbar { background: #2a2210 !important; color: #ffcf70 !important; }
+[data-ipx=kurukuru] .k-result { background: #0f2418 !important; border-color: #2fbf71 !important; }
+[data-ipx=kurukuru] .k-result.ng { background: #2a1214 !important; border-color: #ff6161 !important; }
+[data-ipx=kurukuru] .k-result.info { background: #2a2210 !important; border-color: #f59e0b !important; }
+[data-ipx=kurukuru] .k-result .kr-sg div { background: #0f1114 !important; }
+[data-ipx=kurukuru] .pt-card:active { background: #1d2025 !important; }
+[data-ipx=kurukuru] .pt-card .role { background: #33240f !important; color: #ffb36b !important; }
+[data-ipx=kurukuru] .pt-card .role.known { background: #10233d !important; color: #7fb4ff !important; }
+[data-ipx=kurukuru] .ipx-badge.quick { color: #ffb545 !important; }
+[data-ipx=kurukuru] .ctl-linkchip { background: #2a2210 !important; color: #ffcf70 !important; }
+[data-ipx=kurukuru] .ctl-linkchip.bt { background: #10233d !important; color: #8fbcff !important; border-color: #3d8bfd !important; }
+[data-ipx=kurukuru] .ctl-msg.warn { color: #ff8a8a !important; }
+[data-ipx=kurukuru] .kwiz .ezsteps span { background: #1d2025 !important; }
+[data-ipx=kurukuru] .kwiz .ezsteps span.done { background: #0f2418 !important; color: #5ee39a !important; }
+[data-ipx=kurukuru] .kslot.cur { background: #2a2210 !important; }
+[data-ipx=kurukuru] .kslot.done { background: #0f2418 !important; border-color: #2a7a4d !important; }
+[data-ipx=kurukuru] .tile.live, [data-ipx=kurukuru] button.ctlopen.live { background: #000 !important; border: 1px solid var(--line) !important; }
+
+/* ⑤ こっそり写し太郎(色の名前の使い方がちがう:accent=ラズベリー、accent2=青) */
+:root[data-ipx=utsushi] { --accent: #e64980; --accent2: #6f84ff; --ok: #40c057; --warn: #ffa94d; --ng: #ff6b6b; }
+[data-ipx=utsushi] header { background: rgba(15,16,19,.94) !important; }
+[data-ipx=utsushi] input[type=text], [data-ipx=utsushi] input[type=date], [data-ipx=utsushi] input[type=number], [data-ipx=utsushi] select, [data-ipx=utsushi] textarea { background: #0f1114 !important; color: var(--ink) !important; }
+[data-ipx=utsushi] .chip, [data-ipx=utsushi] .x { background: #1d2025 !important; color: var(--ink); }
+[data-ipx=utsushi] .chip[aria-pressed=true] { background: var(--accent2) !important; color: #fff !important; }
+[data-ipx=utsushi] .path { background: #141826 !important; }
+[data-ipx=utsushi] .ks { background: #22121a !important; border-bottom-color: var(--line) !important; }
+[data-ipx=utsushi] .tn.sel { background: #2a1520 !important; }
+[data-ipx=utsushi] .tile.main small { color: #ffd1e1; }
+[data-ipx=utsushi] nav, [data-ipx=utsushi] .tabbar, [data-ipx=utsushi] footer { background: rgba(15,16,19,.96) !important; border-color: var(--line) !important; }
+
+    </style>
   </head>
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.4.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.5.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -1981,8 +2089,12 @@
         <label class="big-label" for="eLayer">足す図形の画層</label>
         <input id="eLayer" type="text" value="現場追加" />
         <p class="step-note" id="eCount">直したところはまだありません。</p>
+        <div id="eOverBox">
+          <button class="big primary" id="eOver" type="button" disabled>💾 上書き保存(現場の図面)</button>
+          <p class="note" id="eOverNote">直した図面を、いまの現場の図面として保存します。ECP一撃逃墨太郎・一発かまし太郎の「現場の図面」からそのまま開けます。</p>
+        </div>
         <div class="field2">
-          <button class="big primary" id="eDxf" hidden type="button" disabled>⬇　DXF</button>
+          <button class="ghost" id="eDxf" type="button" disabled>⬇ DXF で書き出す</button>
           <button class="ghost warnbtn" id="eReset" type="button" disabled>直したのを全部もどす</button>
         </div>
         <div class="field2">
@@ -1990,7 +2102,7 @@
           <button class="ghost" id="eLoad" hidden type="button">📂 変更を読み込む</button>
           <input id="eLoadFile" type="file" accept=".json,application/json" hidden />
         </div>
-        <p class="step-note">脳みそバーン無敵CAD は<b>見る・測る・直して見せる</b>ためのアプリです。<b>ファイルへの保存や、ほかのアプリへの受け渡しはしません</b>(図面を読み込むだけ)。直したところ・× 記号・文字で、出したい点をはっきり示して、画面を見せて使ってください。直したところはこのスマホに覚えておき、同じ図面を開き直すと戻ります。<span class="warn">元の図面は書き換えません。</span></p>
+        <p class="step-note">直したところはこのスマホに覚えておき、同じ図面を開き直すと戻ります。<b>💾 上書き保存</b>で、直した図面を現場に保存すると、ECP一撃逃墨太郎・一発かまし太郎で続きの作業ができます。図脳RAPID の図面(.zrd など)は書き換えられないので、同じ名前の DXF として保存します(元の図脳の図面はそのまま残ります)。</p>
       </section>
 
       <details class="adv">
@@ -5265,6 +5377,8 @@
           $("eReset").disabled = ops.length === 0;
           $("eSave").disabled = ops.length === 0;
           $("eDxf").disabled = !view;
+          $("eOver").disabled = !view;
+          overNote();
           const c = { del: 0, move: 0, line: 0, text: 0, edtext: 0, aux: 0, mark: 0 };
           for (const o of ops) c[o.t] = (c[o.t] || 0) + 1;
           $("eCount").textContent = ops.length ? `直したところ ${ops.length}(消す ${c.del}・動かす/写す ${c.move}・線 ${c.line}・補助線 ${c.aux}・× ${c.mark}・文字 ${c.text + c.edtext})。` : "直したところはまだありません。";
@@ -5352,7 +5466,7 @@
           return Uint8Array.from(out);
         }
         function toDxf() {
-          const L = [];
+          const L = ["999", "IPPATSU_AXIS=" + (zunouInfo && zunouInfo.origin ? "northEast" : $("axis").value)];   // ほかのアプリが座標の向きを合わせるための印
           const g = (c, v) => { L.push(String(c), typeof v === "number" ? (Number.isInteger(v) && c >= 60 && c < 80 ? String(v) : v.toFixed(6)) : String(v)); };
           g(0, "SECTION"); g(2, "HEADER"); g(9, "$ACADVER"); g(1, "AC1009"); g(9, "$DWGCODEPAGE"); g(3, "ANSI_932"); g(9, "$INSUNITS"); g(70, 4); g(0, "ENDSEC");
           g(0, "SECTION"); g(2, "ENTITIES");
@@ -5404,6 +5518,33 @@
           download(sjisBytes(toDxf()), name, "application/dxf");
           setStatus(`✓ ${name} に書き出しました(線 ${lines.length}・文字 ${texts.length}・${zunouInfo && zunouInfo.origin ? "公共座標 mm(横=Y東・縦=X北)" : "図面の座標 mm"})。`);
         });
+        // ---------------------------------------------------------------- 💾 上書き保存(2026-11-17 ゆきちゃん)
+        // 直した図面を DXF にして、いまの現場の図面に入れる(同じ名前があれば上書き)。ECP一撃逃墨太郎・一発かまし太郎は「現場の図面」から開く。
+        // 図脳RAPID の図面は書き換えられないので「同じ名前.dxf」にする(元の図脳の図面は現場に残る)。
+        const overName = () => { const src = (lastFile && lastFile.name) || (fileBase + ".dxf"); return /\.dxf$/i.test(src) ? src : safeName(fileBase) + ".dxf"; };
+        function overNote() {
+          const G = window.Genba, n = G && G.current && G.current();
+          $("eOverNote").textContent = !view ? "図面を開くと使えます。" : n
+            ? `直した図面を、現場「${n}」の図面「${overName()}」として保存します(同じ名前があれば上書き)。ECP一撃逃墨太郎・一発かまし太郎の「現場の図面」からそのまま開けます。`
+            : "現場が選ばれていないので、上書き保存すると DXF ファイルとして書き出します(一発バーンの最初の画面で現場を選ぶと、ほかのアプリへそのまま渡せます)。";
+        }
+        $("eOver").addEventListener("click", async () => {
+          if (!view) return;
+          const G = window.Genba, n = G && G.current && G.current(), name = overName(), src = (lastFile && lastFile.name) || "";
+          const bytes = sjisBytes(toDxf());
+          if (!n) { download(bytes, name, "application/dxf"); setStatus(`✓ 現場が選ばれていないので、${name} として書き出しました。`); return; }
+          let have = []; try { have = (await G.files(n)).map((x) => x.name); } catch (e) { /* */ }
+          const msg = name !== src
+            ? `図脳RAPID の図面「${src}」は書き換えられないので、直した図面を「${name}」として現場「${n}」に保存します(元の「${src}」はそのまま残ります)。${have.includes(name) ? "前に保存した「" + name + "」は上書きされます。" : ""}よろしいですか?`
+            : `現場「${n}」の図面「${name}」を、直した図面で上書きします。よろしいですか?`;
+          if (!confirm(msg)) return;
+          try {
+            await G.filePut(n, { name, type: "application/dxf", lastModified: Date.now(), bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), save: true, base: src }, "nomiso");
+            setStatus(`✓ 現場「${n}」に「${name}」を保存しました(直したところ ${ops.length})。ECP一撃逃墨太郎・一発かまし太郎の「現場の図面」から開けます。`);
+            if (G.docStrip) G.docStrip();
+          } catch (e) { setStatus("⚠ 保存できませんでした: " + e.message, true); }
+        });
+        window.addEventListener("genba", (e) => { if (e.detail && e.detail.type === "current") overNote(); });
         function download(data, name, type) {
           const blob = new Blob([data], { type });
           const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
@@ -5605,7 +5746,8 @@
               if (/\.jww$/i.test(f.name)) { setStatus("⚠ JWW は読めません。DXF で保存してから開いてください。", true); return; }
               if (head.startsWith("AutoCAD Binary DXF")) { setStatus("⚠ バイナリ形式の DXF は読めません。ASCII 形式で保存し直してください。", true); return; }
               if (!/(^|\n)\s*SECTION\s*(\r?\n)/.test(head)) { setStatus(`⚠ 「${f.name}」は図脳RAPID の図面でも DXF でもないようです。`, true); return; }
-              $("axis").value = load("nb.axisDxf") || "asDrawn";
+              const ipxAx = head.match(/999\s*\r?\nIPPATSU_AXIS=(northEast|asDrawn)/);   // 脳みそバーンで直して保存した DXF
+              $("axis").value = ipxAx ? ipxAx[1] : (load("nb.axisDxf") || "asDrawn");
               note = "DXF は実寸の mm として読みます。";
             }
             const src = decodeText(buf);

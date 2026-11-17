@@ -704,6 +704,24 @@
   "use strict";
   if (window.Genba) return;
   var APP = window.IPPATSU_APP || "", RO = !!window.IPPATSU_READONLY;
+  // 見た目(黒基調)をアプリごとに少し変えるための印。見出し(⌂ ホームへ戻る列)が作業中に上へ消えないようにする(2026-11-17 ゆきちゃん)
+  try { document.documentElement.setAttribute("data-ipx", APP || "menu"); } catch (e) { /* */ }
+  (function () {
+    // 墨太郎の4本は画面の高さに合わせた作り(body は動かない)。入力や「その位置へ寄せる」動きで画面全体が上へずれると、
+    // 見出しが上に消えたまま戻せなくなるので、入力が終わったら元の位置(一番上)に戻す。
+    var fixedBody = function () { var b = document.body; if (!b) return false; var o = getComputedStyle(b).overflowY; return o === "hidden" || o === "clip"; };
+    var typing = function () { var a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+    var back = function () {
+      if (!fixedBody() || typing()) return;
+      var se = document.scrollingElement || document.documentElement;
+      if (window.scrollY || se.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); se.scrollTop = 0; document.body.scrollTop = 0; }
+    };
+    var later = function (ms) { clearTimeout(later.t); later.t = setTimeout(back, ms); };
+    window.addEventListener("scroll", function () { later(150); }, { passive: true });
+    document.addEventListener("focusout", function () { later(300); }, true);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", function () { later(350); });
+    window.IPPATSU_TOP = back;
+  })();
   var CUR = "ippatsu.genba", LIST = "ippatsu.genba.list";
   var ls = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -820,8 +838,9 @@
       });
     },
     filePut: function (n, f, from) {
-      if (RO) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));
+      if (RO && !(f && f.save)) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));   // 脳みそバーンの「💾 上書き保存」(f.save)だけは入れる
       var rec = { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: f.bytes, at: Date.now(), from: from || APP };
+      if (f.base) rec.base = f.base;   // 脳みそバーンで直した図面:元の図面の名前
       return tx("files", "readwrite", function (st) { return st.put(rec, FK(n, f.name)); })
         .then(function () { return G.get(n); }).then(function (r) { if (r) { r.mainFile = f.name; return G.put(r); } })
         .then(function () { emit("file", { name: n, file: f.name }); });
@@ -2264,19 +2283,106 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="一発バーン" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#0d3f8f" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="theme-color" content="#0b0c0e" /><!-- #0d3f8f -->
     <link rel="apple-touch-icon" href="icon-180.png" />
     <style>
       body { padding-top: env(safe-area-inset-top); }
       header .menuback { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px;
         border-radius: 8px; border: 1px solid var(--line, #ccd); color: inherit; text-decoration: none; font-size: 18px; margin-right: 2px; }
     </style>
+    <style id="ipx-theme">
+/* 一発バーン 共通の見た目(黒基調)。2026-11-17 ゆきちゃん:「古臭くAIで作った感が出ているので黒基調に。①〜⑤とも」
+   make_apps.py が menu と ①〜⑤ の <head> の最後に入れる(写真ペン太郎は別の人の作なので入れない)。
+   色はここだけで決める。アプリの中の色の名前(--bg・--panel・--ink など)を黒基調の値に置きかえる。 */
+:root, :root:root {
+  color-scheme: dark;
+  --bg: #0b0c0e; --panel: #15171b; --card: #15171b; --surface2: #1d2025;
+  --ink: #eceef1; --fg: #eceef1; --sub: #9aa1ab; --line: #2b2f36;
+  --grid: #c3cad4;
+  --accent: #3d8bfd; --accent2: #ff8a3d; --ok: #2fbf71; --ng: #ff6161; --warn: #ffa94d; --warnc: #ffb545;
+  --known: #2fbf71; --inst: #a48bff;
+}
+html { background: #0b0c0e; }
+body { background: var(--bg) !important; color: var(--ink); -webkit-font-smoothing: antialiased; }
+::selection { background: rgba(61,139,253,.45); }
+
+/* 見出し(ホームへ戻る列):いつも一番上に見える */
+header { background: rgba(15,16,19,.94) !important; border-bottom: 1px solid var(--line) !important; box-shadow: none !important;
+  position: sticky; top: 0; z-index: 40; -webkit-backdrop-filter: saturate(140%) blur(10px); backdrop-filter: saturate(140%) blur(10px); }
+header h1, header h1 * { letter-spacing: .01em; }
+header .menuback, .menuback { background: var(--surface2) !important; border-color: var(--line) !important; color: var(--ink) !important; }
+.ipx-chips { background: var(--bg); position: relative; z-index: 39; }
+
+/* 入力・ボタン:平らに、角は少し丸く */
+input, select, textarea { background: #0f1114; color: var(--ink); border-color: var(--line); }
+input::placeholder, textarea::placeholder { color: #6b727c; }
+select option { background: #15171b; color: var(--ink); }
+button { box-shadow: none; }
+button:disabled { opacity: .42; }
+details.adv, .step, .card, .site, .tile, .app, .sheet, .status, .infobox, .stakecard { border-color: var(--line) !important; }
+.step, .card, .site, .tile, .app { box-shadow: none !important; }
+hr { border-color: var(--line); }
+table th { color: var(--sub); }
+table td, table th { border-color: var(--line) !important; }
+a { color: #78aefe; }
+
+/* 小窓 */
+.ipx-ovl { background: rgba(0,0,0,.62) !important; }
+.ipx-card { background: #17191d !important; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(0,0,0,.6) !important; }
+.ipx-card input, .ipx-card textarea, .ipx-card select { background: #0f1114 !important; }
+.ipx-fb { background: rgba(30,32,37,.8) !important; color: #ddd !important; border-color: #333 !important; }
+.ipx-fbslot { border-color: var(--line) !important; }
+.ipx-fbbox textarea, .ipx-fbd textarea { background: #0f1114; color: var(--ink); border-color: var(--line) !important; }
+.ipx-fbd pre { background: #0f1114 !important; color: #ccc !important; }
+.ipx-badge.mode { color: #3ccfb8 !important; border-color: #2a8f80 !important; }
+
+/* スクロールバー */
+* { scrollbar-color: #3a3f47 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #34383f; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 3D 断面 */
+canvas.xs-3d { background: #0b0c0e !important; }
+
+/* ④ くるくる回し太郎 */
+[data-ipx=kurukuru] .cl-pickbar { background: #2a2210 !important; color: #ffcf70 !important; }
+[data-ipx=kurukuru] .k-result { background: #0f2418 !important; border-color: #2fbf71 !important; }
+[data-ipx=kurukuru] .k-result.ng { background: #2a1214 !important; border-color: #ff6161 !important; }
+[data-ipx=kurukuru] .k-result.info { background: #2a2210 !important; border-color: #f59e0b !important; }
+[data-ipx=kurukuru] .k-result .kr-sg div { background: #0f1114 !important; }
+[data-ipx=kurukuru] .pt-card:active { background: #1d2025 !important; }
+[data-ipx=kurukuru] .pt-card .role { background: #33240f !important; color: #ffb36b !important; }
+[data-ipx=kurukuru] .pt-card .role.known { background: #10233d !important; color: #7fb4ff !important; }
+[data-ipx=kurukuru] .ipx-badge.quick { color: #ffb545 !important; }
+[data-ipx=kurukuru] .ctl-linkchip { background: #2a2210 !important; color: #ffcf70 !important; }
+[data-ipx=kurukuru] .ctl-linkchip.bt { background: #10233d !important; color: #8fbcff !important; border-color: #3d8bfd !important; }
+[data-ipx=kurukuru] .ctl-msg.warn { color: #ff8a8a !important; }
+[data-ipx=kurukuru] .kwiz .ezsteps span { background: #1d2025 !important; }
+[data-ipx=kurukuru] .kwiz .ezsteps span.done { background: #0f2418 !important; color: #5ee39a !important; }
+[data-ipx=kurukuru] .kslot.cur { background: #2a2210 !important; }
+[data-ipx=kurukuru] .kslot.done { background: #0f2418 !important; border-color: #2a7a4d !important; }
+[data-ipx=kurukuru] .tile.live, [data-ipx=kurukuru] button.ctlopen.live { background: #000 !important; border: 1px solid var(--line) !important; }
+
+/* ⑤ こっそり写し太郎(色の名前の使い方がちがう:accent=ラズベリー、accent2=青) */
+:root[data-ipx=utsushi] { --accent: #e64980; --accent2: #6f84ff; --ok: #40c057; --warn: #ffa94d; --ng: #ff6b6b; }
+[data-ipx=utsushi] header { background: rgba(15,16,19,.94) !important; }
+[data-ipx=utsushi] input[type=text], [data-ipx=utsushi] input[type=date], [data-ipx=utsushi] input[type=number], [data-ipx=utsushi] select, [data-ipx=utsushi] textarea { background: #0f1114 !important; color: var(--ink) !important; }
+[data-ipx=utsushi] .chip, [data-ipx=utsushi] .x { background: #1d2025 !important; color: var(--ink); }
+[data-ipx=utsushi] .chip[aria-pressed=true] { background: var(--accent2) !important; color: #fff !important; }
+[data-ipx=utsushi] .path { background: #141826 !important; }
+[data-ipx=utsushi] .ks { background: #22121a !important; border-bottom-color: var(--line) !important; }
+[data-ipx=utsushi] .tn.sel { background: #2a1520 !important; }
+[data-ipx=utsushi] .tile.main small { color: #ffd1e1; }
+[data-ipx=utsushi] nav, [data-ipx=utsushi] .tabbar, [data-ipx=utsushi] footer { background: rgba(15,16,19,.96) !important; border-color: var(--line) !important; }
+
+    </style>
   </head>
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.30.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.31.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2339,7 +2445,6 @@
         <button class="big" id="recvBtn" type="button" style="margin-bottom:8px">📥 一発かまし太郎・脳みそバーンから受け取る</button>
         <button class="ghost" id="takeFile" type="button" disabled>開いた点ファイルの点を全部 一覧に入れる</button>
         <div class="filebtn" style="margin-top:8px"><button class="ghost" type="button">＋ 点ファイル（CSV・SIMA）の点を一覧に足す</button><input id="fileAdd" type="file" accept="*/*" multiple /></div>
-        <details class="adv" style="margin-top:10px"><summary>事務所でやること(手順)</summary><div class="adv-body"><ul class="steplist" data-steps="coord"></ul></div></details>
         <p class="step-note">足す点ファイルは、SIMA なら X=北・Y=東・m、CSV なら「くわしい設定」の向きと単位で読みます。KBM・BM・KS・T などで始まる点名は既知点にします（一覧で入れ替えられます）。</p>
       </section>
 
@@ -2402,9 +2507,6 @@
         <div id="suggestOut"></div>
         <div id="setupOut"></div>
         <button class="big ctlopen" type="button" data-ctl="setup" style="margin-top:12px">🎛 杭ナビ操作盤（器械点を決める）</button>
-        <div class="step-head" style="margin-top:14px"><span class="num">✓</span>現場で据え付ける(TopLayout)</div>
-        <p class="step-note" style="margin-top:0">既知点1 = <b id="tk1">既知点1</b>、既知点2 = <b id="tk2">既知点2</b></p>
-        <ul class="steplist" data-steps="setup"></ul>
       </section>
 
       <!-- 一覧・書き出し -->
@@ -2454,8 +2556,6 @@
         </div>
         <p class="step-note" id="stProg"></p>
         <div class="tblwrap"><table class="pts" id="stTable"></table></div>
-        <button class="ghost warnbtn" id="stReset" type="button">打った印を全部消す</button>
-        <details class="adv" style="margin-top:10px" open><summary>TopLayout での杭打ち</summary><div class="adv-body"><ul class="steplist" data-steps="stake"></ul></div></details>
       </section>
 
       <!-- 照合 -->
@@ -2475,7 +2575,6 @@
         <div id="chkSummary"></div>
         <div class="tblwrap"><table class="pts" id="chkTable"></table></div>
         <p class="step-note">ΔX・ΔY は「打った杭 − 設計」（X=北・Y=東）。打った杭の座標は m・TopLayout と同じ向きとして読みます。照合できた点は「杭打ち」で打った印が付きます。</p>
-        <ul class="steplist" data-steps="chk" style="margin-top:10px"></ul>
       </section>
 
 
@@ -6089,7 +6188,7 @@
         }
         function renderSetup() {
           const r = rng();
-          $("tk1").textContent = k1 || "既知点1"; $("tk2").textContent = k2 || "既知点2";
+          if ($("tk1")) { $("tk1").textContent = k1 || "既知点1"; $("tk2").textContent = k2 || "既知点2"; }   // 「現場で据え付ける(TopLayout)」は 2026-11-17 に外した
           if (!inst) { $("setupOut").innerHTML = msgHtml([{ c: "", t: "図をタップして杭ナビを置く場所を決めてください。" + (knowns().length < 2 ? "(既知点が 2 点以上要ります。「拾う」で既知点を保存するか、一覧で既知点にしてください)" : "") }]); return; }
           const A = byName(k1), B = byName(k2), ms = [];
           const [IX, IY] = fmtXY(inst.x, inst.y), [nx, ny] = axisNames();
@@ -6528,7 +6627,7 @@
           const tr = e.target.closest("tr[data-n]"); if (tr) { target = tr.dataset.n; afterChange(); }
         });
         for (const id of ["stOrder", "stHide"]) $(id).addEventListener("change", renderStake);
-        $("stReset").addEventListener("click", () => { if (!confirm("打った印を全部消します。よろしいですか?")) return; for (const p of picks) p.done = false; target = null; afterChange(); });
+        if ($("stReset")) $("stReset").addEventListener("click", () => { if (!confirm("打った印を全部消します。よろしいですか?")) return; for (const p of picks) p.done = false; target = null; afterChange(); });
 
         // 上の帯:杭ナビの状態
         function renderNaviBar() {
@@ -6772,6 +6871,10 @@
             dxfBuf = buf; ptOpen = null;
             $("dUnitRow").hidden = false; $("dHint").hidden = false;
             if (site) keepForSite(); else restore();
+            { // 脳みそバーンで直して現場に保存した DXF(先頭に IPPATSU_AXIS の印):mm・1:1・座標の向きをそのまま使う(2026-11-17)
+              const ipxAx = !zunou && head.match(/999\s*\r?\nIPPATSU_AXIS=(northEast|asDrawn)/);
+              if (ipxAx) { $("dUnit").value = "mm"; $("dScale").value = "1"; $("axis").value = ipxAx[1]; if ($("dCustomWrap")) $("dCustomWrap").hidden = true; }
+            }
             loadLines();
             lastOpened = { f, bytes: rawBytes }; siteSaveFile(f, rawBytes);
           } catch (e) {

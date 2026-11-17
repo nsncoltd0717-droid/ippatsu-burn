@@ -88,6 +88,24 @@ input[type=file]{display:none}
   "use strict";
   if (window.Genba) return;
   var APP = window.IPPATSU_APP || "", RO = !!window.IPPATSU_READONLY;
+  // 見た目(黒基調)をアプリごとに少し変えるための印。見出し(⌂ ホームへ戻る列)が作業中に上へ消えないようにする(2026-11-17 ゆきちゃん)
+  try { document.documentElement.setAttribute("data-ipx", APP || "menu"); } catch (e) { /* */ }
+  (function () {
+    // 墨太郎の4本は画面の高さに合わせた作り(body は動かない)。入力や「その位置へ寄せる」動きで画面全体が上へずれると、
+    // 見出しが上に消えたまま戻せなくなるので、入力が終わったら元の位置(一番上)に戻す。
+    var fixedBody = function () { var b = document.body; if (!b) return false; var o = getComputedStyle(b).overflowY; return o === "hidden" || o === "clip"; };
+    var typing = function () { var a = document.activeElement; return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); };
+    var back = function () {
+      if (!fixedBody() || typing()) return;
+      var se = document.scrollingElement || document.documentElement;
+      if (window.scrollY || se.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); se.scrollTop = 0; document.body.scrollTop = 0; }
+    };
+    var later = function (ms) { clearTimeout(later.t); later.t = setTimeout(back, ms); };
+    window.addEventListener("scroll", function () { later(150); }, { passive: true });
+    document.addEventListener("focusout", function () { later(300); }, true);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", function () { later(350); });
+    window.IPPATSU_TOP = back;
+  })();
   var CUR = "ippatsu.genba", LIST = "ippatsu.genba.list";
   var ls = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -204,8 +222,9 @@ input[type=file]{display:none}
       });
     },
     filePut: function (n, f, from) {
-      if (RO) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));
+      if (RO && !(f && f.save)) return Promise.reject(new Error("脳みそバーンは現場に保存しません"));   // 脳みそバーンの「💾 上書き保存」(f.save)だけは入れる
       var rec = { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), bytes: f.bytes, at: Date.now(), from: from || APP };
+      if (f.base) rec.base = f.base;   // 脳みそバーンで直した図面:元の図面の名前
       return tx("files", "readwrite", function (st) { return st.put(rec, FK(n, f.name)); })
         .then(function () { return G.get(n); }).then(function (r) { if (r) { r.mainFile = f.name; return G.put(r); } })
         .then(function () { emit("file", { name: n, file: f.name }); });
@@ -908,8 +927,8 @@ input[type=file]{display:none}
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="一発バーン" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#0d3f8f" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="theme-color" content="#0b0c0e" /><!-- #0d3f8f -->
     <link rel="apple-touch-icon" href="icon-180.png" />
 <style>
   .menuback { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; flex: 0 0 auto;
@@ -2087,6 +2106,125 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && CUR
     <script>
       // ホーム画面アプリ: 電波がなくても開けるように、アプリをこの端末に覚えておく(sw.js)
       if ("serviceWorker" in navigator) window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+    </script>
+    <script>
+// 写真ペン太郎 ⇔ こっそり写し太郎(2026-11-17 ゆきちゃん:「写し太郎で撮影したデータがそのままペン太郎で使えるように。サムネイル表示が別画面で出せる等」)
+// make_apps.py が pen.html の <\/body> の前に入れる(写真ペン太郎の元の HTML はさわらない)。
+//  1. ②写真 に「📸 写し太郎の写真から」ボタン → 別画面に写し太郎の写真のサムネイルを並べる → 選んで「足す」
+//  2. 写し太郎の写真帳で「🖊 ペン太郎」を押して来たときは、選んだ写真をそのまま取り込む(localStorage ipx.toPen)
+// 写真は同じ端末の IndexedDB「utsushi」(写し太郎の写真)から読む。黒板を入れて撮った写真は黒板入りのまま。
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  function db() {
+    return new Promise(function (ok, ng) {
+      var r = indexedDB.open("utsushi");
+      r.onupgradeneeded = function () { try { r.transaction.abort(); } catch (e) { /* */ } ng(new Error("写し太郎の写真がまだありません")); };
+      r.onsuccess = function () { var d = r.result; if (!d.objectStoreNames.contains("photos")) { d.close(); ng(new Error("写し太郎の写真がまだありません")); } else ok(d); };
+      r.onerror = function () { ng(r.error || new Error("写し太郎の写真を開けません")); };
+    });
+  }
+  function photos() {
+    return db().then(function (d) {
+      return new Promise(function (ok, ng) {
+        var q = d.transaction("photos", "readonly").objectStore("photos").getAll();
+        q.onsuccess = function () { d.close(); ok((q.result || []).sort(function (a, b) { return b.at - a.at; })); };
+        q.onerror = function () { d.close(); ng(q.error); };
+      });
+    });
+  }
+  function fileOf(p) { return new File([p.jpeg], p.file || ("UTS_" + p.id + ".jpg"), { type: "image/jpeg", lastModified: p.at || Date.now() }); }
+  function addToPen(ps) {
+    var inp = document.getElementById("fPick"); if (!inp || !ps.length) return false;
+    var dt = new DataTransfer(); ps.forEach(function (p) { dt.items.add(fileOf(p)); });
+    inp.files = dt.files; inp.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+  function label(p) { var m = p.meta || {}; return m.name || m.spot || m.kubun || ""; }
+  function dstr(t) { var d = new Date(t || 0); return (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); }
+
+  var CSS = "#ipxPick{position:fixed;inset:0;z-index:3000;background:#0b0c0e;color:#eceef1;display:flex;flex-direction:column;font:15px/1.4 system-ui,-apple-system,'Hiragino Sans',sans-serif}" +
+    "#ipxPick .hd{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;border-bottom:1px solid #2b2f36;background:#121417}" +
+    "#ipxPick .hd b{flex:1;font-size:16px}#ipxPick button{font:inherit;color:inherit;border-radius:10px;border:1px solid #2b2f36;background:#1d2025;padding:8px 12px;cursor:pointer}" +
+    "#ipxPick .hd select{font:inherit;color:inherit;background:#0f1114;border:1px solid #2b2f36;border-radius:10px;padding:7px 8px;max-width:46vw}" +
+    "#ipxPick .gr{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:8px;align-content:start}" +
+    "#ipxPick .th{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#15171b center/cover no-repeat;border:2px solid transparent;padding:0}" +
+    "#ipxPick .th[aria-selected=true]{border-color:#e8590c}#ipxPick .th[aria-selected=true]::after{content:'✓';position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#e8590c;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}" +
+    "#ipxPick .th em{position:absolute;left:3px;right:3px;bottom:3px;font-style:normal;font-size:10.5px;background:rgba(0,0,0,.65);color:#fff;padding:1px 4px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}" +
+    "#ipxPick .ft{display:flex;gap:8px;padding:10px 10px calc(env(safe-area-inset-bottom) + 10px);border-top:1px solid #2b2f36;background:#121417}#ipxPick .ft button{flex:1;min-height:48px;font-weight:700}" +
+    "#ipxPick .ft .go{background:#e8590c;border-color:#e8590c;color:#fff}#ipxPick .ft .go:disabled{opacity:.4}#ipxPick .em{grid-column:1/-1;color:#9aa1ab;padding:30px 10px;text-align:center}" +
+    "#ipxPick .big{position:fixed;inset:0;z-index:3001;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center}#ipxPick .big img{max-width:100%;max-height:100%}";
+
+  function picker() {
+    if (!document.getElementById("ipxPickCss")) { var st = document.createElement("style"); st.id = "ipxPickCss"; st.textContent = CSS; document.head.appendChild(st); }
+    var cur = (window.Genba && window.Genba.current && window.Genba.current()) || "";
+    var box = document.createElement("div"); box.id = "ipxPick";
+    box.innerHTML = '<div class="hd"><button type="button" data-a="x" aria-label="閉じる">✕<\/button><b>写し太郎の写真<\/b><select aria-label="現場"><\/select><\/div>' +
+      '<div class="gr"><div class="em">読み込んでいます…<\/div><\/div>' +
+      '<div class="ft"><button type="button" data-a="all">全部選ぶ<\/button><button type="button" class="go" data-a="go" disabled>足す<\/button><\/div>';
+    document.body.appendChild(box);
+    var urls = [], all = [], shown = [], sel = new Set();
+    var close = function () { urls.forEach(function (u) { URL.revokeObjectURL(u); }); box.remove(); };
+    var count = function () { var g = box.querySelector("[data-a=go]"); g.disabled = !sel.size; g.textContent = sel.size ? "選んだ " + sel.size + " 枚を足す" : "足す"; };
+    function draw() {
+      var site = box.querySelector("select").value;
+      shown = all.filter(function (p) { return site === "*" || (p.site || "") === site; });
+      urls.forEach(function (u) { URL.revokeObjectURL(u); }); urls = [];
+      box.querySelector(".gr").innerHTML = shown.length ? shown.map(function (p) {
+        var u = URL.createObjectURL(p.thumb || p.jpeg); urls.push(u);
+        return '<button type="button" class="th" data-id="' + esc(p.id) + '" aria-selected="' + sel.has(p.id) + '" style="background-image:url(' + u + ')"><em>' + esc(label(p) || dstr(p.at)) + "<\/em><\/button>";
+      }).join("") : '<div class="em">この現場の写し太郎の写真はまだありません。<\/div>';
+      count();
+    }
+    photos().then(function (ps) {
+      all = ps;
+      var sites = []; ps.forEach(function (p) { var s = p.site || ""; if (sites.indexOf(s) < 0) sites.push(s); });
+      var opt = sites.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s || "(現場なし)") + " (" + ps.filter(function (p) { return (p.site || "") === s; }).length + ")<\/option>"; }).join("");
+      var sl = box.querySelector("select"); sl.innerHTML = '<option value="*">すべての現場 (' + ps.length + ")<\/option>" + opt;
+      sl.value = sites.indexOf(cur) >= 0 ? cur : "*";
+      draw();
+    }).catch(function (e) { box.querySelector(".gr").innerHTML = '<div class="em">' + esc(e.message) + "<br>写し太郎で写真を撮ると、ここに並びます。<\/div>"; });
+    box.querySelector("select").addEventListener("change", function () { sel.clear(); draw(); });
+    var holdT = null;
+    box.addEventListener("pointerdown", function (e) {   // 長押しで大きく見る
+      var t = e.target.closest(".th"); if (!t) return;
+      holdT = setTimeout(function () {
+        holdT = "big"; var p = all.filter(function (x) { return x.id === t.dataset.id; })[0]; if (!p) return;
+        var u = URL.createObjectURL(p.jpeg), b = document.createElement("div"); b.className = "big"; b.innerHTML = '<img alt="" src="' + u + '">';
+        b.onclick = function () { URL.revokeObjectURL(u); b.remove(); }; box.appendChild(b);
+      }, 550);
+    });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(function (ev) { box.addEventListener(ev, function () { if (holdT && holdT !== "big") clearTimeout(holdT); }); });
+    box.addEventListener("click", function (e) {
+      var a = e.target.closest("[data-a]");
+      if (a && a.dataset.a === "x") { close(); return; }
+      if (a && a.dataset.a === "all") { var on = sel.size < shown.length; sel.clear(); if (on) shown.forEach(function (p) { sel.add(p.id); }); draw(); return; }
+      if (a && a.dataset.a === "go") { var ps = shown.filter(function (p) { return sel.has(p.id); }).reverse(); close(); addToPen(ps); return; }   // 古い順に足す
+      var t = e.target.closest(".th"); if (!t) return;
+      if (holdT === "big") { holdT = null; return; }
+      if (sel.has(t.dataset.id)) sel.delete(t.dataset.id); else sel.add(t.dataset.id);
+      t.setAttribute("aria-selected", sel.has(t.dataset.id)); count();
+    });
+  }
+
+  function addButton() {
+    var row = document.querySelector(".addrow"); if (!row || document.getElementById("bUts")) return;
+    var b = document.createElement("button"); b.id = "bUts"; b.type = "button"; b.textContent = "📸 写し太郎の写真から";
+    b.onclick = picker; row.appendChild(b);
+  }
+  function fromUtsushi() {   // 写し太郎の「🖊 ペン太郎」から来たとき
+    var o = null; try { o = JSON.parse(localStorage.getItem("ipx.toPen") || "null"); localStorage.removeItem("ipx.toPen"); } catch (e) { o = null; }
+    if (!o || !o.ids || !o.ids.length || Date.now() - (o.at || 0) > 10 * 60 * 1000) return;
+    photos().then(function (ps) {
+      var want = o.ids.map(function (id) { return ps.filter(function (p) { return p.id === id; })[0]; }).filter(Boolean).reverse();
+      if (want.length) addToPen(want);
+    }).catch(function () { /* */ });
+  }
+  function start() { addButton(); setTimeout(fromUtsushi, 900); }   // ペン太郎が前の写真を読み終わってから足す
+  if (document.readyState === "complete") start(); else window.addEventListener("load", start);
+})();
+
     </script>
 </body>
 </html>
