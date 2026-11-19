@@ -690,6 +690,18 @@
       .kw-adv { margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
       .kw-adv summary { font-weight: 700; font-size: 14px; cursor: pointer; }
       #ctMethod, .kseq-next { display: none !important; }
+      /* ④ 放射観測 */
+      .radp { fill: #22d3ee; stroke: var(--panel); stroke-width: 1.5; }
+      .radp.last { stroke: #fff; stroke-width: 2.5; }
+      .rad-last { margin-top: 8px; font-size: 15px; font-variant-numeric: tabular-nums; }
+      .rad-last:empty { display: none; }
+      .rad-last b { font-size: 18px; color: #22d3ee; }
+      /* ④ が増えたので ⚙ は下の段に細く(①〜④ が1段目) */
+      .modes-wrap .modes { flex-wrap: wrap; }
+      .modes-wrap .modes button { flex: 1 1 22%; font-size: 14px !important; letter-spacing: -0.5px; white-space: nowrap; padding: 4px 1px; }
+      .modes-wrap .modes button:first-child { border-radius: 10px 0 0 0 !important; }
+      .modes-wrap .modes button:nth-child(4) { border-radius: 0 10px 0 0 !important; }
+      .modes-wrap .modes button.coordbtn { flex: 1 1 100%; min-height: 34px !important; border-radius: 0 0 10px 10px !important; }
     </style>
 
     <script>window.IPPATSU_APP = "kurukuru";</script>
@@ -2573,7 +2585,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.31.2</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.32.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2605,6 +2617,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <button type="button" data-main="setup" aria-pressed="true">① 据付</button>
           <button type="button" data-main="stake" aria-pressed="false">② 杭打ち</button>
           <button type="button" data-main="chk" aria-pressed="false">③ 確認</button>
+          <button type="button" data-main="rad" aria-pressed="false">④ 放射観測</button>
           <button type="button" data-main="coord" aria-pressed="false" class="coordbtn">⚙ 座標値設定</button>
         </div>
         <div class="seg-toggle submodes" id="subModes" hidden>
@@ -2768,6 +2781,29 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <p class="step-note">ΔX・ΔY は「打った杭 − 設計」（X=北・Y=東）。打った杭の座標は m・TopLayout と同じ向きとして読みます。照合できた点は「杭打ち」で打った印が付きます。</p>
       </section>
 
+
+      <!-- 放射観測 -->
+      <section class="step panel" data-panel="rad" hidden>
+        <div class="step-head"><span class="num">4</span>好きな点を測って座標を残す(放射観測)</div>
+        <p class="step-note" style="margin-top:0">① 据付で器械設置をすませてから、測りたい所にプリズムを立てて追尾し、「📏 測って保存」を押します。杭ナビからの角度・距離で X・Y・H を出して、この現場に残します。</p>
+        <div class="field2">
+          <div><label class="big-label sm" for="radName">点名(押すたびに番号が1つ進みます)</label><input id="radName" type="text" value="M001" maxlength="16" autocomplete="off" /></div>
+          <button class="big primary" id="radRec" type="button" style="align-self:end">📏 測って保存</button>
+        </div>
+        <div id="radLast" class="rad-last" aria-live="polite"></div>
+        <button class="big ctlopen" type="button" data-ctl="radial" style="margin-top:10px">🎛 杭ナビ操作盤(サーチ・追尾)</button>
+        <p class="step-note" id="radProg"></p>
+        <div class="tblwrap"><table class="pts" id="radTable"></table></div>
+        <div class="field2" style="margin-top:10px">
+          <button class="ghost" id="radCsv" type="button" disabled>⬇ CSV</button>
+          <button class="ghost" id="radSima" type="button" disabled>⬇ SIMA</button>
+        </div>
+        <div class="field2" style="margin-top:8px">
+          <button class="ghost" id="radToList" type="button" disabled>📋 座標値設定の一覧に入れる</button>
+          <button class="ghost" id="radClear" type="button" disabled>🗑 全部消す</button>
+        </div>
+        <p class="step-note">H は「器械の高さ + 高低差 − ミラー高」。器械設置で高さが決まっていないときは H を空にします。CSV は 点名,X,Y,H(座標値設定の向き・単位)、SIMA は X=北・Y=東・m。</p>
+      </section>
 
       <details class="adv">
         <summary>くわしい設定（図面の単位・縮尺・点名・高さ・座標の向き）</summary>
@@ -3143,6 +3179,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <div class="ctl-pane" data-pane="radial" hidden>
           <div class="field2"><div><label class="big-label sm" for="ctName">点名</label><input id="ctName" type="text" value="M001" maxlength="16" autocomplete="off" /></div>
             <button type="button" class="big primary" data-act="record" style="align-self:end">記録</button></div>
+          <div id="ctRadLast" class="rad-last" aria-live="polite"></div>
         </div>
         <!-- 始業前点検 -->
         <div class="ctl-pane" data-pane="precheck" hidden>
@@ -3226,7 +3263,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <h2>くるくる回し太郎 ― 使い方</h2>
         <p>杭ナビ（LN-1000i・LN-150 など ＋ TopLayout）で杭を打つための段取りアプリです。図面（DXF・図脳RAPID）か点ファイル（CSV・SIMA）を開いて、杭を打つ点を作り、杭ナビを置く場所と既知点2点を決め、TopLayout 用のファイルを書き出し、打った杭を照らし合わせます。スマホのブラウザだけで動きます（オフライン可）。杭ナビ本体を動かすのは TopLayout です。</p>
         <h3>画面</h3>
-        <p>ふだんは <b>① 据付 → ② 杭打ち → ③ 確認</b> の順に使います。杭を打つ点(座標値)を作る・直すときだけ <b>⚙ 座標値設定</b> を開きます。</p>
+        <p>ふだんは <b>① 据付 → ② 杭打ち → ③ 確認</b> の順に使います。好きな点の座標を測って残すときは <b>④ 放射観測</b>。杭を打つ点(座標値)を作る・直すときだけ <b>⚙ 座標値設定</b> を開きます。</p>
         <ol>
           <li><b>⚙ 座標値設定 → 拾う</b>（一発かまし太郎と同じ）… 点をタップ → 点名・種類（設計点／既知点）を入れて保存。点ファイルの点をまとめて入れることもできます。</li>
           <li><b>⚙ 座標値設定 → 逃げ墨</b>（一撃逃墨太郎と同じ計算）… 線をタップ → 逃げ寸法・左右・間かくで逃げ墨の点 → 一覧に入れる。</li>
@@ -3235,6 +3272,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <li><b>⚙ 座標値設定 → 一覧・書き出し</b> … 点名（半角英数16文字）・重複・高さを確かめて、TopLayout 用の CSV・SIMA に書き出します。</li>
           <li><b>② 杭打ち</b> … 次に打つ点を大きく出します(杭ナビからの距離・方向角、既知点1から右回りの角)。「打った」で印を付け、「次の点」でいまの点から近いまだの点へ。図の点をタップしても選べます。</li>
           <li><b>③ 確認</b> … TopLayout の出力（現場名_stk.csv など）を開いて、設計とのずれ・許容外・まだ打っていない点を出します。</li>
+          <li><b>④ 放射観測</b> … 器械設置のあと、測りたい所にプリズムを立てて追尾し「📏 測って保存」。X・Y・H を現場に残し、CSV・SIMA に書き出せます。座標値設定の一覧に入れて、既知点や杭打ちの点にも使えます。</li>
         </ol>
         <h3>メニュー・操作盤(準備中)</h3>
         <p>右上の「メニュー」は TopLayout のホームと同じ並び(現場・器械設置・放射観測・杭打ち・入力・出力・設定・点検)です。🎛 は杭ナビの操作盤です。杭ナビとのつなぎ方が分かったら、ここから杭ナビを動かせるようにする予定で、いまはボタンを押しても杭ナビには何も送りません。</p>
@@ -5882,6 +5920,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let meas = [];                               // 寸法の点 {x,y}
         let inst = null, k1 = null, k2 = null;       // 杭ナビの位置 {x,y}・既知点の点名
         let sMode = "inst", suggestions = [];
+        let rad = [];                                  // ④ 放射観測で測った点 {name,x,y(図面 mm),H(m か null),az,hd,vd,t}
         let stk = [], chkRows = [];                  // 打った杭 {name,x,y,H}
         let selName = null;
         let tempPt = null;                          // 図面で選んで「保存せず今すぐ杭打ち」にした点(一覧には入れない)
@@ -5911,7 +5950,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (!view) return;
           const off = (s, m = 40) => s[0] < -m || s[1] < -m || s[0] > w + m || s[1] > h + m;
           const pxPerMm = baseMap().a;
-          const showSetup = mode === "setup" || mode === "list" || mode === "stake";
+          const showSetup = mode === "setup" || mode === "list" || mode === "stake" || mode === "rad";
           const tgt = mode === "stake" ? byName(target) : null;
           // 据付：届く範囲・既知点への線
           if (inst && showSetup) {
@@ -5958,6 +5997,12 @@ canvas.xs-3d { background: #0b0c0e !important; }
             if (tgt === p) { el("circle", { cx: s[0], cy: s[1], r: 15 }, "tgt"); el("circle", { cx: s[0], cy: s[1], r: 22 }, "tgt2"); }
             if (p.name === selName) el("circle", { cx: s[0], cy: s[1], r: 13 }, "hov");
             if (showNames && (!many || known)) label(s[0] + 8, s[1] - 8, p.name + (showSetup && p.name === k1 ? " ①" : showSetup && p.name === k2 ? " ②" : ""), "kpl " + (known ? "k" : "d"));
+          }
+          // ④ 放射観測で測った点(水色のひし形)
+          for (const q of rad) {
+            const s = toScreen([q.x, q.y]); if (off(s)) continue;
+            el("polygon", { points: `${s[0]},${s[1] - 7} ${s[0] + 7},${s[1]} ${s[0]},${s[1] + 7} ${s[0] - 7},${s[1]}` }, "radp" + (q === rad[rad.length - 1] && mode === "rad" ? " last" : ""));
+            if (showNames && (mode === "rad" || rad.length <= 200)) label(s[0] + 8, s[1] - 8, q.name, "kpl r");
           }
           // 杭ナビ
           if (inst && showSetup) {
@@ -6849,6 +6894,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           meas: "測りたい点を順にタップしてください。",
           setup: "図をタップして杭ナビを置く場所を決めます。既知点を選び直すときは上のボタン。",
           list: "点名・種類・高さを確かめて、TopLayout 用に書き出します。",
+          rad: "器械設置のあと、測りたい所にプリズムを立てて追尾し、「📏 測って保存」を押してください。",
           stake: "次に打つ点です。TopLayout の「杭打ち」で同じ点を出してください。図の点をタップしても選べます。",
           chk: "TopLayout の出力ファイル(現場名_stk.csv など)を開いてください。",
         };
@@ -6864,6 +6910,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (m === "list") renderOut();
           if (m === "setup") renderSetup();
           if (m === "stake") renderStake();
+          if (m === "rad") renderRad();
           store("kr.main", mainMode); store("kr.sub", subMode);
           draw();
         }
@@ -6874,17 +6921,17 @@ canvas.xs-3d { background: #0b0c0e !important; }
         function saveState() {
           if (typeof siteSaveSoon === "function") siteSaveSoon();
           if (!fileKey) return;
-          store("kr.state:" + fileKey, JSON.stringify({ unit: unitName(), picks, inst, k1, k2, stk, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value }));
+          store("kr.state:" + fileKey, JSON.stringify({ unit: unitName(), picks, inst, k1, k2, stk, rad, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value }));
         }
         function restore() {
-          picks = []; inst = null; k1 = k2 = null; stk = []; suggestions = []; picked = null; meas = []; nige.result = []; target = null;
+          picks = []; inst = null; k1 = k2 = null; stk = []; rad = []; suggestions = []; picked = null; meas = []; nige.result = []; target = null;
           const s = fileKey && load("kr.state:" + fileKey);
           if (!s) return 0;
           try {
             const o = JSON.parse(s);
             const f = o.unit === unitName() ? 1 : o.unit === "m" ? 1000 : 0.001;
             picks = (o.picks || []).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)).map((p) => ({ ...p, h: (Number(p.h) || 0) * f }));
-            inst = o.inst || null; k1 = o.k1 || null; k2 = o.k2 || null; stk = o.stk || []; target = o.target || null;
+            inst = o.inst || null; k1 = o.k1 || null; k2 = o.k2 || null; stk = o.stk || []; rad = o.rad || []; target = o.target || null;
             for (const k of ["fname", "rMax", "rMin"]) if (o[k] != null) $(k).value = o[k];
           } catch (e) { picks = []; }
           return picks.length;
@@ -6893,7 +6940,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let lastOpened = null;
         function keepForSite() { suggestions = []; picked = null; meas = []; nige.result = []; }
         function afterChange() {
-          renderTable(); renderSetup(); renderOut(); renderChk(); renderStake(); renderNaviBar();
+          renderTable(); renderSetup(); renderOut(); renderChk(); renderStake(); renderRad(); renderNaviBar();
           if (typeof renderCtl === "function" && !$("ctlOvl").hidden) renderCtl();
           saveState();
           draw();
@@ -7780,6 +7827,92 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             (kNext ? `次は ${kNext} にプリズムを立てて計測してください。` : kSeq.length >= need ? "ほかの既知点も測るなら「📋 次の既知点を選ぶ」、終わりなら「✓ 終了して計算」。" : "次の既知点を「📋 次の既知点を選ぶ」で決めてください。"));
           afterChange(); renderCtl();
         }
+        // ================================================================ ④ 放射観測:プリズムを立てた所を測って、X・Y・H を残す
+        // 位置 = 器械点 + 水平距離(座標の上の距離に直す) × 方向角(杭ナビの水平角 + 向きのずれ hOff)。prismPos と同じ式。
+        // H = 器械の高さ(zInst) + 高低差 − ミラー高。器械設置で高さが無いときは null(書き出しは空)。
+        const radNextName = (n) => { const mm = /^(.*?)(\d+)$/.exec(n); return mm ? mm[1] + String(Number(mm[2]) + 1).padStart(mm[2].length, "0") : n + "1"; };
+        function radSetName(n) { for (const id of ["radName", "ctName"]) if ($(id)) $(id).value = n; }
+        function radMeasure(nameIn) {
+          const name = String(nameIn || "").trim();
+          if (!name) { setStatus("点名を入れてください。", true); return; }
+          if (!NAME_OK.test(name) || name.includes(",")) { setStatus("点名は半角英数(16文字まで・カンマなし)にしてください。TopLayout に持っていけるようにするためです。", true); return; }
+          if (!inst) { setStatus("先に ① 据付 で器械設置をしてください(器械点と向きが決まっていないと座標を出せません)。", true); return; }
+          if (!KuiNavi.connected) { setStatus("放射観測をするには、杭ナビにつないでください(🔗 つなぐ)。", true); return; }
+          const L = KuiNavi.last;
+          if (!L || L.trk !== 2 || L.sd == null) { setStatus("プリズムを追尾して、距離が出てから押してください(🔍 サーチ)。", true); return; }
+          const o = obsAvg(); if (!o) { setStatus("読み取りが足りません。少し待ってからもう一度押してください。", true); return; }
+          const az = norm(o.h + KuiNavi.hOff), a = az * Math.PI / 180, g = o.hd * gridK();
+          const x = inst.x + g * 1000 * Math.sin(a), y = inst.y + g * 1000 * Math.cos(a);
+          const zi = KuiNavi.zInst, H = zi != null ? zi + o.vd - Number($("cfgMirror").value || 0) : null;
+          const dup = rad.findIndex((q) => q.name === name);
+          if (dup >= 0 && !confirm(`${name} はもう測ってあります。測り直した値で置きかえますか?`)) return;
+          const rec = { name, x, y, H, az, hd: o.hd, vd: o.vd, n: o.n, t: Date.now() };
+          if (dup >= 0) rad.splice(dup, 1);
+          rad.push(rec); KuiNavi.measAt = Date.now();
+          beep("meas");
+          const [X, Y] = fmtXY(x, y), [nx, ny] = axisNames();
+          ctlLogAdd(`放射観測 ${name}  ${nx} ${X}・${ny} ${Y}` + (H != null ? `・H ${H.toFixed(3)} m` : "・H なし") + `(方向角 ${dms(az)}・水平距離 ${o.hd.toFixed(4)} m・比高 ${o.vd.toFixed(4)} m・${o.n} 回の平均)`);
+          radSetName(radNextName(name));
+          setStatus(`📏 ${name} を保存しました  ${nx} ${X}・${ny} ${Y}` + (H != null ? `・H ${H.toFixed(3)} m` : "(器械の高さが無いので H なし)") + `。次は ${radNextName(name)}。`);
+          afterChange(); draw();
+          if (typeof renderCtl === "function" && !$("ctlOvl").hidden) renderCtl();
+        }
+        function radLastHtml() {
+          const q = rad[rad.length - 1]; if (!q) return "";
+          const [X, Y] = fmtXY(q.x, q.y), [nx, ny] = axisNames();
+          return `最後に測った点 <b>${esc(q.name)}</b>　${nx} ${X}　${ny} ${Y}　H ${q.H != null ? q.H.toFixed(3) : "---"}`;
+        }
+        function renderRad() {
+          if (!$("radTable")) return;
+          const [nx, ny] = axisNames();
+          $("radLast").innerHTML = radLastHtml(); if ($("ctRadLast")) $("ctRadLast").innerHTML = radLastHtml();
+          $("radProg").textContent = rad.length ? `測った点 ${rad.length} 点(この現場に保存しています)` : "まだ測った点はありません。";
+          const rows = rad.slice().reverse().map((q) => { const [X, Y] = fmtXY(q.x, q.y); return `<tr><td>${esc(q.name)}</td><td>${X}</td><td>${Y}</td><td>${q.H != null ? q.H.toFixed(3) : "---"}</td><td><button type="button" class="ghost" data-raddel="${esc(q.name)}" aria-label="${esc(q.name)} を消す">✕</button></td></tr>`; }).join("");
+          $("radTable").innerHTML = rad.length ? `<thead><tr><th>点名</th><th>${nx}</th><th>${ny}</th><th>H (m)</th><th></th></tr></thead><tbody>${rows}</tbody>` : "";
+          for (const id of ["radCsv", "radSima", "radToList", "radClear"]) $(id).disabled = !rad.length;
+        }
+        const radPts = () => rad.map((q) => ({ name: q.name, x: q.x, y: q.y, h: q.H != null ? q.H * (unitName() === "m" ? 1 : 1000) : 0 }));
+        const radFile = (ext) => `${safeName($("fname").value.trim() || "kurukuru")}_rad.${ext}`;
+        $("radRec").addEventListener("click", () => radMeasure($("radName").value));
+        $("radName").addEventListener("change", () => { if ($("ctName")) $("ctName").value = $("radName").value; });
+        if ($("ctName")) $("ctName").addEventListener("change", () => { $("radName").value = $("ctName").value; });
+        $("radTable").addEventListener("click", (e) => {
+          const b = e.target.closest("[data-raddel]"); if (!b) return;
+          if (!confirm(`${b.dataset.raddel} を消しますか?`)) return;
+          rad = rad.filter((q) => q.name !== b.dataset.raddel); afterChange(); draw();
+        });
+        $("radCsv").addEventListener("click", () => {
+          if (!rad.length) return;
+          const lines = rad.map((q) => { const [X, Y] = TL.toDisplay([q.x, q.y], $("axis").value, unitName()); const h = q.H == null ? "" : unitName() === "m" ? q.H.toFixed(3) : (q.H * 1000).toFixed(1); return `${q.name},${TL.formatCoord(X, 3)},${TL.formatCoord(Y, 3)},${h}`; });
+          const name = radFile("csv");
+          download(lines.join("\r\n") + "\r\n", name, "text/csv");
+          setStatus(`⬇ 放射観測の ${rad.length} 点を ${name}(点名,X,Y,H・${$("axis").value === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"}・${unitName()})にしました。`);
+        });
+        $("radSima").addEventListener("click", () => {
+          if (!rad.length) return;
+          try {
+            const k = unitName() === "m" ? 1 : 0.001;
+            const text = TL.toSima(radPts().map((p) => ({ ...p, h: p.h * k })), { unit: "m", decimals: 3, title: "KURUKURU RAD" });
+            const name = radFile("sim");
+            download(TL.simaToSjis(text), name, "application/octet-stream");
+            setStatus(`⬇ 放射観測の ${rad.length} 点を ${name}(SIMA・X=北・Y=東・m)にしました。` + (rad.some((q) => q.H == null) ? "H の無い点は 0 で書いています。" : ""));
+          } catch (e) { setStatus("⚠ SIMA を書けません: " + e.message, true); }
+        });
+        $("radToList").addEventListener("click", () => {
+          if (!rad.length) return;
+          let add = 0, upd = 0;
+          for (const p of radPts()) {
+            const i = picks.findIndex((q) => q.name === p.name);
+            if (i >= 0) { if (!confirm(`座標値設定の一覧に ${p.name} がもうあります。測った値で置きかえますか?`)) continue; picks[i] = { ...picks[i], x: p.x, y: p.y, h: p.h }; upd++; }
+            else { picks.push({ name: p.name, x: p.x, y: p.y, h: p.h, kind: "rad", role: "design", src: "rad" }); add++; }
+          }
+          afterChange(); draw();
+          setStatus(`📋 座標値設定の一覧に ${add} 点を入れました` + (upd ? `(${upd} 点を置きかえ)` : "") + "。既知点にするときは ⚙ 座標値設定 → 拾う/一覧 で種類を変えてください。");
+        });
+        $("radClear").addEventListener("click", () => {
+          if (!rad.length || !confirm(`放射観測で測った ${rad.length} 点を全部消しますか?(書き出していない点は戻せません)`)) return;
+          rad = []; afterChange(); draw(); setStatus("放射観測の点を全部消しました。");
+        });
         const hM = (p) => (!p.h ? null : p.h * (unitName() === "m" ? 1 : 0.001));   // H が 0(未入力)の点は高さの計算に使わない
         // 計算の結果(誤差)を「終了して計算」のすぐ下に出す
         function showKResult(kind, html) {
@@ -8059,7 +8192,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         if (GB) { sites = GB.names(); site = GB.current(); }
         function siteSnapshot() {
           return { unit: unitName(), axis: $("axis").value, dUnit: $("dUnit").value, dScale: $("dScale").value, dCustom: $("dCustom").value,
-            picks, inst, k1, k2, stk, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value, hOff: KuiNavi.hOff, hSign: KuiNavi.hSign, at: Date.now() };
+            picks, inst, k1, k2, stk, rad, target, fname: $("fname").value, rMax: $("rMax").value, rMin: $("rMin").value, hOff: KuiNavi.hOff, hSign: KuiNavi.hSign, at: Date.now() };
         }
         function siteSaveSoon() {
           try { if (!site || siteBusy) return; } catch (e) { return; }   // 起動の途中(まだ現場を読んでいない)
@@ -8094,7 +8227,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             if (o.unit && $("unit").value !== undefined && o.unit !== unitName()) { /* 単位は端末の設定のまま。H は下で直す */ }
             const f = o.unit && o.unit !== unitName() ? (o.unit === "m" ? 1000 : 0.001) : 1;
             picks = (o.picks || []).map((p) => ({ ...p, h: (Number(p.h) || 0) * f }));
-            inst = o.inst || null; k1 = o.k1 || null; k2 = o.k2 || null; stk = o.stk || []; target = o.target || null;
+            inst = o.inst || null; k1 = o.k1 || null; k2 = o.k2 || null; stk = o.stk || []; rad = o.rad || []; target = o.target || null;
             if (o.hOff != null) { KuiNavi.hOff = o.hOff; store("kr.hoff", String(o.hOff)); }
             if (o.hSign) { KuiNavi.hSign = o.hSign; store("kr.hsign", String(o.hSign)); }
             clearDrawing();
@@ -8285,6 +8418,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (go === "recv") { jump("coord", "pick"); receiveShare(); return; }
           if (go === "precheck") { closeOvl("menuOvl"); setCtlTab("precheck"); openOvl("ctlOvl"); return; }
           if (go === "stake") return jump("stake");
+          if (go === "radial") return jump("rad");
           if (go === "input") return jump("coord", "pick");
           if (go === "output") return jump("coord", "list");
           if (SOON[go]) { $("soonMsg").textContent = SOON[go]; showSub("soon"); KuiNavi.send(go === "connect" ? "connect" : go); }
@@ -8388,7 +8522,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (act === "measure" && ctlTab === "setup" && ["free", "known"].includes(ctMethod)) { measNext(); return; }   // 器械設置の画面では、下の「📏 測定」も既知点の計測にする(点が未選択なら理由を出す)
           if (act === "measK1" || act === "measK2") { args.point = (act === "measK1" ? k1 : k2) || null; args.prism = $("cfgPrism").value; args.mirror = Number($("cfgMirror").value); }
           if (act === "guideToPt") { const p = byName(target); if (p) { args.point = p.name; if (inst) { args.azimuth = dms(azimuth(inst, p)); args.az = azimuth(inst, p); args.dist = dm(inst, p); } } }
-          if (act === "record") args.name = $("ctName").value;
+          if (act === "record") { radMeasure($("ctName").value); return; }   // ④ 放射観測:測って保存(このアプリで計算して残す)
           if (act === "search") args.pattern = $("cfgSearch").value === "v" ? "縦" : "横";
           if (act === "precheck") args.point = $("ctPre").value || null;
           if (act === "setInst") { args.method = ctMethod; args.dim = ctDim; }
@@ -8769,7 +8903,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         document.addEventListener("focusout", () => setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) window.scrollTo(0, 0); }, 120));
         renderSteps(); renderSites(); renderCtl();
         mainMode = load("kr.main") || "setup"; subMode = load("kr.sub") || "pick";
-        if (!["setup", "stake", "chk", "coord"].includes(mainMode)) mainMode = "setup";
+        if (!["setup", "stake", "chk", "rad", "coord"].includes(mainMode)) mainMode = "setup";
         if (!["pick", "nige", "meas", "list"].includes(subMode)) subMode = "pick";
         if (quick) mainMode = "stake";   // ⚡ すぐ打つ:開いたらすぐ ② 杭打ち
         setMode(mainMode === "coord" ? subMode : mainMode);
