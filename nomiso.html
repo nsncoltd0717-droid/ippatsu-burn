@@ -239,6 +239,8 @@
       .hov { fill: none; stroke: var(--accent2); stroke-width: 2.5; }
       .lbl.ms { fill: var(--accent2); }
       .lbl.cs { fill: var(--ok); }
+      .cp.imp { fill: #ffa94d; }
+      .lbl.ci { fill: #ffb545; font-weight: 700; }
       .cross { position: absolute; left: 10px; bottom: 10px; right: 64px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 13px; font-variant-numeric: tabular-nums; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
       .cross[hidden] { display: none; }
       header h1 { font-size: 15.5px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -1947,7 +1949,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.7.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.8.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -1999,15 +2001,22 @@ canvas.xs-3d { background: #0b0c0e !important; }
 
       <!-- 座標 -->
       <section class="step panel" data-panel="coord" hidden>
-        <p class="step-note" style="margin-top:0" id="cNote">知りたい点をタップ(吸い付きます)。タップした点の座標が一覧に入ります。</p>
-        <div class="tblwrap"><table class="pts" id="cTable"></table></div>
+        <p class="step-note" style="margin-top:0" id="cNote">知りたい点をタップ(吸い付きます)。タップした点の座標が一覧に入ります。「📥 CSV・SIMA を読む」で座標の点を図面の上に出せます。</p>
         <div class="field2">
-          <button class="ghost" id="cCopy" hidden type="button" disabled>一覧を写す(コピー)</button>
+          <button class="ghost" id="cImp" type="button">📥 CSV・SIMA を読む</button>
           <button class="ghost" id="cClear" type="button" disabled>一覧を消す</button>
         </div>
-        <button class="ghost" id="cCsv" hidden type="button" style="margin-top:8px" disabled>⬇ 一覧を CSV で書き出す</button>
+        <input type="file" id="cFile" accept=".csv,.txt,.sim,.sima,text/csv,text/plain" hidden />
+        <p class="step-note" id="cImpNote" style="margin:4px 0 6px">CSV は「点名,X,Y,H」(m)。X・Y の向きは ⚙ の「座標の向き」に合わせて読みます(SIMA はいつも X=北・Y=東)。読んだ点は橙色で、どの画面でも図面の上に出て、吸い付きます。</p>
+        <div class="tblwrap"><table class="pts" id="cTable"></table></div>
+        <button class="ghost" id="cCopy" hidden type="button" disabled>一覧を写す(コピー)</button>
+        <div class="field2" style="margin-top:8px">
+          <button class="ghost" id="cCsv" type="button" disabled>⬇ CSV で書き出す</button>
+          <button class="ghost" id="cSima" type="button" disabled>⬇ SIMA で書き出す</button>
+        </div>
+        <label class="big-label"><input id="cDxf" type="checkbox" checked /> 一覧の点も DXF(💾 上書き保存・⬇ DXF)に入れる(画層「座標点」・点名の文字つき)</label>
         <button class="big primary" id="cKuru" hidden type="button" style="margin-top:8px" disabled>📤 くるくる回し太郎で使う(図面と一覧の点)</button>
-        <p class="step-note">座標は確かめるだけです(保存・書き出し・受け渡しはしません)。杭ナビに渡す点は、一発かまし太郎・ECP一撃逃墨太郎で拾ってください。</p>
+        <p class="step-note">書き出す CSV は「点名,X,Y,H」(m、見出しなし)、SIMA は X=北・Y=東。杭ナビ・ECP一撃逃墨太郎・一発かまし太郎・くるくる回し太郎で読めます。タップした点の点名は C001・C002…になります。</p>
       </section>
 
       <!-- 直す -->
@@ -4852,11 +4861,12 @@ canvas.xs-3d { background: #0b0c0e !important; }
               P.forEach((p, i) => { const s = toScreen(p); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5, class: "mp" }); label(s[0] + 7, s[1] + 14, String(i + 1), "ms"); });
             }
           }
-          if (mode === "coord") cPts.forEach((p) => {
+          cPts.forEach((p) => {   // 読んだ点(CSV・SIMA)はどの画面でも出す。タップした点は「座標」のときだけ
+            if (mode !== "coord" && !p.imp) return;
             const s = toScreen([p.x, p.y]);
             if (s[0] < -40 || s[1] < -20 || s[0] > w + 40 || s[1] > h + 20) return;
-            el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5, class: "cp" });
-            label(s[0] + 8, s[1] - 8, "#" + p.no, "cs");
+            el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5, class: p.imp ? "cp imp" : "cp" });
+            label(s[0] + 8, s[1] - 8, p.imp ? p.name : "#" + p.no, p.imp ? "ci" : "cs");
           });
           if (mode === "edit") {
             for (const k of sel) hiEnt(findEnt(k));
@@ -4884,7 +4894,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
 
         // ---------------------------------------------------------------- 吸い付き・図形を選ぶ
         const snapOn = (k) => { const b = $("snaps").querySelector(`[data-snap="${k}"]`); return b && b.getAttribute("aria-pressed") === "true"; };
-        const KIND = { mark: "記号", end: "端・角", center: "円・図形の中心", cross: "交点", mid: "中点", on: "線の上", free: "タップした所" };
+        const KIND = { pt: "読んだ点", mark: "記号", end: "端・角", center: "円・図形の中心", cross: "交点", mid: "中点", on: "線の上", free: "タップした所" };
         function segX(a, b, c, d) {
           const rx = b[0] - a[0], ry = b[1] - a[1], sx = d[0] - c[0], sy = d[1] - c[1];
           const den = rx * sy - ry * sx;
@@ -4899,6 +4909,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const [cx, cy] = toDrawing(sx, sy);
           const cands = [];
           const add = (x, y, kind, sym) => { const s = toScreen([x, y]); const d = Math.hypot(s[0] - sx, s[1] - sy); if (d <= R) cands.push({ x, y, kind, d, sym }); };
+          for (const p of cPts) if (p.imp) add(p.x, p.y, "pt");
           if (snapOn("mark")) for (const k of zMarks) if ((!k.layer || !hiddenLayers.has(k.layer)) && Math.abs(k.x - cx) <= r && Math.abs(k.y - cy) <= r) add(k.x, k.y, "mark");
           const segs = [];
           let near = null, nearD = Infinity;
@@ -5115,14 +5126,14 @@ canvas.xs-3d { background: #0b0c0e !important; }
         function coordTable() {
           const tb = $("cTable"); tb.textContent = "";
           const on = cPts.length > 0;
-          $("cCopy").disabled = $("cClear").disabled = $("cCsv").disabled = !on;
+          $("cCopy").disabled = $("cClear").disabled = $("cCsv").disabled = $("cSima").disabled = !on;
           if (!on) return;
           const [nx, ny] = axisNames();
           const hr = tb.insertRow();
-          for (const t of ["#", `${nx}(${unitName()})`, `${ny}(${unitName()})`, "所", ""]) { const th = document.createElement("th"); th.textContent = t; hr.appendChild(th); }
+          for (const t of ["点名", `${nx}(${unitName()})`, `${ny}(${unitName()})`, "H(m)", "所", ""]) { const th = document.createElement("th"); th.textContent = t; hr.appendChild(th); }
           for (const p of cPts.slice().reverse()) {
             const tr = tb.insertRow(), [X, Y] = fmtXY(p.x, p.y);
-            tr.insertCell().textContent = p.no; tr.insertCell().textContent = X; tr.insertCell().textContent = Y; tr.insertCell().textContent = KIND[p.kind];
+            tr.insertCell().textContent = cName(p); tr.insertCell().textContent = X; tr.insertCell().textContent = Y; tr.insertCell().textContent = TL.formatCoord(p.h || 0, 3); tr.insertCell().textContent = KIND[p.kind];
             const c = tr.insertCell(), b = document.createElement("button"); b.type = "button"; b.className = "ghost del"; b.textContent = "✕"; b.dataset.no = p.no; c.appendChild(b);
           }
         }
@@ -5133,10 +5144,60 @@ canvas.xs-3d { background: #0b0c0e !important; }
           catch (e) { setStatus("⚠ コピーできませんでした。CSV で書き出してください。", true); }
         });
         $("cClear").addEventListener("click", () => { cPts = []; cNo = 0; hover = null; coordTable(); draw(); setStatus("一覧を消しました。"); });
+        // ---------------------------------------------------------------- 座標の点を読む・書き出す(2026-11-19 ゆきちゃん「CSV を読み込み図面上に反映して吐き出せるように」)
+        // 読む: CSV「点名,X,Y,H」(m・⚙ の座標の向き。区切りはカンマ・タブ・空白、見出し行は飛ばす。「X,Y,H」だけの行も可)/ SIMA(A01、X=北・Y=東・m)
+        // 図面の中は mm(図脳の公共座標がある図面は 横=Y東・縦=X北)。書き出しは同じ形。点名に日本語があるので Shift_JIS で書く。
+        const cName = (p) => p.name || ("C" + String(p.no).padStart(3, "0"));
+        function decodeTxt(buf) { try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch (e) { return new TextDecoder("shift_jis").decode(buf); } }
+        function parsePtText(text) {
+          const out = [], n = (s) => { if (s === undefined || s === "") return undefined; const v = Number(s); return Number.isFinite(v) ? v : undefined; };
+          for (const line of text.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/)) {
+            if (!line.trim()) continue;
+            let c = line.split(/[,\t]/).map((s) => s.trim().replace(/^"(.*)"$/, "$1"));
+            if (c.length === 1) c = line.trim().split(/\s+/);
+            if (c.length >= 3 && n(c[1]) !== undefined && n(c[2]) !== undefined) out.push({ name: c[0], X: n(c[1]), Y: n(c[2]), H: n(c[3]) });
+            else if (c.length >= 2 && n(c[0]) !== undefined && n(c[1]) !== undefined) out.push({ name: "", X: n(c[0]), Y: n(c[1]), H: n(c[2]) });
+          }
+          return out;
+        }
+        $("cImp").addEventListener("click", () => {
+          if (!view) { setStatus("先に図面を開いてください(点は図面の上に出します)。", true); return; }
+          $("cFile").value = ""; $("cFile").click();
+        });
+        $("cFile").addEventListener("change", async (ev) => {
+          const f = ev.target.files && ev.target.files[0]; if (!f) return;
+          try {
+            const text = decodeTxt(new Uint8Array(await f.arrayBuffer()));
+            const sima = TL.isSimaText(f.name, text);
+            const rows = sima ? TL.parseSima(text) : parsePtText(text);
+            if (!rows.length) throw new Error("点が見つかりません。「点名,X,Y,H」の形か確かめてください");
+            const ax = sima ? "northEast" : axis(), k = sima || unitName() === "m" ? 1000 : 1;
+            let inside = 0;
+            const vw = view.maxx - view.minx, vh = view.maxy - view.miny;
+            for (const r of rows) {
+              const x = (ax === "northEast" ? r.Y : r.X) * k, y = (ax === "northEast" ? r.X : r.Y) * k;
+              cPts.push({ x, y, kind: "pt", no: ++cNo, name: r.name || "", h: r.H || 0, imp: true });
+              if (x >= view.minx - vw * 0.2 && x <= view.maxx + vw * 0.2 && y >= view.miny - vh * 0.2 && y <= view.maxy + vh * 0.2) inside++;
+            }
+            coordTable(); draw();
+            const how = sima ? "SIMA: X=北・Y=東・m" : `CSV: ${ax === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"}・${unitName()}`;
+            if (!inside) setStatus(`⚠ ${rows.length} 点を読みましたが、図面の外にあります(${how})。図面と点の座標(公共座標か図面の座標か)、⚙ の座標の向き・単位を確かめてください。`, true);
+            else setStatus(`✓ ${f.name} から ${rows.length} 点を読み、図面の上に出しました(${how}${inside < rows.length ? `・図面の外 ${rows.length - inside} 点` : ""})。`);
+          } catch (e) { setStatus("⚠ 点のファイルを読めません: " + e.message, true); }
+        });
+        const ptRows = () => cPts.map((p) => { const [X, Y] = TL.toDisplay([p.x, p.y], axis(), "m"); return [cName(p), X, Y, p.h || 0]; });
         $("cCsv").addEventListener("click", () => {
-          const pts = cPts.map((p) => ({ name: "C" + String(p.no).padStart(3, "0"), x: p.x, y: p.y, h: 0 }));
-          download(TL.toTopLayoutCsv(pts, { axis: axis(), unit: unitName(), decimals: 3, hFrom: "const", h: 0 }), safeName(fileBase) + "_coords.csv", "text/csv");
-          setStatus(`✓ ${pts.length} 点を CSV(点名,X,Y,H)に書き出しました。杭ナビ・墨太郎でも読めます。`);
+          const R = ptRows(), f3 = (v) => TL.formatCoord(v, 3);
+          download(sjisBytes(R.map((r) => `${r[0]},${f3(r[1])},${f3(r[2])},${f3(r[3])}`).join("\r\n") + "\r\n"), safeName(fileBase) + "_coords.csv", "text/csv");
+          setStatus(`✓ ${R.length} 点を CSV(点名,X,Y,H・m・${axis() === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"})に書き出しました。杭ナビ・墨太郎・かまし太郎でも読めます。`);
+        });
+        $("cSima").addEventListener("click", () => {
+          const f3 = (v) => (Math.round(v * 1000) / 1000).toFixed(3);
+          const L = ["G00,01,NOMISO-BURN,", "Z00,座標ﾃﾞｰﾀ,", "A00,"];
+          cPts.forEach((p, i) => L.push(`A01,${i + 1},${cName(p).replace(/,/g, " ")},${f3(p.y / 1000)},${f3(p.x / 1000)},${f3(p.h || 0)},`));
+          L.push("A99,", "Z99,");
+          download(sjisBytes(L.join("\r\n") + "\r\n"), safeName(fileBase) + "_coords.sim", "application/octet-stream");
+          setStatus(`✓ ${cPts.length} 点を SIMA(X=北・Y=東・m)に書き出しました。`);
         });
         // ---------------------------------------------------------------- くるくる回し太郎へ送る(共通の受け渡し)
         // 受け渡しの決まり(一発かまし太郎・脳みそバーン → くるくる回し太郎):
@@ -5167,7 +5228,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         $("cKuru").addEventListener("click", async () => {
           if (!lastFile) { setStatus("先に図面を開いてください。", true); return; }
           try {
-            const points = cPts.map((p) => { const [X, Y] = TL.toDisplay([p.x, p.y], axis(), "m"); return { name: "C" + String(p.no).padStart(3, "0"), X, Y, H: 0, role: "design" }; });
+            const points = cPts.map((p) => { const [X, Y] = TL.toDisplay([p.x, p.y], axis(), "m"); return { name: cName(p), X, Y, H: p.h || 0, role: "design" }; });
             await sendToKurukuru({ from: "脳みそバーン無敵CAD", at: Date.now(), axis: axis(),
               file: { name: lastFile.name, type: lastFile.type || "", lastModified: lastFile.lastModified || 0, bytes: await lastFile.arrayBuffer() }, points });
             afterSend(points.length, lastFile.name);
@@ -5513,6 +5574,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
             const strokes = m.kind === 9 ? [[s, a0 + Math.PI / 4], [s, a0 - Math.PI / 4]] : m.kind === 8 ? [[s, a0], [s, a0 + Math.PI / 2]] : [[s / 2, a0], [s / 2, a0 + Math.PI / 2]];
             for (const [ln, th] of strokes) { const dx = (ln / 2) * Math.cos(th), dy = (ln / 2) * Math.sin(th); g(0, "LINE"); g(8, lay); g(10, m.x - dx); g(20, m.y - dy); g(11, m.x + dx); g(21, m.y + dy); }
           }
+          if ($("cDxf").checked && cPts.length) {   // 座標の一覧の点(読んだ点・タップした点)を POINT と点名の文字で
+            const th = view ? Math.max(Math.min(view.maxx - view.minx, view.maxy - view.miny) / 200, 50) : 300;
+            for (const p of cPts) { g(0, "POINT"); g(8, "座標点"); g(10, p.x); g(20, p.y); g(30, (p.h || 0) * 1000); g(0, "TEXT"); g(8, "座標点"); g(10, p.x + th * 0.4); g(20, p.y + th * 0.4); g(40, th); g(1, cName(p)); }
+          }
           for (const t of texts) {
             g(0, "TEXT"); g(8, t.layer || "0"); g(10, t.x); g(20, t.y); g(40, Math.max(t.height || 300, 1e-6)); g(1, t.text.replace(/[\r\n]+/g, " ")); if (t.ang) g(50, t.ang);
             if (t.al) { g(72, t.al); g(11, t.x); g(21, t.y); }
@@ -5808,7 +5873,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         {
           // 3D 断面(一発バーン共通 ippatsu_xs.js)に図面と点を渡す。図面を描き直したら、設計の面・線形も重ねる
           draw = ((d0) => function () { const r = d0.apply(this, arguments); if (window.IPPATSU_XS) window.IPPATSU_XS.plan(); return r; })(draw);
-          window.IPPATSU_HOST = { svg, toScreen: (p) => toScreen(p), lines: () => lines, picks: () => cPts.map((p, i) => ({ name: "C" + String(p.no || i + 1).padStart(3, "0"), x: p.x, y: p.y, h: 0 })), hM: () => 1, drawingK: () => 1, setStatus, redraw: () => draw() };
+          window.IPPATSU_HOST = { svg, toScreen: (p) => toScreen(p), lines: () => lines, picks: () => cPts.map((p) => ({ name: cName(p), x: p.x, y: p.y, h: p.h || 0 })), hM: () => 1, drawingK: () => 1, setStatus, redraw: () => draw() };
         }
         window.addEventListener("resize", draw);
         try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { baseStamp = ""; draw(); }); } catch (e) { /* */ }
