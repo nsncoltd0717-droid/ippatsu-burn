@@ -2611,7 +2611,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.33.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.33.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2951,7 +2951,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <div class="kp-list" id="kpList"></div>
         <div class="field2" style="margin-top:10px">
           <button class="ghost" type="button" id="kpClear">この枠を空にする</button>
-          <button class="ghost" type="button" id="kpScreen">📋 座標リストで選ぶ</button>
+          <button class="ghost" type="button" data-dlgx="kpDlg">やめる</button>
         </div>
       </div>
     </div>
@@ -3172,7 +3172,6 @@ canvas.xs-3d { background: #0b0c0e !important; }
           </div>
           <p class="step-note" id="ctMethodNote" hidden></p>
           <div class="kseq-wrap" id="kSeqWrap">
-            <div class="kpick-mode" id="kPickMode"><span>枠をタップして既知点を選ぶ:</span><button type="button" data-kpm="dlg" aria-pressed="true">小窓</button><button type="button" data-kpm="screen" aria-pressed="false">座標リストの画面</button></div>
             <div class="kseq" id="kSeq"></div>
             <div class="kseq-next" hidden><span id="kNextName">既知点1:未選択</span><button type="button" class="ghost" data-clpick="next">📋 次の既知点を選ぶ</button></div>
             <button type="button" class="big primary kmeas" id="kMeasBtn">📏 計測</button>
@@ -8203,21 +8202,22 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         $("kSeqWrap").addEventListener("click", (e) => {
           const d = e.target.closest("[data-kdel]");
           if (d) { kSeq = kSeq.filter((q) => q.name !== d.dataset.kdel); kNext = d.dataset.kdel; renderCtl(); return; }
-          const pm = e.target.closest("[data-kpm]");
-          if (pm) { store("kr.kpick", pm.dataset.kpm); renderKPickMode(); return; }
           const s = e.target.closest("[data-kslot]"); if (!s) return;
           if (s.dataset.kslot === "add") { const n = kSlotCount(); while (kPlan.length < n + 1) kPlan.push(null); kPlanSave(); renderCtl(); return; }
           kSlotOpen(Number(s.dataset.kslot));
         });
-        // 枠の既知点の選び方:小窓(ダイアログ)か、座標リストの画面か(設定で選ぶ・端末に覚える)
-        const kPickMode = () => (load("kr.kpick") === "screen" ? "screen" : "dlg");
-        function renderKPickMode() { for (const b of $("kPickMode").querySelectorAll("[data-kpm]")) b.setAttribute("aria-pressed", String(b.dataset.kpm === kPickMode())); }
-        renderKPickMode();
-        let kpSlot = 0;
+        // 枠の既知点は、いつも小窓(ダイアログ)の一覧で選ぶ(座標リストの画面には飛ばない。2026-11-19 ゆきちゃん)
+        // 選んだら、操作盤のスクロールを開いたときの位置にもどす
+        let kpSlot = 0, kpScroll = null;
+        function kpRestore() {
+          const s = kpScroll; kpScroll = null; if (!s) return;
+          const go = () => { s.el.scrollTop = s.top; const c = $("kSeq").querySelector(`[data-kslot="${s.i}"]`); if (c) { const r = c.getBoundingClientRect(), R = s.el.getBoundingClientRect(); if (r.top < R.top || r.bottom > R.bottom) c.scrollIntoView({ block: "center" }); } };
+          go(); requestAnimationFrame(go); setTimeout(go, 120);
+        }
         const slotName = (i) => (SLOT[i] || [`${i + 1}点目`])[0];
         function kSlotOpen(i) {
           kpSlot = i;
-          if (kPickMode() === "screen") { startPick("slot:" + i); return; }
+          const el = $("ctlOvl").querySelector(".ovl-card"); kpScroll = el ? { el, top: el.scrollTop, i } : null;
           $("kpTitle").textContent = `${slotName(i)}の既知点を選ぶ`;
           $("kpQ").value = ""; renderKpList(); $("kpDlg").hidden = false;
         }
@@ -8235,13 +8235,12 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         $("kpQ").addEventListener("input", renderKpList);
         $("kpList").addEventListener("click", (e) => { const b = e.target.closest("[data-kp]"); if (!b) return; $("kpDlg").hidden = true; kSlotSet(kpSlot, byName(b.dataset.kp)); });
         $("kpClear").addEventListener("click", () => { $("kpDlg").hidden = true; kSlotSet(kpSlot, null); });
-        $("kpScreen").addEventListener("click", () => { $("kpDlg").hidden = true; startPick("slot:" + kpSlot); });
         // 枠 i に点 p を入れる(p = null で空にする)。その枠をもう測ってあって別の点に変えるときは、測った値を消すか聞く
         function kSlotSet(i, p) {
           const old = kPlan[i] && byName(kPlan[i]) ? kPlan[i] : null;
-          if (p && old === p.name) { renderCtl(); return; }
+          if (p && old === p.name) { renderCtl(); kpRestore(); return; }
           if (old && kSeq.some((q) => q.name === old)) {
-            if (!confirm(`${slotName(i)} の ${old} はもう計測してあります。${p ? p.name + " に変える" : "空にする"}と、${old} の計測は消えます。よいですか?`)) return;
+            if (!confirm(`${slotName(i)} の ${old} はもう計測してあります。${p ? p.name + " に変える" : "空にする"}と、${old} の計測は消えます。よいですか?`)) { kpRestore(); return; }
             kSeq = kSeq.filter((q) => q.name !== old); kPending = null; $("kResult").hidden = true;
           }
           if (p) {
@@ -8256,6 +8255,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           kNext = nextKnown();
           setStatus(p ? `📐 ${slotName(i)}を ${p.name} にしました。` + (kNext ? `次に測るのは ${kNext} です。プリズムを立てて追尾し「📏 計測」。` : "") : `${slotName(i)}を空にしました。`);
           afterChange(); renderCtl();
+          kpRestore();
         }
         $("kMeasBtn").addEventListener("click", measNext);
         $("kDone").addEventListener("click", solveInst);
