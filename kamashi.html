@@ -1917,7 +1917,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>一発かまし太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.2.0 11/17</small></h1>
+      <h1>一発かまし太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.2.1 11/19</small></h1>
       <button class="help-btn ghost" id="helpBtn" type="button">使い方</button>
     </header>
     <main>
@@ -3762,7 +3762,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
     return linesFromDxfRaw(data).map((l) => k === 1 ? l : scaleLine(l, k));
   }
   function dxfScaleHints(data) {
-    const text = typeof data === "string" ? data : new TextDecoder("utf-8").decode(data);
+    // Shift_JIS の DXF(脳みそバーンの保存・日本の CAD)でも画層名(「補助線」など)が化けないように(2026-11-19)
+    const text = typeof data === "string" ? data : (() => { try { return new TextDecoder("utf-8", { fatal: true }).decode(data); } catch (e) { return new TextDecoder("shift_jis").decode(data); } })();
     const out = { candidates: [] };
     const u = insunitsOf(text);
     if (u) out.insunits = u;
@@ -4502,9 +4503,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const [x0, y1] = toDrawing(-2, -2), [x1, y0] = toDrawing(w + 2, h + 2);
           const tiny = 0.75 / a; // 0.75 px より小さい線は点にする
           ctxB.beginPath();
-          const dots = [];
+          const dots = [], auxL = [];   // auxL: 脳みそバーンの補助線(画層「補助線」)は点線で別に描く(2026-11-17)
           query(x0, y0, x1, y1, (i) => {
             const bb = idx.bb;
+            if (lines[i].layer === "補助線") { auxL.push(i); return; }
             if (bb[i * 4 + 2] - bb[i * 4] < tiny && bb[i * 4 + 3] - bb[i * 4 + 1] < tiny) { dots.push(i); return; }
             const pts = lines[i].draw;
             let px = (pts[0][0] - vx) * a + tx, py = -(pts[0][1] - vy) * a + ty;
@@ -4519,6 +4521,11 @@ canvas.xs-3d { background: #0b0c0e !important; }
           ctxB.strokeStyle = css.getPropertyValue("--grid").trim() || "#99a3b0";
           ctxB.lineWidth = 1;
           ctxB.stroke();
+          if (auxL.length) {
+            ctxB.save(); ctxB.beginPath();
+            for (const i of auxL) { const pts = lines[i].draw; ctxB.moveTo((pts[0][0] - vx) * a + tx, -(pts[0][1] - vy) * a + ty); for (let k = 1; k < pts.length; k++) ctxB.lineTo((pts[k][0] - vx) * a + tx, -(pts[k][1] - vy) * a + ty); if (lines[i].closed) ctxB.closePath(); }
+            ctxB.strokeStyle = "#d24bc0"; ctxB.lineWidth = 1.2; ctxB.setLineDash([8, 5]); ctxB.stroke(); ctxB.restore();
+          }
           if (dots.length) {
             ctxB.fillStyle = ctxB.strokeStyle;
             for (const i of dots) { const bb = idx.bb; ctxB.fillRect((bb[i * 4] - vx) * a + tx - 0.5, -(bb[i * 4 + 1] - vy) * a + ty - 0.5, 1, 1); }

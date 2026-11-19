@@ -252,7 +252,8 @@
       #eOverBox .note { font-size: 12.5px; color: var(--sub); margin: 6px 0 0; line-height: 1.5; }
       .modes { position: sticky; top: -10px; z-index: 2; background: var(--panel); padding-top: 0; }
       .status { font-size: 15px !important; padding: 9px 12px !important; margin-bottom: 10px !important; }
-      #eTool button { font-size: 13.5px; padding: 6px 2px; }
+      #eTool { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      #eTool button { font-size: 13.5px; padding: 6px 2px; border-radius: 8px !important; }
       .auxpt { fill: #b0279c; stroke: var(--panel); stroke-width: 1.5; }
     </style>
 
@@ -1946,7 +1947,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.5.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.7.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -2016,7 +2017,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <button type="button" data-t="line" aria-pressed="false">線</button>
           <button type="button" data-t="aux" aria-pressed="false">補助線</button>
           <button type="button" data-t="mark" aria-pressed="false">× 記号</button>
-          <button type="button" data-t="text" aria-pressed="false">文字</button>
+          <button type="button" data-t="text" aria-pressed="false">Ａ 文字入れ</button>
+          <button type="button" data-t="erase" aria-pressed="false">🧽 消しゴム</button>
         </div>
         <p class="step-note" id="eNote">直したい図形をタップしてえらびます(もう一度タップで外す。いくつでもえらべます)。</p>
         <div id="eSelBox">
@@ -2080,7 +2082,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             <button class="ghost" id="eAuxCancel" type="button" disabled>やめる</button>
             <button class="ghost warnbtn" id="eAuxClear" type="button" disabled>補助線を全部消す</button>
           </div>
-          <label class="big-label"><input id="eAuxDxf" type="checkbox" /> 補助線も DXF に書き出す(画層「補助線」)</label>
+          <label class="big-label"><input id="eAuxDxf" type="checkbox" checked /> 補助線も「⬇ DXF で書き出す」に入れる(画層「補助線」。💾 上書き保存にはいつも入ります)</label>
         </div>
         <div id="eMarkBox" hidden>
           <label class="big-label sm" for="eMarkSize">× の大きさ(mm)</label>
@@ -2102,7 +2104,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <button class="ghost" id="eLoad" hidden type="button">📂 変更を読み込む</button>
           <input id="eLoadFile" type="file" accept=".json,application/json" hidden />
         </div>
-        <p class="step-note">直したところはこのスマホに覚えておき、同じ図面を開き直すと戻ります。<b>💾 上書き保存</b>で、直した図面を現場に保存すると、ECP一撃逃墨太郎・一発かまし太郎で続きの作業ができます。図脳RAPID の図面(.zrd など)は書き換えられないので、同じ名前の DXF として保存します(元の図脳の図面はそのまま残ります)。</p>
+        <p class="step-note">直したところはこのスマホに覚えておき、同じ図面を開き直すと戻ります。<b>💾 上書き保存</b>で、直した図面を現場に保存すると、ECP一撃逃墨太郎・一発かまし太郎で続きの作業ができます。補助線も画層「補助線」で残り、ほかのアプリでも点線で見えます。保存の形式は DXF です。図脳RAPID(.zrd)で使うときは、保存のときに「図脳RAPID(ZRD)で使う」を選ぶと、DXF を書き出して図脳RAPID で .zrd にする手順を出します(元の図脳の図面は書き換えません)。</p>
       </section>
 
       <details class="adv">
@@ -2147,7 +2149,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <ul><li>点をタップすると座標が一覧に入る。図面に公共座標(座標の原点)が設定されていれば X=北・Y=東。</li><li>一覧はコピー・CSV で書き出せる。</li></ul>
         <h3>直す</h3>
         <ul><li><b>えらぶ</b> → 消す・数字で動かす・2 点で動かす・文字を直す(コピーもできる)。</li><li><b>線</b>：点を順にタップ →「ここで終わる」。</li><li><b>補助線</b>：水平・垂直・角度は、通る点をタップ。平行は、元の線をタップ → 距離を入れてその側をタップ(距離 0 なら通る点をタップ。円・円弧なら同じ中心の補助円)。<b>垂線</b>は、もとにする線(または円・円弧)をタップ → 通る点をタップ(その線に直角。円・円弧は中心へ向かう線)。<b>中心線</b>は、2 点をタップ(2 点のまん中を通り、2 点を結ぶ線に直角)。補助円は、中心をタップ → 半径を入れておくか、2 回目のタップで半径。補助線は点線で出て、交点・線の上に吸い付く。<b>消す</b>で補助線を 1 本タップして消す、「補助線を全部消す」でまとめて消す(えらぶ でも消せる)。DXF には、チェックしたときだけ入る。</li>
-          <li><b>変更の保存・読み込み</b>：「💾 変更を保存」で直した内容をファイル(.json)にして、別のスマホ・PC で<b>同じ図面を開いてから</b>「📂 変更を読み込む」で続きができます(図面そのものは入りません)。</li><li><b>× 記号</b>：大きさを入れて、置く所をタップ。図面の × も えらぶ で消す・動かす・写すができる。</li><li><b>文字</b>：文字と高さを入れて、置く所をタップ。</li><li>まちがえたら左上の「↶ 戻す」。</li><li>直した図面は <b>DXF</b> で書き出す(元の図脳ファイルは書き換えない)。</li></ul>
+          <li><b>変更の保存・読み込み</b>：「💾 変更を保存」で直した内容をファイル(.json)にして、別のスマホ・PC で<b>同じ図面を開いてから</b>「📂 変更を読み込む」で続きができます(図面そのものは入りません)。</li><li><b>× 記号</b>：大きさを入れて、置く所をタップ。図面の × も えらぶ で消す・動かす・写すができる。</li><li><b>文字入れ</b>：文字と高さを入れて、置く所をタップ。</li><li><b>🧽 消しゴム</b>：消したい線・文字・記号・補助線をタップするとすぐ消える(↶ 戻す で戻る)。</li><li>まちがえたら左上の「↶ 戻す」。</li><li>直した図面は <b>💾 上書き保存</b>で現場へ(文字・消したところ・補助線も入る)。<b>DXF</b> でも書き出せる(元の図脳ファイルは書き換えない)。</li></ul>
         <h3>注意</h3>
         <ul><li class="warn">ドライブの「プレビュー」では動きません。ブラウザで開いてください。</li><li>線の種類(点線など)と色は区別せず、同じ線で描きます。</li><li>これは<b>テスト版</b>です。</li></ul>
         <button class="ghost close" id="helpClose" type="button">閉じる</button>
@@ -3827,7 +3829,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
     return linesFromDxfRaw(data).map((l) => k === 1 ? l : scaleLine(l, k));
   }
   function dxfScaleHints(data) {
-    const text = typeof data === "string" ? data : new TextDecoder("utf-8").decode(data);
+    // Shift_JIS の DXF(脳みそバーンの保存・日本の CAD)でも画層名(「補助線」など)が化けないように(2026-11-19)
+    const text = typeof data === "string" ? data : (() => { try { return new TextDecoder("utf-8", { fatal: true }).decode(data); } catch (e) { return new TextDecoder("shift_jis").decode(data); } })();
     const out = { candidates: [] };
     const u = insunitsOf(text);
     if (u) out.insunits = u;
@@ -4439,11 +4442,11 @@ canvas.xs-3d { background: #0b0c0e !important; }
 
         let mode = "view";            // view | measure | coord | edit
         let mSub = "pts";             // pts | ent
-        let eTool = "sel";            // sel | line | aux | mark | text
+        let eTool = "sel";            // sel | line | aux | mark | text | erase(消しゴム 2026-11-19)
         let aKind = "h";              // 補助線: h 水平 | v 垂直 | ang 角度 | par 平行 | circ 補助円
         let auxSt = null;             // 補助線の途中 {seg} {arc} {c}
         let auxPickAng = false;       // 次のタップで線の角度を取る
-        const AUXC = "#b0279c";
+        const AUXC = "#d24bc0";   // 黒地で見える色(2026-11-19)
         let mPts = [];                // 寸法の点 [{x,y,kind}]
         let mEnt = null;              // 寸法で選んだ線
         let cPts = [];                // 座標の点 [{x,y,kind,no}]
@@ -4703,7 +4706,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             const bb = idx.bb;
             const bw = bb[i * 4 + 2] - bb[i * 4], bh = bb[i * 4 + 3] - bb[i * 4 + 1];
             const ln = vis[i];
-            if (ln.aux) { auxs.push(i); return; }
+            if (ln.aux || ln.layer === "補助線") { auxs.push(i); return; }   // 上書き保存した図面の補助線も点線で
             if (ln.added || ln.key[0] === "C" || ln.key[0] === "A") { added.push(i); return; }
             if (bw < small && bh < small) {
               const cx = ((bb[i * 4] + bb[i * 4 + 2]) / 2 - vx) * a + tx, cy = -((bb[i * 4 + 1] + bb[i * 4 + 3]) / 2 - vy) * a + ty;
@@ -4721,7 +4724,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             ctxB.beginPath();
             for (const i of auxs) {
               const ln = vis[i];
-              if (ln.arc) { pathOf(ln, a, tx, ty, vx, vy); continue; }
+              if (ln.arc || !ln.aux) { pathOf(ln, a, tx, ty, vx, vy); continue; }
               const c = clipSeg(ln.draw[0], ln.draw[1], x0, y0, x1, y1);
               if (!c) continue;
               ctxB.moveTo((c[0][0] - vx) * a + tx, -(c[0][1] - vy) * a + ty); ctxB.lineTo((c[1][0] - vx) * a + tx, -(c[1][1] - vy) * a + ty);
@@ -5199,6 +5202,11 @@ canvas.xs-3d { background: #0b0c0e !important; }
             const size = Number($("eMarkSize").value) || 400;
             addOp({ t: "mark", x: s.x, y: s.y, kind: 9, size, layer: layerName() });
             setStatus(`✓ × を置きました(${KIND[s.kind]})。続けて置けます。`);
+          } else if (eTool === "erase") {   // 消しゴム:タップした図形(線・文字・記号・補助線)をすぐ消す
+            const k = entAt(sx, sy);
+            if (!k) { setStatus("そばに図形がありません。拡大してからタップしてください。", true); return; }
+            addOp({ t: "del", keys: [k] }); sel.delete(k);
+            setStatus("✓ 消しました(↶ 戻す で戻せます)。続けてタップすると消せます。");
           } else if (eTool === "text") {
             const s = snapAt(sx, sy);
             const text = $("eNewText").value.trim();
@@ -5465,12 +5473,12 @@ canvas.xs-3d { background: #0b0c0e !important; }
           for (const ch of text) { const c = ch.codePointAt(0); if (c < 128) out.push(c); else if (SJ.has(ch)) out.push(...SJ.get(ch)); else out.push(0x3f); }
           return Uint8Array.from(out);
         }
-        function toDxf() {
+        function toDxf(withAux) {
           const L = ["999", "IPPATSU_AXIS=" + (zunouInfo && zunouInfo.origin ? "northEast" : $("axis").value)];   // ほかのアプリが座標の向きを合わせるための印
           const g = (c, v) => { L.push(String(c), typeof v === "number" ? (Number.isInteger(v) && c >= 60 && c < 80 ? String(v) : v.toFixed(6)) : String(v)); };
           g(0, "SECTION"); g(2, "HEADER"); g(9, "$ACADVER"); g(1, "AC1009"); g(9, "$DWGCODEPAGE"); g(3, "ANSI_932"); g(9, "$INSUNITS"); g(70, 4); g(0, "ENDSEC");
           g(0, "SECTION"); g(2, "ENTITIES");
-          const auxOut = $("eAuxDxf").checked;
+          const auxOut = withAux || $("eAuxDxf").checked;   // 上書き保存はいつも補助線も入れる(ほかのアプリで点線で見える)
           const vb = view ? { x0: view.minx - (view.maxx - view.minx) * 0.1 - 1000, y0: view.miny - (view.maxy - view.miny) * 0.1 - 1000, x1: view.maxx + (view.maxx - view.minx) * 0.1 + 1000, y1: view.maxy + (view.maxy - view.miny) * 0.1 + 1000 } : null;
           for (const e of lines) {
             if (e.aux && !auxOut) continue;
@@ -5525,24 +5533,41 @@ canvas.xs-3d { background: #0b0c0e !important; }
         function overNote() {
           const G = window.Genba, n = G && G.current && G.current();
           $("eOverNote").textContent = !view ? "図面を開くと使えます。" : n
-            ? `直した図面を、現場「${n}」の図面「${overName()}」として保存します(同じ名前があれば上書き)。ECP一撃逃墨太郎・一発かまし太郎の「現場の図面」からそのまま開けます。`
+            ? `直した図面を、現場「${n}」の図面「${overName()}」として保存します(同じ名前があれば上書き)。ECP一撃逃墨太郎・一発かまし太郎の「現場の図面」からそのまま開けます(補助線も点線で見えます)。形式は DXF か、図脳RAPID(ZRD)用の手順つきで選べます。`
             : "現場が選ばれていないので、上書き保存すると DXF ファイルとして書き出します(一発バーンの最初の画面で現場を選ぶと、ほかのアプリへそのまま渡せます)。";
         }
+        // 保存の形式(2026-11-19 ゆきちゃん:DXF だけでなく ZRD も)。図脳RAPID の .zrd を書く仕組みはまだ無い(読むだけ)ので、
+        // 「図脳RAPID(ZRD)で使う」を選んだら DXF を端末にも書き出して、図脳RAPID で .zrd に保存し直す手順を出す。
+        const ZRD_HOWTO = "<ol style=\"margin:6px 0 0 18px;padding:0;line-height:1.6\"><li>パソコンの図脳RAPID で、書き出した DXF を開く(ファイル → 開く、ファイルの種類を DXF に)</li><li>図脳RAPID の形式(.zrd)で「名前を付けて保存」</li><li>座標の向き・縮尺は DXF の中のまま(mm・1:1)です。補助線は画層「補助線」に入っています</li></ol>";
         $("eOver").addEventListener("click", async () => {
           if (!view) return;
           const G = window.Genba, n = G && G.current && G.current(), name = overName(), src = (lastFile && lastFile.name) || "";
-          const bytes = sjisBytes(toDxf());
-          if (!n) { download(bytes, name, "application/dxf"); setStatus(`✓ 現場が選ばれていないので、${name} として書き出しました。`); return; }
-          let have = []; try { have = (await G.files(n)).map((x) => x.name); } catch (e) { /* */ }
-          const msg = name !== src
-            ? `図脳RAPID の図面「${src}」は書き換えられないので、直した図面を「${name}」として現場「${n}」に保存します(元の「${src}」はそのまま残ります)。${have.includes(name) ? "前に保存した「" + name + "」は上書きされます。" : ""}よろしいですか?`
-            : `現場「${n}」の図面「${name}」を、直した図面で上書きします。よろしいですか?`;
-          if (!confirm(msg)) return;
-          try {
-            await G.filePut(n, { name, type: "application/dxf", lastModified: Date.now(), bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), save: true, base: src }, "nomiso");
-            setStatus(`✓ 現場「${n}」に「${name}」を保存しました(直したところ ${ops.length})。ECP一撃逃墨太郎・一発かまし太郎の「現場の図面」から開けます。`);
-            if (G.docStrip) G.docStrip();
-          } catch (e) { setStatus("⚠ 保存できませんでした: " + e.message, true); }
+          const bytes = sjisBytes(toDxf(true));
+          const nAux = lines.filter((l) => l.aux).length;
+          let have = []; try { if (n) have = (await G.files(n)).map((x) => x.name); } catch (e) { /* */ }
+          const save = async () => {
+            if (!n) { download(bytes, name, "application/dxf"); setStatus(`✓ 現場が選ばれていないので、${name} として書き出しました。`); return; }
+            try {
+              await G.filePut(n, { name, type: "application/dxf", lastModified: Date.now(), bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), save: true, base: src }, "nomiso");
+              setStatus(`✓ 現場「${n}」に「${name}」を保存しました(直したところ ${ops.length}${nAux ? "・補助線 " + nAux + " 本" : ""})。ECP一撃逃墨太郎・一発かまし太郎・くるくるの「現場の図面」から開けます(補助線は点線で出ます)。`);
+              if (G.docStrip) G.docStrip();
+            } catch (e) { setStatus("⚠ 保存できませんでした: " + e.message, true); }
+          };
+          const where = !n ? "現場が選ばれていないので、DXF ファイルとして書き出します。"
+            : name !== src ? `図脳RAPID の図面「${esc(src)}」は書き換えられないので、「${esc(name)}」として現場「${esc(n)}」に保存します(元の「${esc(src)}」はそのまま)。${have.includes(name) ? "前に保存した「" + esc(name) + "」は上書きします。" : ""}`
+            : `現場「${esc(n)}」の図面「${esc(name)}」を上書きします。`;
+          const body = `<p style="margin:0 0 6px">${where}</p><p style="margin:0">補助線${nAux ? " " + nAux + " 本" : ""}も画層「補助線」に入れます(ほかのアプリでも点線で見えます)。</p>`;
+          if (!G || !G.dialog) { if (confirm(where)) await save(); return; }
+          G.dialog("💾 上書き保存 ― 保存の形式", body, [
+            { label: "DXF で保存", ok: true, run: () => { save(); } },
+            { label: "図脳RAPID(ZRD)で使う", run: () => {
+              save().then(() => {
+                download(bytes, name, "application/dxf");
+                G.dialog("図脳RAPID(ZRD)にするには", ZRD_HOWTO, [{ label: "わかった", ok: true }], `「${esc(name)}」を端末にも書き出しました${n ? "(現場にも保存済み)" : ""}。このアプリは .zrd を直接は書けないので、図脳RAPID で保存し直してください。`);
+              });
+            } },
+            { label: "やめる" },
+          ], "どちらの形式で使いますか?");
         });
         window.addEventListener("genba", (e) => { if (e.detail && e.detail.type === "current") overNote(); });
         function download(data, name, type) {
@@ -5663,7 +5688,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("eAuxBox").hidden = eTool !== "aux"; $("eMarkBox").hidden = eTool !== "mark";
           $("eLineEnd").disabled = $("eLineCancel").disabled = true;
           $("eNote").textContent = eTool === "sel" ? "直したい図形(線・文字・記号・補助線)をタップしてえらびます(もう一度タップで外す。いくつでもえらべます)。" : eTool === "line" ? "線の点を順にタップ(吸い付きます)。最後に「ここで終わる」。" : eTool === "aux" ? "補助線は点線で出ます。交点・線の上に吸い付くので、寸法・座標・線を引くときの目安に使えます。" : eTool === "mark" ? "大きさを入れて、× を置く所をタップ(吸い付きます)。" : "文字と高さを入れてから、置きたい所をタップ。";
-          setStatus(eTool === "sel" ? NOTE.edit : eTool === "line" ? "線の始めの点をタップしてください。" : eTool === "aux" ? auxNote() : eTool === "mark" ? "× を置く所をタップしてください。" : "文字を置く所をタップしてください。");
+          if (eTool === "erase") $("eNote").textContent = "消したい図形(線・文字・記号・補助線)をタップすると、すぐ消えます。まちがえたら左上の「↶ 戻す」。";
+          setStatus(eTool === "sel" ? NOTE.edit : eTool === "line" ? "線の始めの点をタップしてください。" : eTool === "aux" ? auxNote() : eTool === "mark" ? "× を置く所をタップしてください。" : eTool === "erase" ? "🧽 消しゴム:消したい図形をタップしてください。" : "文字を置く所をタップしてください。");
           draw();
         });
         $("tTexts").setAttribute("aria-pressed", String(showTexts));
