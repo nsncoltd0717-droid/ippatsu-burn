@@ -1679,16 +1679,22 @@
   }
   // ---------------------------------------------------------------- 読み込み
   function decodeText(buf) { try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch (e) { return new TextDecoder("shift_jis").decode(buf); } }
-  function load(res, msg) {
+  function load(res, msg, quiet) {
     if (res.surf) { XS.surf = res.surf; XS.src = res.surf.src; }
     if (res.gl) XS.gl = res.gl;
     var hh = H();
-    if (res.cg && res.cg.length && hh && hh.addPicks) {   // 名前つきの点(マンホール・桝など)
+    if (!quiet && res.cg && res.cg.length && hh && hh.addPicks) {   // 名前つきの点(マンホール・桝など)
       var n = hh.addPicks(res.cg.filter(function (c) { return c.name; }).map(function (c) { return { name: c.name.replace(/\s+/g, ""), x: c.x, y: c.y, hM: c.z }; }));
       if (n) msg += " 名前つきの点 " + n + " 点を点の一覧に足しました。";
     }
     if (res.als && res.als.length) { XS.als = res.als; XS.al = res.als[0]; XS.alAuto = res.als.length > 1; XS.alName = res.als[0].name + (res.als[0].spiral ? "(緩和曲線は直線で近似)" : ""); }
     XS.hide = false;
+    // 図面をまだ開いていないアプリ(くるくる)では、3D データだけで図面を出す(そのままタップで杭打ちできる)
+    if (hh && hh.fit) {   // fit は図面を開いていなければ true
+      var S0 = XS.surf || XS.gl, bb = S0 ? { minx: S0.x0, miny: S0.y0, maxx: S0.x1, maxy: S0.y1 } : null;
+      if (!bb && XS.als.length) { bb = { minx: Infinity, miny: Infinity, maxx: -Infinity, maxy: -Infinity }; XS.als.forEach(function (al) { al.pts.forEach(function (p) { bb.minx = Math.min(bb.minx, p[0]); bb.maxx = Math.max(bb.maxx, p[0]); bb.miny = Math.min(bb.miny, p[1]); bb.maxy = Math.max(bb.maxy, p[1]); }); }); }
+      if (bb && hh.fit(bb)) msg += " 図面が無いので、3D データだけを出しました。";
+    }
     say(msg + overlapNote()); render(true); redraw();
   }
   // 中身の頭で種類を見る(Android でファイル名に拡張子が付いてこないときのため)
@@ -1705,7 +1711,8 @@
       if (looksLandXml(name, head)) {
         var r = parseLandXml(decodeText(buf));
         if (!r.surf && !r.gl && !r.als.length) throw new Error("面も線形も見つかりません");
-        load(r, "🏔 LandXML を読みました:" + (r.surf ? "設計の面 " + r.surf.m.toLocaleString() + " 三角形・" : "") + (r.gl ? "現況の面 " + r.gl.m.toLocaleString() + " 三角形・" : "") + "線形 " + r.als.length + " 本。");
+        load(r, "🏔 LandXML を読みました:" + (r.surf ? "設計の面 " + r.surf.m.toLocaleString() + " 三角形・" : "") + (r.gl ? "現況の面 " + r.gl.m.toLocaleString() + " 三角形・" : "") + "線形 " + r.als.length + " 本。ほかのアプリでも開くとすぐ重なります。");
+        keepSave(f.name, buf);
       } else if (/\.(dxf|dwg)$/.test(name) || /^\s*0\s*[\r\n]+\s*SECTION/.test(head) || /^AC10\d\d/.test(head)) {
         if (/^AC10\d\d/.test(head)) name = name + ".dwg";
         if (/\.dwg$/.test(name)) { say("DWG を DXF に変えています…"); buf = await window.Genba.dwgToDxf(buf); }
@@ -1803,6 +1810,7 @@
   var NS = "http://www.w3.org/2000/svg";
   function plan() {
     var h = H(); if (!h || !h.svg) return;
+    try { var t0 = h.toScreen([0, 0]); if (!t0 || !isFinite(t0[0])) return; } catch (e) { return; }   // 図面をまだ開いていない
     var g = h.svg.querySelector("g.ipx-xs");
     if (!XS.surf && !XS.gl && !XS.al && !XS.als.length && !(XS.open && XS.tap)) { if (g) g.remove(); var b0 = document.querySelector(".ipx-3dbtn"); if (b0) b0.classList.remove("on"); return; }
     if (!g) { g = document.createElementNS(NS, "g"); g.setAttribute("class", "ipx-xs"); g.style.pointerEvents = "none"; }
@@ -1845,12 +1853,12 @@
     var G = window.Genba, has = !!(XS.surf || XS.gl || XS.als.length);
     if (!has) { pick3dFile(); return; }
     if (!G || !G.dialog) { XS.hide = !XS.hide; redraw(); return; }
-    var info = [XS.surf ? "設計の面:" + esc3(XS.surf.src) : "", XS.gl ? "現況の面:" + esc3(XS.gl.src) : "", XS.als.length ? "線形 " + XS.als.length + " 本" : ""].filter(Boolean).join("<br>");
+    var info = [XS.kept ? "覚えている LandXML:" + esc3(XS.kept) : "", XS.surf ? "設計の面:" + esc3(XS.surf.src) : "", XS.gl ? "現況の面:" + esc3(XS.gl.src) : "", XS.als.length ? "線形 " + XS.als.length + " 本" : ""].filter(Boolean).join("<br>");
     G.dialog("🗻 3D データ", "", [
       { label: "🧊 3D 画面", ok: true, run: function () { v3open(); } },
       { label: XS.hide ? "👁 重ねる" : "🙈 隠す", run: function () { XS.hide = !XS.hide; redraw(); say(XS.hide ? "3D データを図面から隠しました。" : "3D データを図面に重ねました。"); } },
       { label: "📂 読み込む", run: function () { pick3dFile(); } },
-      { label: "✕ 外す", run: function () { XS.surf = null; XS.gl = null; XS.als = []; XS.al = null; XS.alName = ""; XS.hide = false; render(true); redraw(); say("3D データを外しました。"); } }
+      { label: "✕ 外す", run: function () { XS.surf = null; XS.gl = null; XS.als = []; XS.al = null; XS.alName = ""; XS.hide = false; XS.kept = ""; keepDel(); render(true); redraw(); say("3D データを外しました(ほかのアプリでも外れます)。"); } }
     ], info + overlapNote());
   }
   var esc3 = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
@@ -1874,7 +1882,7 @@
       var d = document.createElement("div"); d.className = "ipx-v3"; d.hidden = true; d.setAttribute("data-noipx", "");
       d.innerHTML = '<header><b>🧊 3D 画面<\/b><button type="button" data-v="ex">高さ ×1<\/button><button type="button" data-v="all">全体<\/button><button type="button" data-v="ln" aria-pressed="true">図面の線<\/button><button type="button" class="pri" data-v="close">閉じる<\/button><\/header>' +
         '<canvas><\/canvas><div class="v3-bot"><div class="v3-card" data-v3="card"><span>1 本指で回す・2 本指で拡大と移動(PC はホイールと右ドラッグ)。<b>軽くタップ<\/b>すると、そこの X・Y・Z が出ます。<\/span><\/div>' +
-        '<button type="button" class="pri" data-v="take" disabled>＋ この点を取り込む<\/button><button type="button" data-v="give" disabled>📥 アプリに入れる<\/button><button type="button" data-v="copy" disabled>📋 コピー<\/button><button type="button" data-v="clear" disabled>消す<\/button><div class="v3-list" data-v3="list"><\/div><\/div>';
+        '<button type="button" class="pri" data-v="stake" hidden disabled>📍 ここを打つ<\/button><button type="button" class="pri" data-v="take" disabled>＋ この点を取り込む<\/button><button type="button" data-v="give" disabled>📥 アプリに入れる<\/button><button type="button" data-v="kuru" hidden disabled>📤 くるくるへ<\/button><button type="button" data-v="copy" disabled>📋 コピー<\/button><button type="button" data-v="clear" disabled>消す<\/button><div class="v3-list" data-v3="list"><\/div><\/div>';
       document.body.appendChild(d); V3.el = d;
       d.addEventListener("click", v3click); v3touch(d.querySelector("canvas"));
       document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !V3.el.hidden) { V3.el.hidden = true; redraw(); } });
@@ -1889,13 +1897,19 @@
     if (k === "ex") V3.ex = V3.ex === 1 ? 2 : V3.ex === 2 ? 5 : V3.ex === 5 ? 10 : 1;
     else if (k === "all") v3all();
     else if (k === "ln") V3.lines = !V3.lines;
-    else if (k === "take" && V3.sel) { V3.taken.push({ name: "3D" + (V3.taken.length + 1), x: V3.sel.x, y: V3.sel.y, z: V3.sel.z }); }
+    else if (k === "take" && V3.sel) {
+      var used = {}; ((h && h.picks && h.picks()) || []).forEach(function (p) { used[p.name] = 1; }); V3.taken.forEach(function (p) { used[p.name] = 1; });
+      var nn = V3.taken.length + 1; while (used["3D" + nn]) nn++;
+      V3.taken.push({ name: "3D" + nn, x: V3.sel.x, y: V3.sel.y, z: V3.sel.z });
+    }
     else if (k === "clear") { V3.taken = []; }
     else if (k === "copy") {
       var t = V3.taken.map(function (p) { return [p.name, (p.y / 1000).toFixed(3), (p.x / 1000).toFixed(3), p.z.toFixed(3)].join(","); }).join("\n");
       (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { v3msg("📋 " + V3.taken.length + " 点を「点名,X(北),Y(東),Z」でコピーしました。"); }, function () { v3msg("コピーできませんでした。"); }); return;
     }
     else if (k === "give") { v3give(); return; }
+    else if (k === "kuru") { v3kuru(); return; }
+    else if (k === "stake" && V3.sel && h && h.stakeAt) { V3.el.hidden = true; h.stakeAt({ x: V3.sel.x, y: V3.sel.y, z: V3.sel.z }); return; }
     v3draw(); v3ui();
   }
   function v3msg(m) { var c = V3.el.querySelector('[data-v3="card"]'); c.innerHTML = "<span style=\"grid-column:1/-1\">" + esc3(m) + "<\/span>"; }
@@ -1910,8 +1924,41 @@
     }
     v3msg(window.IPPATSU_READONLY ? "脳みそバーンは保存しません。「📋 コピー」で写してください。" : "現場を選ぶと、現場の座標に入れられます。今は「📋 コピー」で写してください。");
   }
+  // 📤 くるくるへ(2026-11-19):3D 画面で取った点(無ければ今出ている点)を くるくる回し太郎 へ渡す。
+  // 現場を選んでいれば現場の座標へ(くるくるの「📥 受け取る」)、選んでいなければ「ippatsu-share」の受け渡しへ。
+  function v3kuru() {
+    var src = V3.taken.length ? V3.taken : V3.sel ? [{ name: "3D1", x: V3.sel.x, y: V3.sel.y, z: V3.sel.z }] : [];
+    if (!src.length) return;
+    var G = window.Genba, pts = src.map(function (p) { return { name: p.name, X: +(p.y / 1000).toFixed(4), Y: +(p.x / 1000).toFixed(4), H: +p.z.toFixed(4), role: "design" }; });
+    var APPN = { sumi: "ECP一撃逃墨太郎", kamashi: "一発かまし太郎", nomiso: "脳みそバーン無敵CAD" }, me = APPN[window.IPPATSU_APP] || "一発バーン";
+    var done = function (m) {
+      v3msg(m);
+      if (/\/(nomiso|kamashi|sumitaro)\.html$/.test(location.pathname) && confirm(m + "\n\nくるくる回し太郎を開きますか?")) location.href = "kurukuru.html";
+    };
+    if (G && !window.IPPATSU_READONLY && G.current() && G.pointsAdd) {
+      // 現場にもう同じ名前で別の場所の点があれば、名前をずらす(上書きしない)
+      (G.points ? G.points(G.current()).catch(function () { return null; }) : Promise.resolve(null)).then(function (r) {
+        var old = {}; ((r && r.points) || []).forEach(function (q) { old[q.name] = q; });
+        pts.forEach(function (p) { var o = old[p.name]; if (!o || (Math.abs(o.X - p.X) < 0.001 && Math.abs(o.Y - p.Y) < 0.001)) return; var n = 1; while (old["3D" + n]) n++; p.name = "3D" + n; old[p.name] = p; });
+        return G.pointsAdd(G.current(), pts, window.IPPATSU_APP);
+      }).then(function () { done("📤 " + pts.length + " 点(X・Y・Z)を現場「" + G.current() + "」に入れました。くるくる回し太郎の「📥 受け取る」で杭打ちに使えます。"); }, function (er) { v3msg("⚠ 渡せません: " + er.message); });
+      return;
+    }
+    if (!window.indexedDB) { v3msg("この端末では渡せません。「📋 コピー」で写してください。"); return; }
+    var rq = indexedDB.open("ippatsu-share", 1);
+    rq.onupgradeneeded = function () { rq.result.createObjectStore("kv"); };
+    rq.onerror = function () { v3msg("⚠ 渡せません。「📋 コピー」で写してください。"); };
+    rq.onsuccess = function () {
+      var db = rq.result, tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put({ from: me + "(3D データ)", at: Date.now(), axis: "northEast", file: null, points: pts }, "toKurukuru");
+      tx.oncomplete = function () { db.close(); try { localStorage.setItem("share.toKurukuru", JSON.stringify({ from: me, at: Date.now(), n: pts.length, file: null })); } catch (e) { /* */ } done("📤 " + pts.length + " 点(X・Y・Z)を くるくる回し太郎 に渡しました。くるくるの「メニュー → 受け取る」で杭打ちに使えます。"); };
+      tx.onerror = function () { db.close(); v3msg("⚠ 渡せません。「📋 コピー」で写してください。"); };
+    };
+  }
   function v3ui() {
-    var d = V3.el; d.querySelector('[data-v="ex"]').textContent = "高さ ×" + V3.ex; d.querySelector('[data-v="ln"]').setAttribute("aria-pressed", String(V3.lines));
+    var d = V3.el, hh = H(), kk = !!(hh && hh.stakeAt);
+    d.querySelector('[data-v="stake"]').hidden = !kk; d.querySelector('[data-v="stake"]').disabled = !V3.sel;
+    d.querySelector('[data-v="kuru"]').hidden = kk; d.querySelector('[data-v="kuru"]').disabled = !V3.taken.length && !V3.sel; d.querySelector('[data-v="ex"]').textContent = "高さ ×" + V3.ex; d.querySelector('[data-v="ln"]').setAttribute("aria-pressed", String(V3.lines));
     d.querySelector('[data-v="take"]').disabled = !V3.sel;
     ["give", "copy", "clear"].forEach(function (k) { d.querySelector('[data-v="' + k + '"]').disabled = !V3.taken.length; });
     d.querySelector('[data-v3="list"]').innerHTML = V3.taken.map(function (p) { return "<div><b>" + esc3(p.name) + "<\/b><span>X " + (p.y / 1000).toFixed(3) + "<\/span><span>Y " + (p.x / 1000).toFixed(3) + "<\/span><span>Z " + p.z.toFixed(3) + "<\/span><\/div>"; }).join("");
@@ -2032,8 +2079,55 @@
     cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
     cv.addEventListener("wheel", function (e) { e.preventDefault(); V3.zoom = Math.max(0.2, Math.min(50, V3.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); re(); }, { passive: false });
   }
-  window.IPPATSU_XS = { plan: plan, open: open, state: XS, surfZ: surfZ, parseLandXml: parseLandXml, loadFile: loadFile, menu3d: menu3d, v3open: v3open };
-  document.addEventListener("DOMContentLoaded", function () { if (window.IPPATSU_HOST) build(); else setTimeout(function () { if (window.IPPATSU_HOST) build(); }, 500); });
+  // ---------------------------------------------------------------- 読んだ LandXML を覚える(2026-11-19 ゆきちゃん)
+  // 一度読んだ LandXML を IndexedDB「ippatsu-3d」に入れておき、4 本のどのアプリでも開いたらすぐ図面に重ねる。
+  // 現場を選んでいれば現場ごと、選んでいなければ「最後に読んだもの」。🗻 →「✕ 外す」で忘れる。
+  function keepDb() {
+    return new Promise(function (ok, ng) {
+      if (!window.indexedDB) return ng(new Error("no idb"));
+      var rq = indexedDB.open("ippatsu-3d", 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("kv"); };
+      rq.onsuccess = function () { ok(rq.result); }; rq.onerror = function () { ng(rq.error); };
+    });
+  }
+  function keepKeys() { var G = window.Genba, c = G && G.current ? G.current() : ""; return c ? ["g:" + c, "_last"] : ["_last"]; }
+  function keepSave(name, buf) {
+    XS.kept = name;
+    keepDb().then(function (db) {
+      var tx = db.transaction("kv", "readwrite"), st = tx.objectStore("kv"), v = { name: name, at: Date.now(), bytes: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) };
+      keepKeys().forEach(function (k) { st.put(v, k); });
+      tx.oncomplete = function () { db.close(); };
+    }).catch(function () { /* 覚えられなくても読み込みはできている */ });
+  }
+  function keepDel() {
+    keepDb().then(function (db) { var tx = db.transaction("kv", "readwrite"), st = tx.objectStore("kv"); keepKeys().forEach(function (k) { st.delete(k); }); tx.oncomplete = function () { db.close(); }; }).catch(function () { /* */ });
+  }
+  function keepGet(k) {
+    return keepDb().then(function (db) { return new Promise(function (ok) { var rq = db.transaction("kv").objectStore("kv").get(k); rq.onsuccess = function () { db.close(); ok(rq.result || null); }; rq.onerror = function () { db.close(); ok(null); }; }); });
+  }
+  var restoring = false;
+  async function restore(force) {
+    if (restoring || !window.IPPATSU_HOST) return;
+    if (!force && (XS.surf || XS.gl || XS.als.length)) return;
+    restoring = true;
+    try {
+      var ks = keepKeys(), v = null;
+      for (var i = 0; i < ks.length && !v; i++) v = await keepGet(ks[i]);
+      if (!v || !v.bytes) return;
+      var r = parseLandXml(decodeText(new Uint8Array(v.bytes)));
+      if (!r.surf && !r.gl && !r.als.length) return;
+      XS.kept = v.name;
+      load(r, "🗻 前に読んだ LandXML「" + v.name + "」を図面に重ねました(🗻 →「✕ 外す」で外せます)。", true);
+    } catch (e) { /* 覚えたものが読めないときは何もしない */ } finally { restoring = false; }
+  }
+  window.addEventListener("genba", function (e) { if (e.detail && e.detail.type === "current") restore(true); });
+  window.addEventListener("pageshow", function (e) { if (e.persisted) restore(); });
+
+  // 3D の面の高さ(m)。設計の面が無いところは現況の面。面が無ければ null(アプリが拾った点に高さを入れるのに使う)
+  function zAt(x, y) { var z = surfZ(XS.surf, x, y); if (z == null) z = surfZ(XS.gl, x, y); return z; }
+  window.IPPATSU_XS = { plan: plan, open: open, state: XS, surfZ: surfZ, zAt: zAt, parseLandXml: parseLandXml, loadFile: loadFile, menu3d: menu3d, v3open: v3open, restore: restore };
+  var boot = function () { build(); setTimeout(restore, 300); };
+  document.addEventListener("DOMContentLoaded", function () { if (window.IPPATSU_HOST) boot(); else setTimeout(function () { if (window.IPPATSU_HOST) boot(); }, 500); });
 })();
 
     </script>
@@ -2140,7 +2234,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.10.1</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.11.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -5105,7 +5199,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
 
         // ---------------------------------------------------------------- 吸い付き・図形を選ぶ
         const snapOn = (k) => { const b = $("snaps").querySelector(`[data-snap="${k}"]`); return b && b.getAttribute("aria-pressed") === "true"; };
-        const KIND = { pt: "読んだ点", mark: "記号", end: "端・角", center: "円・図形の中心", cross: "交点", mid: "中点", on: "線の上", free: "タップした所" };
+        const KIND = { pt: "読んだ点", mark: "記号", tin: "3D の面の点", alv: "線形の点", end: "端・角", center: "円・図形の中心", cross: "交点", mid: "中点", on: "線の上", free: "タップした所" };
         function segX(a, b, c, d) {
           const rx = b[0] - a[0], ry = b[1] - a[1], sx = d[0] - c[0], sy = d[1] - c[1];
           const den = rx * sy - ry * sx;
@@ -5114,12 +5208,17 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null;
           return [a[0] + t * rx, a[1] + t * ry];
         }
+        function segD(a, b, x, y) {   // 点と線分の距離
+          const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+          const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L2)) : 0;
+          return Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y);
+        }
         function snapAt(sx, sy) {
           if (!view) return null;
           const R = 26, m = baseMap(), r = R / m.a;
           const [cx, cy] = toDrawing(sx, sy);
           const cands = [];
-          const add = (x, y, kind, sym) => { const s = toScreen([x, y]); const d = Math.hypot(s[0] - sx, s[1] - sy); if (d <= R) cands.push({ x, y, kind, d, sym }); };
+          const add = (x, y, kind, sym, auxX) => { const s = toScreen([x, y]); const d = Math.hypot(s[0] - sx, s[1] - sy); if (d <= R) cands.push({ x, y, kind, d, sym, auxX }); };
           for (const p of cPts) if (p.imp) add(p.x, p.y, "pt");
           if (snapOn("mark")) for (const k of zMarks) if ((!k.layer || !hiddenLayers.has(k.layer)) && Math.abs(k.x - cx) <= r && Math.abs(k.y - cy) <= r) add(k.x, k.y, "mark");
           const segs = [], segsA = [];   // segsA: 補助線・足した線(線の多い図面でも必ず交点をさがす。2026-11-19 ゆきちゃん「補助線の交点に吸い付かない」)
@@ -5144,7 +5243,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
               const a = pts[k], b = pts[(k + 1) % pts.length];
               if (Math.max(a[0], b[0]) < cx - r || Math.min(a[0], b[0]) > cx + r || Math.max(a[1], b[1]) < cy - r || Math.min(a[1], b[1]) > cy + r) continue;
               if (ln.aux || ln.added || ln.layer === "補助線") { if (segsA.length < 400) segsA.push([a, b, i]); }
-              else if (segs.length < 400) segs.push([a, b, i]);
+              else if (segs.length < 3000 && segD(a, b, cx, cy) <= r) segs.push([a, b, i]);   // 指のそばを通る線だけ(線の多い図面で、補助線と交わる線が数から漏れないように)
               if (snapOn("mid") && !ln.arc && (!ln.aux || ln.seg)) add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, "mid");
               if (snapOn("on")) {
                 const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
@@ -5155,17 +5254,33 @@ canvas.xs-3d { background: #0b0c0e !important; }
               }
             }
           });
+          // 3D データ(LandXML)の線形・面の点にも吸い付く(2026-11-19 ゆきちゃん「3D データ上に補助線・記号」)
+          const XS3 = window.IPPATSU_XS && window.IPPATSU_XS.state;
+          if (XS3 && !XS3.hide) {
+            (XS3.als || []).forEach((al, k) => {
+              const P = al.pts || [];
+              for (let j = 0; j < P.length; j++) {
+                if (snapOn("end") && Math.abs(P[j][0] - cx) <= r && Math.abs(P[j][1] - cy) <= r) add(P[j][0], P[j][1], "alv");
+                if (j + 1 < P.length && segD(P[j], P[j + 1], cx, cy) <= r) { if (segs.length < 3000) segs.push([P[j], P[j + 1], -1 - k]); }
+              }
+            });
+            if (snapOn("end")) [XS3.surf, XS3.gl].forEach((S) => {
+              if (!S || cx + r < S.x0 || cx - r > S.x1 || cy + r < S.y0 || cy - r > S.y1) return;
+              for (let j = 0; j < S.n; j++) if (Math.abs(S.px[j] - cx) <= r && Math.abs(S.py[j] - cy) <= r) add(S.px[j], S.py[j], "tin");
+            });
+          }
           if (snapOn("cross")) {
-            const S2 = segsA.concat(segs);
-            for (let i = 0; i < S2.length; i++) for (let j = i + 1; j < S2.length; j++) {
+            const S2 = segsA.concat(segs), nA = segsA.length;
+            // 補助線 × すべての線 は必ず、図面の線どうしは 400 本まで(重くならないように)
+            for (let i = 0; i < S2.length; i++) for (let j = i + 1; j < (i < nA ? S2.length : Math.min(S2.length, nA + 400)); j++) {
               if (S2[i][2] === S2[j][2]) continue;
               const q = segX(S2[i][0], S2[i][1], S2[j][0], S2[j][1]);
-              if (q) { const e = exactX(q, S2[i], S2[j]); add(e[0], e[1], "cross"); }
+              if (q) { const e = exactX(q, S2[i], S2[j]); add(e[0], e[1], "cross", false, i < nA); }
             }
           }
           if (cands.length) {
-            const pri = { mark: 0, end: 2, center: 2, cross: 5, mid: 6 };
-            const pr = (c) => c.d + (c.sym ? -4 : pri[c.kind] || 0);
+            const pri = { mark: 0, end: 2, alv: 2, center: 2, tin: 4, cross: 5, mid: 6 };
+            const pr = (c) => c.d + (c.auxX ? -12 : c.sym ? -4 : pri[c.kind] || 0);
             cands.sort((p, q) => pr(p) - pr(q));
             return cands[0];
           }
@@ -5189,7 +5304,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           return [[mx + h * dy / d, my - h * dx / d], [mx - h * dy / d, my + h * dx / d]];
         }
         function exactX(q, s1, s2) {
-          const A = vis[s1[2]].arc, B = vis[s2[2]].arc;
+          const A = vis[s1[2]] && vis[s1[2]].arc, B = vis[s2[2]] && vis[s2[2]].arc;
           if (!A && !B) return q;
           const sols = A && B ? circleCircle(A.center, A.radius, B.center, B.radius) : lineCircle(...(A ? [s2[0], s2[1]] : [s1[0], s1[1]]), (A || B).center, (A || B).radius);
           let best = q, bd = Infinity;
@@ -5311,10 +5426,11 @@ canvas.xs-3d { background: #0b0c0e !important; }
             }
           } else if (mode === "coord") {
             const s = snapAt(sx, sy); hover = s;
-            cPts.push({ ...s, no: ++cNo });
+            const z3 = window.IPPATSU_XS && IPPATSU_XS.zAt ? IPPATSU_XS.zAt(s.x, s.y) : null;   // 3D データの面の高さ(m)
+            cPts.push({ ...s, no: ++cNo, ...(z3 != null ? { h: +z3.toFixed(4), z3: true } : {}) });
             coordTable();
             const [X, Y] = fmtXY(s.x, s.y), [nx, ny] = axisNames();
-            setStatus(`#${cNo}(${KIND[s.kind]})　${nx} ${X}　${ny} ${Y} ${unitName()}`);
+            setStatus(`#${cNo}(${KIND[s.kind]})　${nx} ${X}　${ny} ${Y} ${unitName()}` + (z3 != null ? `　H ${z3.toFixed(3)} m(3D の面)` : ""));
           } else if (mode === "edit") editTap(sx, sy);
           draw();
         }
