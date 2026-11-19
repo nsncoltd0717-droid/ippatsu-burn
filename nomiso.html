@@ -2140,7 +2140,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.10.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.10.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -5122,7 +5122,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const add = (x, y, kind, sym) => { const s = toScreen([x, y]); const d = Math.hypot(s[0] - sx, s[1] - sy); if (d <= R) cands.push({ x, y, kind, d, sym }); };
           for (const p of cPts) if (p.imp) add(p.x, p.y, "pt");
           if (snapOn("mark")) for (const k of zMarks) if ((!k.layer || !hiddenLayers.has(k.layer)) && Math.abs(k.x - cx) <= r && Math.abs(k.y - cy) <= r) add(k.x, k.y, "mark");
-          const segs = [];
+          const segs = [], segsA = [];   // segsA: 補助線・足した線(線の多い図面でも必ず交点をさがす。2026-11-19 ゆきちゃん「補助線の交点に吸い付かない」)
           let near = null, nearD = Infinity;
           if (vis.length) query(cx - r, cy - r, cx + r, cy + r, (i) => {
             const ln = vis[i];
@@ -5143,7 +5143,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
             for (let k = 0; k < nn; k++) {
               const a = pts[k], b = pts[(k + 1) % pts.length];
               if (Math.max(a[0], b[0]) < cx - r || Math.min(a[0], b[0]) > cx + r || Math.max(a[1], b[1]) < cy - r || Math.min(a[1], b[1]) > cy + r) continue;
-              if (segs.length < 400) segs.push([a, b, i]);
+              if (ln.aux || ln.added || ln.layer === "補助線") { if (segsA.length < 400) segsA.push([a, b, i]); }
+              else if (segs.length < 400) segs.push([a, b, i]);
               if (snapOn("mid") && !ln.arc && (!ln.aux || ln.seg)) add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, "mid");
               if (snapOn("on")) {
                 const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
@@ -5154,10 +5155,13 @@ canvas.xs-3d { background: #0b0c0e !important; }
               }
             }
           });
-          if (snapOn("cross")) for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
-            if (segs[i][2] === segs[j][2]) continue;
-            const q = segX(segs[i][0], segs[i][1], segs[j][0], segs[j][1]);
-            if (q) { const e = exactX(q, segs[i], segs[j]); add(e[0], e[1], "cross"); }
+          if (snapOn("cross")) {
+            const S2 = segsA.concat(segs);
+            for (let i = 0; i < S2.length; i++) for (let j = i + 1; j < S2.length; j++) {
+              if (S2[i][2] === S2[j][2]) continue;
+              const q = segX(S2[i][0], S2[i][1], S2[j][0], S2[j][1]);
+              if (q) { const e = exactX(q, S2[i], S2[j]); add(e[0], e[1], "cross"); }
+            }
           }
           if (cands.length) {
             const pri = { mark: 0, end: 2, center: 2, cross: 5, mid: 6 };
@@ -6152,7 +6156,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         {
           // 3D 断面(一発バーン共通 ippatsu_xs.js)に図面と点を渡す。図面を描き直したら、設計の面・線形も重ねる
           draw = ((d0) => function () { const r = d0.apply(this, arguments); if (window.IPPATSU_XS) window.IPPATSU_XS.plan(); return r; })(draw);
-          window.IPPATSU_HOST = { svg, toScreen: (p) => toScreen(p), lines: () => lines, picks: () => cPts.map((p) => ({ name: cName(p), x: p.x, y: p.y, h: p.h || 0 })), hM: () => 1, drawingK: () => 1, setStatus, redraw: () => draw() };
+          window.IPPATSU_HOST = { svg, toScreen: (p) => toScreen(p), snap: (sx, sy) => snapAt(sx, sy), lines: () => lines, picks: () => cPts.map((p) => ({ name: cName(p), x: p.x, y: p.y, h: p.h || 0 })), hM: () => 1, drawingK: () => 1, setStatus, redraw: () => draw() };
         }
         window.addEventListener("resize", draw);
         try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { baseStamp = ""; draw(); }); } catch (e) { /* */ }
