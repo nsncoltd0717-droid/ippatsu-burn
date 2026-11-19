@@ -741,7 +741,7 @@
   // 開いた図面は、見出しの下の行に「📄 名前」で並ぶ。押すとその図面に切り替わる。「📂 ひらく」で何枚もまとめて選べる。
   // 現場を選んでいれば現場の図面(一発バーンの「図面を読み込む」で入れたものも)も並ぶ。脳みそバーンは現場に入れず、この画面の間だけ覚える。
   var DOCS = [], CURDOC = "", docBusy = false;
-  var DRAW_RE = /\.(dxf|dwg|zrd|zsdx|zsdxz|csv|sim|sima|txt)$/i, XML_RE = /\.(xml|landxml)$/i;
+  var DRAW_RE = /\.(dxf|dwg|zrd|zsdx|zsdxz|sfc|ant|csv|sim|sima|txt)$/i, XML_RE = /\.(xml|landxml)$/i;
   function docAdd(rec) { DOCS = DOCS.filter(function (d) { return d.name !== rec.name; }); DOCS.push(rec); }
   function docOpen(rec) {
     if (!G.openInApp(rec)) { bar("⚠ 図面「" + esc(rec.name) + "」を開けませんでした。"); return; }
@@ -881,6 +881,197 @@
   window.addEventListener("focus", fpBack);
   document.addEventListener("visibilitychange", fpBack);
   var dwgBusy = false;
+  // ---------------------------------------------------------------- SFC(SXF)・A納図(.ANT)を開く(2026-11-19 ゆきちゃん「A納図と SFC のデータ読み込み」)
+  // どちらも端末の中で DXF(mm・Shift_JIS)に変えてから、いつもの DXF の読み込みに渡す(DWG と同じやり方。4 本とも)。
+  // SFC: SXF Ver.2/3 のフィーチャコメント(公開の形式)。線・折れ線・円・円弧・だ円(弧)・文字・点。複合図形は置いた所へ動かす(用紙の図形(種類1)は縮尺だけなので動かさない)。
+  //      寸法・引出線・ハッチは読まない。
+  // ANT: A納図(A-NOTE)の図面。中身を読み解いて(2026-11-19、5.53 の図面と同じ図面の SFC で照合:線 75529 本すべて一致)線・折れ線・円・円弧・だ円・文字・点を読む。
+  //      文字の大きさは用紙の mm で入っているので、図面の広さから縮尺(1/1000 など)を見積もってかける。寸法は読まない。うまく読めないときは A納図で SFC に書き出して開く。
+  var SXF_RE = /\.(sfc|ant)$/i;
+  var SJT = null;
+  G.sjisBytes = function (text) {
+    if (!SJT) {
+      SJT = new Map(); var dec = new TextDecoder("shift_jis");
+      for (var a = 0x81; a <= 0xfc; a++) { if (a > 0x9f && a < 0xe0) continue; for (var b = 0x40; b <= 0xfc; b++) { if (b === 0x7f) continue; var ch = dec.decode(new Uint8Array([a, b])); if (ch.length === 1 && ch !== "�" && !SJT.has(ch)) SJT.set(ch, [a, b]); } }
+      for (var k = 0xa1; k <= 0xdf; k++) SJT.set(dec.decode(new Uint8Array([k])), [k]);
+    }
+    var out = [];
+    for (var ch2 of text) { var c = ch2.codePointAt(0); if (c < 128) out.push(c); else if (SJT.has(ch2)) { var v = SJT.get(ch2); out.push(v[0]); if (v.length > 1) out.push(v[1]); } else out.push(0x3f); }
+    return Uint8Array.from(out);
+  };
+  // 図形(共通の形)→ DXF。E = { layers:[名前], ents:[{t:"line"|"poly"|"circle"|"arc"|"text"|"point", lay(番号), ...}] }
+  function entsToDxf(E) {
+    var L = [], f = function (v) { return Number.isFinite(v) ? (Math.round(v * 1e6) / 1e6).toString() : "0"; };
+    var g = function (c, v) { L.push(String(c), typeof v === "number" ? (c >= 60 && c < 100 ? String(Math.round(v)) : f(v)) : String(v)); };
+    var ln = function (i) { var s = E.layers[i]; return (s == null || s === "" ? "0" : String(s)).replace(/[\r\n]/g, " "); };
+    g(0, "SECTION"); g(2, "HEADER"); g(9, "$ACADVER"); g(1, "AC1009"); g(9, "$DWGCODEPAGE"); g(3, "ANSI_932"); g(9, "$INSUNITS"); g(70, 4); g(0, "ENDSEC");
+    g(0, "SECTION"); g(2, "ENTITIES");
+    E.ents.forEach(function (e) {
+      var y = ln(e.lay);
+      if (e.t === "line") { g(0, "LINE"); g(8, y); g(10, e.x1); g(20, e.y1); g(11, e.x2); g(21, e.y2); }
+      else if (e.t === "poly") { if (e.pts.length < 2) return; g(0, "POLYLINE"); g(8, y); g(66, 1); g(70, e.closed ? 1 : 0); e.pts.forEach(function (p) { g(0, "VERTEX"); g(8, y); g(10, p[0]); g(20, p[1]); }); g(0, "SEQEND"); }
+      else if (e.t === "circle") { g(0, "CIRCLE"); g(8, y); g(10, e.x); g(20, e.y); g(40, e.r); }
+      else if (e.t === "arc") { g(0, "ARC"); g(8, y); g(10, e.x); g(20, e.y); g(40, e.r); g(50, e.a0); g(51, e.a1); }
+      else if (e.t === "point") { g(0, "POINT"); g(8, y); g(10, e.x); g(20, e.y); }
+      else if (e.t === "text") {
+        var s = String(e.s || "").replace(/[\r\n]+/g, " "); if (!s.trim()) return;
+        g(0, "TEXT"); g(8, y); g(10, e.x); g(20, e.y); g(40, e.h > 0 ? e.h : 300); g(1, s); if (e.ang) g(50, e.ang);
+        var b = e.b || 1, ha = (b - 1) % 3, va = [1, 2, 3][Math.floor((b - 1) / 3)] || 1;   // SXF の基点 1 左下 … 9 右上
+        if (b > 1) { g(72, ha); g(73, va); g(11, e.x); g(21, e.y); }
+      }
+    });
+    g(0, "ENDSEC"); g(0, "EOF");
+    return L.join("\r\n") + "\r\n";
+  }
+  function ellPts(cx, cy, rx, ry, rot, a0, a1, full) {   // だ円(弧)を点の列に(度)
+    var r = rot * Math.PI / 180, cr = Math.cos(r), sr = Math.sin(r), s = a0 * Math.PI / 180, e = a1 * Math.PI / 180, P = [];
+    if (full) e = s + Math.PI * 2; else { while (e <= s) e += Math.PI * 2; }
+    var n = Math.max(8, Math.ceil((e - s) / (Math.PI / 36)));
+    for (var k = 0; k <= n; k++) { var t = s + (e - s) * k / n, x = rx * Math.cos(t), yy = ry * Math.sin(t); P.push([cx + x * cr - yy * sr, cy + x * sr + yy * cr]); }
+    return P;
+  }
+  // SFC: 「/*SXF #n = 名前(引数) SXF*/」の並び
+  function sfcArgs(s) {
+    var out = [], i = 0, n = s.length;
+    while (i < n) {
+      var c = s[i];
+      if (c === " " || c === "," || c === "\r" || c === "\n" || c === "\t") { i++; continue; }
+      var j;
+      if (c === "\\" && s[i + 1] === "'") { j = s.indexOf("\\'", i + 2); if (j < 0) j = n; out.push(s.slice(i + 2, j)); i = j + 2; }
+      else if (c === "'") { j = s.indexOf("'", i + 1); if (j < 0) j = n; out.push(s.slice(i + 1, j)); i = j + 1; }
+      else if (c === "(") { j = s.indexOf(")", i); if (j < 0) j = n; out.push(s.slice(i + 1, j).split(",").map(Number)); i = j + 1; }
+      else { j = s.indexOf(",", i); if (j < 0) j = n; out.push(s.slice(i, j).trim()); i = j; }
+    }
+    return out;
+  }
+  var unX2 = function (s) { return String(s).replace(/\\X2\\([0-9A-Fa-f]+)\\X0\\/g, function (m, h) { var t = ""; for (var k = 0; k + 4 <= h.length; k += 4) t += String.fromCharCode(parseInt(h.slice(k, k + 4), 16)); return t; }); };
+  G.sfcToEnts = function (text) {
+    var re = /#\d+\s*=\s*([a-z_0-9]+)\(([\s\S]*?)\)\s*\r?\n?\s*SXF\*\//g, m, layers = [], ents = [], cur = [], groups = {}, N = Number;
+    var add = function (e) { ents.push(e); cur.push(e); };
+    while ((m = re.exec(text))) {
+      var k = m[1], a;
+      if (!/^(layer|line|polyline|circle|arc|ellipse|ellipse_arc|text_string|point_marker|sfig_org|sfig_locate)_feature$/.test(k)) continue;
+      a = sfcArgs(m[2]);
+      var lay = N(a[0]) - 1;
+      switch (k) {
+        case "layer_feature": layers.push(unX2(a[0])); break;
+        case "line_feature": add({ t: "line", lay: lay, x1: N(a[4]), y1: N(a[5]), x2: N(a[6]), y2: N(a[7]) }); break;
+        case "polyline_feature": { var xs = a[5] || [], ys = a[6] || [], P = []; for (var q = 0; q < xs.length && q < ys.length; q++) P.push([xs[q], ys[q]]); add({ t: "poly", lay: lay, pts: P }); break; }
+        case "circle_feature": add({ t: "circle", lay: lay, x: N(a[4]), y: N(a[5]), r: N(a[6]) }); break;
+        case "arc_feature": { var d0 = N(a[7]) === 1; add({ t: "arc", lay: lay, x: N(a[4]), y: N(a[5]), r: N(a[6]), a0: d0 ? N(a[9]) : N(a[8]), a1: d0 ? N(a[8]) : N(a[9]) }); break; }
+        case "ellipse_feature": add({ t: "poly", lay: lay, closed: true, pts: ellPts(N(a[4]), N(a[5]), N(a[6]), N(a[7]), N(a[8]), 0, 360, true).slice(0, -1) }); break;
+        case "ellipse_arc_feature": { var cw = N(a[8]) === 1; add({ t: "poly", lay: lay, pts: ellPts(N(a[4]), N(a[5]), N(a[6]), N(a[7]), N(a[9]), cw ? N(a[11]) : N(a[10]), cw ? N(a[10]) : N(a[11])) }); break; }
+        case "text_string_feature": add({ t: "text", lay: lay, s: unX2(a[3]), x: N(a[4]), y: N(a[5]), h: N(a[6]), ang: N(a[9]) || 0, b: N(a[11]) || 1 }); break;
+        case "point_marker_feature": add({ t: "point", lay: lay, x: N(a[2]), y: N(a[3]) }); break;
+        case "sfig_org_feature": groups[unX2(a[0])] = { kind: a[1], ents: cur }; cur.forEach(function (e) { e.grp = 1; }); cur = []; break;
+        case "sfig_locate_feature": {   // 複合図形を置く(用紙の図形は縮尺だけなので動かさない)
+          var G2 = groups[unX2(a[1])]; if (!G2) break;
+          var x0 = N(a[2]), y0 = N(a[3]), rot = N(a[4]) * Math.PI / 180, sx = N(a[5]) || 1, sy = N(a[6]) || 1, cr = Math.cos(rot), sr = Math.sin(rot);
+          var id = G2.kind === "1" || (!x0 && !y0 && !rot && sx === 1 && sy === 1);
+          var tf = function (x, y) { x *= sx; y *= sy; return [x * cr - y * sr + x0, x * sr + y * cr + y0]; };
+          G2.ents.forEach(function (e) {
+            e.grp = 0; if (id) return;
+            var p;
+            if (e.t === "line") { p = tf(e.x1, e.y1); e.x1 = p[0]; e.y1 = p[1]; p = tf(e.x2, e.y2); e.x2 = p[0]; e.y2 = p[1]; }
+            else if (e.t === "poly") e.pts = e.pts.map(function (q2) { return tf(q2[0], q2[1]); });
+            else { p = tf(e.x, e.y); e.x = p[0]; e.y = p[1]; if (e.r) e.r *= Math.abs(sx); if (e.h) e.h *= Math.abs(sy); if (e.t === "arc" || e.t === "text") { var dd = N(a[4]) || 0; if (e.t === "arc") { e.a0 += dd; e.a1 += dd; } else e.ang += dd; } }
+          });
+          break;
+        }
+      }
+    }
+    return { layers: layers, ents: ents.filter(function (e) { return !e.grp; }) };
+  };
+  // ANT(A納図): 先頭に画層の表(@Layer@)、そのあと zlib の塊([元の大きさ u32][縮めた大きさ u32][zlib])。塊をつないだ中に図形の記録
+  // (「CKsCvRecDataEntity」+0x68 に 0x80000040、+0x6C 種類 u16(1 点・2 線・4 円/円弧・8 文字・0x10 だ円・0x20 折れ線)、+0x70 画層番号、+0x88 から座標 double)
+  async function inflateZ(u8) {
+    if (typeof DecompressionStream !== "function") throw new Error("この端末では A納図の図面を開けません(A納図で SFC に書き出して開いてください)");
+    var s = new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  G.antToEnts = async function (buf) {
+    var d = new Uint8Array(buf), dv = new DataView(d.buffer, d.byteOffset, d.byteLength), u32 = function (o) { return dv.getUint32(o, true); };
+    if (String.fromCharCode.apply(null, d.subarray(4, 9)) !== "Mark2") throw new Error("A納図の図面ではないようです");
+    var sj = new TextDecoder("shift_jis"), layers = [], first = -1, i;
+    for (i = 12; i < d.length - 12; i++) {
+      if (first < 0 && d[i] === 0x78 && (d[i + 1] === 0x9c || d[i + 1] === 0xda || d[i + 1] === 0x01 || d[i + 1] === 0x5e) && u32(i - 4) > 0 && u32(i - 4) <= d.length - i && u32(i - 8) > 0 && u32(i - 8) <= (1 << 24)) { first = i; break; }
+      if (d[i] === 0x40 && d[i + 1] === 0x4c && d[i + 6] === 0x40 && String.fromCharCode.apply(null, d.subarray(i, i + 7)) === "@Layer@") {
+        var n = dv.getUint32(i + 8, false); layers.push(n < 256 ? sj.decode(d.subarray(i + 12, i + 12 + n)) : "");
+      }
+    }
+    if (first < 0) throw new Error("図形が見つかりません");
+    var parts = [], total = 0;
+    for (i = first; i < d.length - 2;) {
+      if (d[i] === 0x78 && (d[i + 1] === 0x9c || d[i + 1] === 0xda || d[i + 1] === 0x01 || d[i + 1] === 0x5e) && i >= 8) {
+        var cm = u32(i - 4), rw = u32(i - 8);
+        if (cm > 2 && cm <= d.length - i && rw > 0 && rw <= (1 << 24)) {
+          try { var x = await inflateZ(d.subarray(i, i + cm)); if (x.length === rw) { parts.push(x); total += x.length; i += cm; continue; } } catch (e) { if (/この端末/.test(e.message)) throw e; }
+        }
+      }
+      i++;
+    }
+    var U = new Uint8Array(total), o = 0; parts.forEach(function (p) { U.set(p, o); o += p.length; });
+    var V = new DataView(U.buffer), D = function (p) { return V.getFloat64(p, true); }, W = function (p) { return V.getUint32(p, true); }, H = function (p) { return V.getUint16(p, true); };
+    var KEY = [67, 75, 115, 67, 118, 82, 101, 99, 68, 97, 116, 97, 69, 110, 116, 105, 116, 121], starts = [];   // "CKsCvRecDataEntity"
+    for (i = 0; i < U.length - 200; i++) {
+      if (U[i] !== 67 || U[i + 4] !== 118 || U[i + 5] !== 82) continue;
+      var ok = true; for (var k = 1; k < KEY.length; k++) if (U[i + k] !== KEY[k]) { ok = false; break; }
+      if (ok) starts.push(i);
+    }
+    var ents = [], texts = [], okf = function (v) { return Number.isFinite(v) && Math.abs(v) < 1e12; };
+    for (var s = 0; s < starts.length; s++) {
+      var a = starts[s], end = s + 1 < starts.length ? starts[s + 1] : U.length;
+      if (a + 200 > U.length || W(a + 104) !== 0x80000040) continue;
+      var t = H(a + 108), lay = W(a + 112); if (lay >= 100000) lay = 0;
+      if (t === 2) { var e2 = { t: "line", lay: lay, x1: D(a + 136), y1: D(a + 144), x2: D(a + 152), y2: D(a + 160) }; if (okf(e2.x1) && okf(e2.y2)) ents.push(e2); }
+      else if (t === 4) {
+        var cx = D(a + 136), cy = D(a + 144), r = D(a + 152), a0 = D(a + 160), a1 = D(a + 168);
+        if (!okf(cx) || !(r > 0)) continue;
+        if (Math.abs(a1 - a0) >= 359.9999) ents.push({ t: "circle", lay: lay, x: cx, y: cy, r: r }); else ents.push({ t: "arc", lay: lay, x: cx, y: cy, r: r, a0: a0, a1: a1 });
+      }
+      else if (t === 1) { var px = D(a + 132), py = D(a + 140); if (okf(px)) ents.push({ t: "point", lay: lay, x: px, y: py }); }
+      else if (t === 8) {
+        var sb = U.subarray(a + 228, Math.min(a + 228 + 512, end)), z = sb.indexOf(0); var str = sj.decode(z >= 0 ? sb.subarray(0, z) : sb);
+        var tx = { t: "text", lay: lay, x: D(a + 212), y: D(a + 220), h: D(a + 132), ang: D(a + 156), s: str };
+        if (okf(tx.x) && str) { ents.push(tx); texts.push(tx); }
+      }
+      else if (t === 0x10) { var ex = D(a + 136), ey = D(a + 144), rx = D(a + 152), ry = D(a + 160), ro = D(a + 168), b0 = D(a + 176), b1 = D(a + 184); if (okf(ex) && rx > 0) { var full = Math.abs(b1 - b0) >= 359.9999 || (!b0 && !b1); ents.push({ t: "poly", lay: lay, closed: full, pts: ellPts(ex, ey, rx, ry, ro, b0, b1, full) }); } }
+      else if (t === 0x20) {
+        var np = W(a + 168), pts = [], q = a + 196;
+        while (pts.length < np && q + 96 <= end && W(q) === 0x8000) { for (var j = 0; j < 5 && pts.length < np; j++) pts.push([D(q + 16 + 16 * j), D(q + 24 + 16 * j)]); q += 108; }
+        if (pts.length >= 2 && okf(pts[0][0])) ents.push({ t: "poly", lay: lay, pts: pts });
+      }
+    }
+    if (texts.length) {   // 文字の大きさ(用紙の mm)× 縮尺。縮尺は図面の広さ(線の 0.1〜99.9%)を A3 の横 420 mm で割って、よくある縮尺に丸める
+      var xs = [], ys = []; ents.forEach(function (e) { if (e.t === "line") { xs.push(e.x1); ys.push(e.y1); } });
+      xs.sort(function (p, q2) { return p - q2; }); ys.sort(function (p, q2) { return p - q2; });
+      var qt = function (A, p) { return A.length ? A[Math.min(A.length - 1, Math.floor(A.length * p))] : 0; };
+      var raw = Math.max((qt(xs, 0.999) - qt(xs, 0.001)) / 420, (qt(ys, 0.999) - qt(ys, 0.001)) / 297, 1), SC = [1, 2, 5, 10, 20, 50, 100, 200, 250, 300, 500, 600, 1000, 1500, 2000, 2500, 3000, 5000, 10000], sc = 1, best = 1e9;
+      SC.forEach(function (c) { var dd = Math.abs(Math.log(c / raw)); if (dd < best) { best = dd; sc = c; } });
+      texts.forEach(function (tx2) { tx2.h = (tx2.h > 0 ? tx2.h : 2.5) * sc; });
+    }
+    return { layers: layers, ents: ents };
+  };
+  G.sxfToDxf = async function (name, bytes) {
+    var E = /\.ant$/i.test(name) ? await G.antToEnts(bytes) : G.sfcToEnts(new TextDecoder("shift_jis").decode(new Uint8Array(bytes)));
+    if (!E.ents.length) throw new Error("線が見つかりません");
+    return { bytes: G.sjisBytes(entsToDxf(E)), n: E.ents.length };
+  };
+  var sxfBusy = false;
+  document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で SFC・A納図(.ant)を選んだら、DXF に変えてからアプリに渡す
+    var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
+    if (!f || sxfBusy || !SXF_RE.test(f.name)) return;
+    e.stopImmediatePropagation();
+    var keepOpening = opening, kind = /\.ant$/i.test(f.name) ? "A納図" : "SFC";
+    bar(kind + "「" + esc(f.name) + "」を DXF に変えています…(大きい図面は少しかかります)");
+    f.arrayBuffer().then(function (b) { return G.sxfToDxf(f.name, b); }).then(function (r) {
+      var nf = new File([r.bytes], f.name.replace(SXF_RE, "") + ".dxf", { type: "application/dxf", lastModified: f.lastModified });
+      var dt = new DataTransfer(); dt.items.add(nf);
+      sxfBusy = true; dwgBusy = true; opening = keepOpening; inp.files = dt.files;
+      try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { sxfBusy = false; dwgBusy = false; opening = false; }
+      bar("✓ " + kind + "「" + esc(f.name) + "」を DXF に変えて開きました(図形 " + r.n + ")。" + (kind === "A納図" ? "文字の大きさは縮尺を見積もっています。" : ""), null, 7000);
+    }).catch(function (er) { bar("⚠ " + kind + "を読めません: " + esc(er.message) + (kind === "A納図" ? "(A納図で「SFC で保存」してから開いてください)" : "")); });
+  }, true);
   document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で DWG(名前が .dwg)を選んだら、DXF に変えてからアプリに渡す
     var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
     if (!f || dwgBusy || !/\.dwg$/i.test(f.name)) return;
@@ -1949,7 +2140,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.8.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.10.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -2051,13 +2242,6 @@ canvas.xs-3d { background: #0b0c0e !important; }
             <div class="row"><div><input id="eText" type="text" /></div><button class="ghost" id="eTextOk" type="button" style="width:auto">直す</button></div>
           </div>
         </div>
-        <div id="eLineBox" hidden>
-          <div class="field2">
-            <button class="ghost" id="eLineEnd" type="button" disabled>ここで終わる</button>
-            <button class="ghost" id="eLineCancel" type="button" disabled>やめる</button>
-          </div>
-          <label class="big-label"><input id="eLineClose" type="checkbox" /> 閉じた線にする(最後 → 最初)</label>
-        </div>
         <div id="eTextAdd" hidden>
           <div class="field2">
             <div><label class="big-label sm" for="eNewText">入れる文字</label><input id="eNewText" type="text" value="メモ" /></div>
@@ -2066,18 +2250,32 @@ canvas.xs-3d { background: #0b0c0e !important; }
         </div>
         <div id="eAuxBox" hidden>
           <div class="chips" id="eAuxKind">
+            <button type="button" data-a="poly" aria-pressed="false">折れ線</button>
+            <button type="button" data-a="free" aria-pressed="false">自由(点と点)</button>
             <button type="button" data-a="h" aria-pressed="true">水平</button>
             <button type="button" data-a="v" aria-pressed="false">垂直</button>
             <button type="button" data-a="ang" aria-pressed="false">角度</button>
             <button type="button" data-a="par" aria-pressed="false">平行</button>
             <button type="button" data-a="perp" aria-pressed="false">垂線</button>
             <button type="button" data-a="bis" aria-pressed="false">中心線</button>
-            <button type="button" data-a="circ" aria-pressed="false">補助円</button>
+            <button type="button" data-a="circ" aria-pressed="false" id="eKindCirc">補助円</button>
+            <button type="button" data-a="arc3" aria-pressed="false">3点円弧</button>
             <button type="button" data-a="erase" aria-pressed="false">消す</button>
+          </div>
+          <div id="eLineBox" hidden>
+            <div class="field2">
+              <button class="ghost" id="eLineEnd" type="button" disabled>ここで終わる</button>
+              <button class="ghost" id="eLineCancel" type="button" disabled>やめる</button>
+            </div>
+            <label class="big-label"><input id="eLineClose" type="checkbox" /> 閉じた線にする(最後 → 最初)</label>
           </div>
           <div id="eAuxAngBox" hidden>
             <label class="big-label sm" for="eAuxAng" id="eAuxAngL">角度(°)</label>
             <div class="row"><div><input id="eAuxAng" type="number" step="any" inputmode="decimal" value="45" /></div><button class="ghost" id="eAuxAngPick" type="button" style="width:auto">線から取る</button></div>
+          </div>
+          <div id="eAuxFreeBox" hidden>
+            <label class="big-label"><input id="eAuxFreeExt" type="checkbox" /> 両側へのばす(チェックなしは 2 点の間だけ)</label>
+            <label class="big-label"><input id="eAuxFreeChain" type="checkbox" checked /> 続けて引く(2 点目から次の線を始める)</label>
           </div>
           <div id="eAuxParBox" hidden>
             <label class="big-label sm" for="eAuxDist" id="eAuxDistL">はなす距離 m(0 なら 2 回目にタップした点を通る)</label>
@@ -2091,7 +2289,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             <button class="ghost" id="eAuxCancel" type="button" disabled>やめる</button>
             <button class="ghost warnbtn" id="eAuxClear" type="button" disabled>補助線を全部消す</button>
           </div>
-          <label class="big-label"><input id="eAuxDxf" type="checkbox" checked /> 補助線も「⬇ DXF で書き出す」に入れる(画層「補助線」。💾 上書き保存にはいつも入ります)</label>
+          <label class="big-label" id="eAuxDxfL"><input id="eAuxDxf" type="checkbox" checked /> 補助線も「⬇ DXF で書き出す」に入れる(画層「補助線」。💾 上書き保存にはいつも入ります)</label>
         </div>
         <div id="eMarkBox" hidden>
           <label class="big-label sm" for="eMarkSize">× の大きさ(mm)</label>
@@ -4452,7 +4650,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let mode = "view";            // view | measure | coord | edit
         let mSub = "pts";             // pts | ent
         let eTool = "sel";            // sel | line | aux | mark | text | erase(消しゴム 2026-11-19)
-        let aKind = "h";              // 補助線: h 水平 | v 垂直 | ang 角度 | par 平行 | circ 補助円
+        let aKind = "h";
+        const kindOf = { line: "poly", aux: "h" };   // 「線」と「補助線」で、えらんだ種類を別々に覚える              // 補助線: h 水平 | v 垂直 | ang 角度 | par 平行 | circ 補助円
         let auxSt = null;             // 補助線の途中 {seg} {arc} {c}
         let auxPickAng = false;       // 次のタップで線の角度を取る
         const AUXC = "#d24bc0";   // 黒地で見える色(2026-11-19)
@@ -4549,6 +4748,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             else if (op.t === "text") T.set(`A${n}`, { key: `A${n}`, x: op.x, y: op.y, text: op.text, height: op.height, ang: 0, layer: op.layer, added: true });
             else if (op.t === "edtext") { const t = T.get(op.key); if (t) T.set(op.key, { ...t, text: op.text }); }
             else if (op.t === "aux") L.set(`A${n}`, auxEnt(op, `A${n}`));
+            else if (op.t === "arc") L.set(`A${n}`, { key: `A${n}`, layer: op.layer, added: true, ...arcGeo(op.x, op.y, op.r, op.a0 || 0, op.a1 || 360, !!op.full) });
             else if (op.t === "mark") M.set(`A${n}`, { key: `A${n}`, mark: true, x: op.x, y: op.y, kind: op.kind || 9, size: op.size || 400, ang: 0, layer: op.layer, added: true });
           });
           lines = [...L.values()];
@@ -4568,12 +4768,22 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const cx = (view.minx + view.maxx) / 2, cy = (view.miny + view.maxy) / 2;
           return Math.hypot(view.maxx - view.minx, view.maxy - view.miny) * 1.5 + Math.hypot(x - cx, y - cy) + 1000;
         }
+        // 円・円弧の図形(角度は度・左回り)。full なら円
+        function arcGeo(x, y, r, a0, a1, full) {
+          const pts = [];
+          if (full) { const N = 180; for (let k = 0; k < N; k++) { const t = (k / N) * Math.PI * 2; pts.push([x + r * Math.cos(t), y + r * Math.sin(t)]); } return { closed: true, arc: { center: [x, y], radius: r, startAngle: 0, endAngle: 360 }, points: pts, draw: pts }; }
+          let sp = (a1 - a0) % 360; if (sp <= 0) sp += 360;
+          const N = Math.max(8, Math.ceil(sp / 2));
+          for (let k = 0; k <= N; k++) { const t = (a0 + sp * k / N) * Math.PI / 180; pts.push([x + r * Math.cos(t), y + r * Math.sin(t)]); }
+          return { closed: false, arc: { center: [x, y], radius: r, startAngle: a0, endAngle: a1 }, points: pts, draw: pts };
+        }
         function auxEnt(op, key) {
           const base = { key, layer: op.layer || "補助線", aux: true, added: true };
-          if (op.a === "circ") {
-            const N = 180, pts = [];
-            for (let k = 0; k < N; k++) { const t = (k / N) * Math.PI * 2; pts.push([op.x + op.r * Math.cos(t), op.y + op.r * Math.sin(t)]); }
-            return { ...base, closed: true, arc: { center: [op.x, op.y], radius: op.r, startAngle: 0, endAngle: 360 }, points: pts, draw: pts };
+          if (op.a === "circ") return { ...base, ...arcGeo(op.x, op.y, op.r, 0, 360, true) };
+          if (op.a === "arc3") return { ...base, ...arcGeo(op.x, op.y, op.r, op.a0, op.a1, false) };
+          if (op.a === "seg") {   // 自由補助線(2026-11-19 ゆきちゃん「点と点で結んで出せる」):2 点の間だけ
+            const p0 = [op.x, op.y], p1 = [op.x2, op.y2];
+            return { ...base, seg: true, closed: false, points: [p0, p1], draw: [p0, p1], base: p0 };
           }
           const E = auxExt(op.x, op.y), p0 = [op.x - op.dx * E, op.y - op.dy * E], p1 = [op.x + op.dx * E, op.y + op.dy * E];
           return { ...base, closed: false, points: [p0, p1], draw: [p0, p1], base: [op.x, op.y] };
@@ -4878,6 +5088,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             if (auxSt && auxSt.seg) el("polyline", { points: ptsAttr([auxSt.seg.a, auxSt.seg.b]), class: "sel" });
             if (auxSt && auxSt.arc) hiEnt(auxSt.ent);
             if (auxSt && auxSt.c) { const s = toScreen([auxSt.c.x, auxSt.c.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5.5, class: "auxpt" }); }
+            if (auxSt && auxSt.c2) { const s = toScreen([auxSt.c2.x, auxSt.c2.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5.5, class: "auxpt" }); }
             if (move2 && move2.from) { const s = toScreen([move2.from.x, move2.from.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 6, class: "mp" }); label(s[0] + 8, s[1] - 8, "元", "ms"); }
           }
           if (hover) { const s = toScreen([hover.x, hover.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 13, class: "hov" }); }
@@ -4920,7 +5131,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
               if (!ln.closed && snapOn("end")) { const p = ln.draw; add(p[0][0], p[0][1], "end"); add(p[p.length - 1][0], p[p.length - 1][1], "end"); }
             } else {
               if (snapOn("end") && !ln.aux) ln.points.forEach((p) => add(p[0], p[1], "end"));
-              if (ln.aux && ln.base && snapOn("end")) add(ln.base[0], ln.base[1], "end");
+              if (ln.aux && ln.seg && snapOn("end")) ln.points.forEach((p) => add(p[0], p[1], "end"));
+              else if (ln.aux && ln.base && snapOn("end")) add(ln.base[0], ln.base[1], "end");
               // 記号の ○・□ など(点を並べた閉じた線)の真ん中。大きさ 15 cm〜3 m
               if (snapOn("center") && ln.closed && !String(ln.layer).startsWith("画地")) {
                 const bb = idx.bb, w = bb[i * 4 + 2] - bb[i * 4], hh = bb[i * 4 + 3] - bb[i * 4 + 1], s = Math.max(w, hh);
@@ -4932,7 +5144,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
               const a = pts[k], b = pts[(k + 1) % pts.length];
               if (Math.max(a[0], b[0]) < cx - r || Math.min(a[0], b[0]) > cx + r || Math.max(a[1], b[1]) < cy - r || Math.min(a[1], b[1]) > cy + r) continue;
               if (segs.length < 400) segs.push([a, b, i]);
-              if (snapOn("mid") && !ln.arc && !ln.aux) add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, "mid");
+              if (snapOn("mid") && !ln.arc && (!ln.aux || ln.seg)) add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, "mid");
               if (snapOn("on")) {
                 const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
                 let t = L2 ? ((cx - a[0]) * dx + (cy - a[1]) * dy) / L2 : 0;
@@ -5029,6 +5241,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (e.mark) {
             const [X, Y] = fmtXY(e.x, e.y);
             return kv([["種類", "記号(" + ({ 1: "原点", 2: "点", 8: "＋", 9: "×" }[e.kind] || "記号") + ")"], ["画層", esc(e.layer || "記号")], ["大きさ", fmtL(e.size || 0) + " " + u], [nx, X], [ny, Y]]);
+          }
+          if (e.aux && e.seg) {
+            const [X1, Y1] = fmtXY(e.points[0][0], e.points[0][1]), [X2, Y2] = fmtXY(e.points[1][0], e.points[1][1]);
+            return kv([["種類", "補助線(点と点)"], ["画層", esc(e.layer)], ["長さ", `<span class="big-num">${fmtL(Math.hypot(e.points[1][0] - e.points[0][0], e.points[1][1] - e.points[0][1]))}</span> ${u}`], ["方向角", dirAngle(e.points[0], e.points[1])], ["始め " + nx, X1], ["始め " + ny, Y1], ["終わり " + nx, X2], ["終わり " + ny, Y2]]);
           }
           if (e.aux && !e.arc) {
             const [X, Y] = fmtXY(e.base[0], e.base[1]);
@@ -5253,7 +5469,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
             if (!k) { setStatus("そばに図形がありません。拡大してからタップしてください。", true); return; }
             if (sel.has(k)) sel.delete(k); else sel.add(k);
             selChanged();
-          } else if (eTool === "line") {
+          } else if (eTool === "line" && aKind !== "poly") auxTap(sx, sy);
+          else if (eTool === "line") {
             const s = snapAt(sx, sy); hover = s; newLine.push(s);
             $("eLineEnd").disabled = newLine.length < 2; $("eLineCancel").disabled = false;
             setStatus(newLine.length < 2 ? "次の点をタップしてください。" : `${newLine.length} 点(長さ ${fmtL(polyLen(newLine.map((p) => [p.x, p.y])))} ${unitName()})。続けるか「ここで終わる」。`);
@@ -5278,7 +5495,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           }
         }
         // ---- 補助線
-        const AUXN = { h: "水平", v: "垂直", ang: "角度", par: "平行", perp: "垂線", bis: "中心線", circ: "補助円", erase: "消す" };
+        const AUXN = { poly: "折れ線", arc3: "3点円弧", free: "自由(点と点)", h: "水平", v: "垂直", ang: "角度", par: "平行", perp: "垂線", bis: "中心線", circ: "補助円", erase: "消す" };
         const uf = () => (unitName() === "m" ? 1000 : 1);
         // 角度の入れ方: 公共座標なら方向角(北から右回り)、図面のままなら横から左回り
         function angDir(deg) { const t = deg * Math.PI / 180; return axis() === "northEast" ? [Math.sin(t), Math.cos(t)] : [Math.cos(t), Math.sin(t)]; }
@@ -5314,19 +5531,48 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("eAuxAngL").textContent = ne ? "方向角(°・北から右回り)" : "角度(°・横から左回り)";
           $("eAuxDistL").textContent = `はなす距離 ${unitName()}(0 なら 2 回目にタップした点を通る)`;
           $("eAuxRL").textContent = `半径 ${unitName()}(0 なら 2 回目にタップした点まで)`;
-          $("eAuxAngBox").hidden = aKind !== "ang"; $("eAuxParBox").hidden = aKind !== "par"; $("eAuxCircBox").hidden = aKind !== "circ";
+          $("eAuxAngBox").hidden = aKind !== "ang"; $("eAuxParBox").hidden = aKind !== "par"; $("eAuxCircBox").hidden = aKind !== "circ"; $("eAuxFreeBox").hidden = aKind !== "free";
           $("eAuxCancel").disabled = !auxSt && !auxPickAng;
+          const isLine = eTool === "line";   // 「線」でも同じ種類を使う(2026-11-19 ゆきちゃん)。線のときは本物の線・円・円弧になる
+          $("eLineBox").hidden = !(isLine && aKind === "poly");
+          for (const c of $("eAuxKind").querySelectorAll("button")) c.hidden = isLine ? c.dataset.a === "erase" : c.dataset.a === "poly";
+          $("eKindCirc").textContent = isLine ? "円" : "補助円";
+          $("eAuxClear").hidden = $("eAuxDxfL").hidden = isLine;
+          $("eAuxCancel").hidden = isLine && aKind === "poly";
           $("eAuxClear").disabled = !lines.some((l) => l.aux);
           const NOTE1 = {
             par: "① 元にする線(または円)をタップしてください。",
             circ: "① 補助円の中心をタップしてください(吸い付きます)。",
             perp: "① 直角のもとにする線(または円・円弧)をタップしてください。",
             bis: "① 1 点目をタップしてください(2 点のまん中を通る中心線)。",
+            poly: "線の点を順にタップ(吸い付きます)。最後に「ここで終わる」。",
+            arc3: auxSt && auxSt.c2 ? "③ 円弧の終わりの点をタップしてください(吸い付きます)。" : auxSt && auxSt.c ? "② 円弧が通る点(まん中あたり)をタップしてください(吸い付きます)。" : "① 円弧の始めの点をタップしてください(吸い付きます)。",
+            free: auxSt && auxSt.c ? "② 結ぶ先の点をタップしてください(吸い付きます)。やめる で終わり。" : "① 始めの点をタップしてください(吸い付きます)。",
             erase: "消したい補助線をタップしてください(1 本ずつ消えます)。",
           };
-          return NOTE1[aKind] || `${AUXN[aKind]}の補助線が通る点をタップしてください(吸い付きます)。`;
+          const nt = NOTE1[aKind] || `${AUXN[aKind]}の補助線が通る点をタップしてください(吸い付きます)。`;
+          return isLine ? toLineWord(nt) : nt;
         }
-        function addAux(op, msg) { auxSt = null; addOp({ t: "aux", ...op, layer: "補助線" }); setStatus(msg + " 続けて引けます(↶ 戻す で消せます)。"); auxNote(); }
+        const toLineWord = (s) => s.replace(/補助円/g, "円").replace(/補助線/g, "線");
+        function addAux(op, msg) {
+          auxSt = null;
+          if (eTool === "line") {   // 「線」: 本物の線・円・円弧にする(画層は「足す図形の画層」)
+            const layer = layerName();
+            if (op.a === "seg") addOp({ t: "line", pts: [[op.x, op.y], [op.x2, op.y2]], closed: false, layer });
+            else if (op.a === "circ") addOp({ t: "arc", x: op.x, y: op.y, r: op.r, full: true, layer });
+            else if (op.a === "arc3") addOp({ t: "arc", x: op.x, y: op.y, r: op.r, a0: op.a0, a1: op.a1, layer });
+            else {   // まっすぐな線(水平・垂直・角度・平行・垂線・中心線・のばした自由線)は図面の広さ(+1 割)で切る
+              const e = auxEnt(op, "tmp"), vw = view.maxx - view.minx, vh = view.maxy - view.miny;
+              const c = clipSeg(e.draw[0], e.draw[1], view.minx - vw * 0.1, view.miny - vh * 0.1, view.maxx + vw * 0.1, view.maxy + vh * 0.1);
+              if (!c) { setStatus("⚠ 図面の外になるので引けませんでした。", true); return; }
+              addOp({ t: "line", pts: c, closed: false, layer });
+              msg += " 図面の広さいっぱいの線にしました。";
+            }
+            setStatus(toLineWord(msg) + " 続けて引けます(↶ 戻す で消せます)。"); auxNote(); return;
+          }
+          addOp({ t: "aux", ...op, layer: "補助線" }); setStatus(msg + " 続けて引けます(↶ 戻す で消せます)。"); auxNote();
+        }
+        const toLineWordIf = (s) => (eTool === "line" ? toLineWord(s) : s);
         function auxTap(sx, sy) {
           if (auxPickAng) {
             const sg = segAt(sx, sy);
@@ -5357,6 +5603,36 @@ canvas.xs-3d { background: #0b0c0e !important; }
             } else {
               addAux({ a: "line", x: s.x, y: s.y, dx: auxSt.dir[0], dy: auxSt.dir[1] }, `✓ 垂線を引きました(${KIND[s.kind]}を通る)。`);
             }
+            return;
+          }
+          if (aKind === "arc3") {   // 3点円弧:始め → 通る点 → 終わり(真円ではなく、始めから終わりまでの円弧)
+            const s = snapAt(sx, sy); hover = s;
+            if (!auxSt) { auxSt = { c: s }; setStatus(toLineWordIf("② 円弧が通る点(まん中あたり)をタップしてください(吸い付きます)。")); auxNote(); return; }
+            if (!auxSt.c2) {
+              if (Math.hypot(s.x - auxSt.c.x, s.y - auxSt.c.y) <= 0) { setStatus("⚠ 同じ点です。別の点をタップしてください。", true); return; }
+              auxSt = { c: auxSt.c, c2: s }; setStatus("③ 円弧の終わりの点をタップしてください(吸い付きます)。"); auxNote(); return;
+            }
+            const A = auxSt.c, bx = auxSt.c2.x - A.x, by = auxSt.c2.y - A.y, cx = s.x - A.x, cy = s.y - A.y;   // 始めの点からの差で計算(座標が大きくても誤差が出ないように)
+            const d = 2 * (bx * cy - by * cx), lb = Math.hypot(bx, by), lc = Math.hypot(cx, cy);
+            if (!(lc > 0) || Math.abs(d) <= 1e-9 * lb * lc * 2) { setStatus("⚠ 3 点が一直線(または同じ点)なので円弧になりません。ほかの点をタップしてください。", true); return; }
+            const ux = (cy * (bx * bx + by * by) - by * (cx * cx + cy * cy)) / d, uy = (bx * (cx * cx + cy * cy) - cx * (bx * bx + by * by)) / d;
+            const r = Math.hypot(ux, uy), X = A.x + ux, Y = A.y + uy;
+            const ang = (px, py) => { let t = Math.atan2(py - Y, px - X) * 180 / Math.PI; return t < 0 ? t + 360 : t; };
+            const aA = ang(A.x, A.y), aB = ang(auxSt.c2.x, auxSt.c2.y), aC = ang(s.x, s.y), span = (t) => (t - aA + 360) % 360;
+            const ccw = span(aB) < span(aC), a0 = ccw ? aA : aC, a1 = ccw ? aC : aA;
+            let sw = (a1 - a0) % 360; if (sw <= 0) sw += 360;
+            addAux({ a: "arc3", x: X, y: Y, r, a0, a1 }, `✓ 3点円弧の補助線を引きました(半径 ${fmtL(r)} ${unitName()}・弧の長さ ${fmtL(r * sw * Math.PI / 180)} ${unitName()}・中心角 ${sw.toFixed(4)}°)。`);
+            return;
+          }
+          if (aKind === "free") {
+            const s = snapAt(sx, sy); hover = s;
+            if (!auxSt) { auxSt = { c: s }; setStatus("② 結ぶ先の点をタップしてください(吸い付きます)。"); auxNote(); return; }
+            const p1 = auxSt.c, dX = s.x - p1.x, dY = s.y - p1.y, L = Math.hypot(dX, dY);
+            if (!(L > 0)) { setStatus("⚠ 同じ点です。別の点をタップしてください。", true); return; }
+            const msg = `✓ 2 点を結ぶ補助線を引きました(長さ ${fmtL(L)} ${unitName()}・方向角 ${dirAngle([p1.x, p1.y], [s.x, s.y])})。`;
+            if ($("eAuxFreeExt").checked) addAux({ a: "line", x: p1.x, y: p1.y, dx: dX / L, dy: dY / L }, msg);
+            else addAux({ a: "seg", x: p1.x, y: p1.y, x2: s.x, y2: s.y }, msg);
+            if ($("eAuxFreeChain").checked) { auxSt = { c: s }; auxNote(); setStatus(toLineWordIf(msg) + " 続けて次の点をタップすると、ここからつながります(やめる で終わり・↶ 戻す で消せます)。"); }
             return;
           }
           if (aKind === "bis") {
@@ -5448,10 +5724,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("eDxf").disabled = !view;
           $("eOver").disabled = !view;
           overNote();
-          const c = { del: 0, move: 0, line: 0, text: 0, edtext: 0, aux: 0, mark: 0 };
+          const c = { del: 0, move: 0, line: 0, arc: 0, text: 0, edtext: 0, aux: 0, mark: 0 };
           for (const o of ops) c[o.t] = (c[o.t] || 0) + 1;
-          $("eCount").textContent = ops.length ? `直したところ ${ops.length}(消す ${c.del}・動かす/写す ${c.move}・線 ${c.line}・補助線 ${c.aux}・× ${c.mark}・文字 ${c.text + c.edtext})。` : "直したところはまだありません。";
-          if (eTool === "aux") auxNote();
+          $("eCount").textContent = ops.length ? `直したところ ${ops.length}(消す ${c.del}・動かす/写す ${c.move}・線 ${c.line + c.arc}・補助線 ${c.aux}・× ${c.mark}・文字 ${c.text + c.edtext})。` : "直したところはまだありません。";
+          if (eTool === "aux" || eTool === "line") auxNote();
           draw();
         }
         function doMove(dx, dy) {
@@ -5747,14 +6023,17 @@ canvas.xs-3d { background: #0b0c0e !important; }
           draw();
         });
         for (const b of $("eTool").querySelectorAll("button")) b.addEventListener("click", () => {
+          if (eTool === "line" || eTool === "aux") kindOf[eTool] = aKind;
           eTool = b.dataset.t; newLine = []; move2 = null; hover = null; auxSt = null; auxPickAng = false;
+          if (eTool === "line" || eTool === "aux") { aKind = kindOf[eTool]; for (const c of $("eAuxKind").querySelectorAll("button")) c.setAttribute("aria-pressed", String(c.dataset.a === aKind)); }
           for (const c of $("eTool").querySelectorAll("button")) c.setAttribute("aria-pressed", String(c === b));
-          $("eSelBox").hidden = eTool !== "sel"; $("eLineBox").hidden = eTool !== "line"; $("eTextAdd").hidden = eTool !== "text";
-          $("eAuxBox").hidden = eTool !== "aux"; $("eMarkBox").hidden = eTool !== "mark";
+          $("eSelBox").hidden = eTool !== "sel"; $("eTextAdd").hidden = eTool !== "text";
+          $("eAuxBox").hidden = eTool !== "aux" && eTool !== "line"; $("eMarkBox").hidden = eTool !== "mark";
+          if (eTool === "line" || eTool === "aux") auxNote();
           $("eLineEnd").disabled = $("eLineCancel").disabled = true;
-          $("eNote").textContent = eTool === "sel" ? "直したい図形(線・文字・記号・補助線)をタップしてえらびます(もう一度タップで外す。いくつでもえらべます)。" : eTool === "line" ? "線の点を順にタップ(吸い付きます)。最後に「ここで終わる」。" : eTool === "aux" ? "補助線は点線で出ます。交点・線の上に吸い付くので、寸法・座標・線を引くときの目安に使えます。" : eTool === "mark" ? "大きさを入れて、× を置く所をタップ(吸い付きます)。" : "文字と高さを入れてから、置きたい所をタップ。";
+          $("eNote").textContent = eTool === "sel" ? "直したい図形(線・文字・記号・補助線)をタップしてえらびます(もう一度タップで外す。いくつでもえらべます)。" : eTool === "line" ? "線の引き方をえらんでください(折れ線・自由・水平・垂直・角度・平行・垂線・中心線・円・3点円弧)。画層は下の「足す図形の画層」。" : eTool === "aux" ? "補助線は点線で出ます。交点・線の上に吸い付くので、寸法・座標・線を引くときの目安に使えます。" : eTool === "mark" ? "大きさを入れて、× を置く所をタップ(吸い付きます)。" : "文字と高さを入れてから、置きたい所をタップ。";
           if (eTool === "erase") $("eNote").textContent = "消したい図形(線・文字・記号・補助線)をタップすると、すぐ消えます。まちがえたら左上の「↶ 戻す」。";
-          setStatus(eTool === "sel" ? NOTE.edit : eTool === "line" ? "線の始めの点をタップしてください。" : eTool === "aux" ? auxNote() : eTool === "mark" ? "× を置く所をタップしてください。" : eTool === "erase" ? "🧽 消しゴム:消したい図形をタップしてください。" : "文字を置く所をタップしてください。");
+          setStatus(eTool === "sel" ? NOTE.edit : eTool === "line" ? auxNote() : eTool === "aux" ? auxNote() : eTool === "mark" ? "× を置く所をタップしてください。" : eTool === "erase" ? "🧽 消しゴム:消したい図形をタップしてください。" : "文字を置く所をタップしてください。");
           draw();
         });
         $("tTexts").setAttribute("aria-pressed", String(showTexts));

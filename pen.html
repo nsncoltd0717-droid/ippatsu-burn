@@ -558,7 +558,7 @@ input[type=file]{display:none}
   // 開いた図面は、見出しの下の行に「📄 名前」で並ぶ。押すとその図面に切り替わる。「📂 ひらく」で何枚もまとめて選べる。
   // 現場を選んでいれば現場の図面(一発バーンの「図面を読み込む」で入れたものも)も並ぶ。脳みそバーンは現場に入れず、この画面の間だけ覚える。
   var DOCS = [], CURDOC = "", docBusy = false;
-  var DRAW_RE = /\.(dxf|dwg|zrd|zsdx|zsdxz|csv|sim|sima|txt)$/i, XML_RE = /\.(xml|landxml)$/i;
+  var DRAW_RE = /\.(dxf|dwg|zrd|zsdx|zsdxz|sfc|ant|csv|sim|sima|txt)$/i, XML_RE = /\.(xml|landxml)$/i;
   function docAdd(rec) { DOCS = DOCS.filter(function (d) { return d.name !== rec.name; }); DOCS.push(rec); }
   function docOpen(rec) {
     if (!G.openInApp(rec)) { bar("⚠ 図面「" + esc(rec.name) + "」を開けませんでした。"); return; }
@@ -698,6 +698,197 @@ input[type=file]{display:none}
   window.addEventListener("focus", fpBack);
   document.addEventListener("visibilitychange", fpBack);
   var dwgBusy = false;
+  // ---------------------------------------------------------------- SFC(SXF)・A納図(.ANT)を開く(2026-11-19 ゆきちゃん「A納図と SFC のデータ読み込み」)
+  // どちらも端末の中で DXF(mm・Shift_JIS)に変えてから、いつもの DXF の読み込みに渡す(DWG と同じやり方。4 本とも)。
+  // SFC: SXF Ver.2/3 のフィーチャコメント(公開の形式)。線・折れ線・円・円弧・だ円(弧)・文字・点。複合図形は置いた所へ動かす(用紙の図形(種類1)は縮尺だけなので動かさない)。
+  //      寸法・引出線・ハッチは読まない。
+  // ANT: A納図(A-NOTE)の図面。中身を読み解いて(2026-11-19、5.53 の図面と同じ図面の SFC で照合:線 75529 本すべて一致)線・折れ線・円・円弧・だ円・文字・点を読む。
+  //      文字の大きさは用紙の mm で入っているので、図面の広さから縮尺(1/1000 など)を見積もってかける。寸法は読まない。うまく読めないときは A納図で SFC に書き出して開く。
+  var SXF_RE = /\.(sfc|ant)$/i;
+  var SJT = null;
+  G.sjisBytes = function (text) {
+    if (!SJT) {
+      SJT = new Map(); var dec = new TextDecoder("shift_jis");
+      for (var a = 0x81; a <= 0xfc; a++) { if (a > 0x9f && a < 0xe0) continue; for (var b = 0x40; b <= 0xfc; b++) { if (b === 0x7f) continue; var ch = dec.decode(new Uint8Array([a, b])); if (ch.length === 1 && ch !== "�" && !SJT.has(ch)) SJT.set(ch, [a, b]); } }
+      for (var k = 0xa1; k <= 0xdf; k++) SJT.set(dec.decode(new Uint8Array([k])), [k]);
+    }
+    var out = [];
+    for (var ch2 of text) { var c = ch2.codePointAt(0); if (c < 128) out.push(c); else if (SJT.has(ch2)) { var v = SJT.get(ch2); out.push(v[0]); if (v.length > 1) out.push(v[1]); } else out.push(0x3f); }
+    return Uint8Array.from(out);
+  };
+  // 図形(共通の形)→ DXF。E = { layers:[名前], ents:[{t:"line"|"poly"|"circle"|"arc"|"text"|"point", lay(番号), ...}] }
+  function entsToDxf(E) {
+    var L = [], f = function (v) { return Number.isFinite(v) ? (Math.round(v * 1e6) / 1e6).toString() : "0"; };
+    var g = function (c, v) { L.push(String(c), typeof v === "number" ? (c >= 60 && c < 100 ? String(Math.round(v)) : f(v)) : String(v)); };
+    var ln = function (i) { var s = E.layers[i]; return (s == null || s === "" ? "0" : String(s)).replace(/[\r\n]/g, " "); };
+    g(0, "SECTION"); g(2, "HEADER"); g(9, "$ACADVER"); g(1, "AC1009"); g(9, "$DWGCODEPAGE"); g(3, "ANSI_932"); g(9, "$INSUNITS"); g(70, 4); g(0, "ENDSEC");
+    g(0, "SECTION"); g(2, "ENTITIES");
+    E.ents.forEach(function (e) {
+      var y = ln(e.lay);
+      if (e.t === "line") { g(0, "LINE"); g(8, y); g(10, e.x1); g(20, e.y1); g(11, e.x2); g(21, e.y2); }
+      else if (e.t === "poly") { if (e.pts.length < 2) return; g(0, "POLYLINE"); g(8, y); g(66, 1); g(70, e.closed ? 1 : 0); e.pts.forEach(function (p) { g(0, "VERTEX"); g(8, y); g(10, p[0]); g(20, p[1]); }); g(0, "SEQEND"); }
+      else if (e.t === "circle") { g(0, "CIRCLE"); g(8, y); g(10, e.x); g(20, e.y); g(40, e.r); }
+      else if (e.t === "arc") { g(0, "ARC"); g(8, y); g(10, e.x); g(20, e.y); g(40, e.r); g(50, e.a0); g(51, e.a1); }
+      else if (e.t === "point") { g(0, "POINT"); g(8, y); g(10, e.x); g(20, e.y); }
+      else if (e.t === "text") {
+        var s = String(e.s || "").replace(/[\r\n]+/g, " "); if (!s.trim()) return;
+        g(0, "TEXT"); g(8, y); g(10, e.x); g(20, e.y); g(40, e.h > 0 ? e.h : 300); g(1, s); if (e.ang) g(50, e.ang);
+        var b = e.b || 1, ha = (b - 1) % 3, va = [1, 2, 3][Math.floor((b - 1) / 3)] || 1;   // SXF の基点 1 左下 … 9 右上
+        if (b > 1) { g(72, ha); g(73, va); g(11, e.x); g(21, e.y); }
+      }
+    });
+    g(0, "ENDSEC"); g(0, "EOF");
+    return L.join("\r\n") + "\r\n";
+  }
+  function ellPts(cx, cy, rx, ry, rot, a0, a1, full) {   // だ円(弧)を点の列に(度)
+    var r = rot * Math.PI / 180, cr = Math.cos(r), sr = Math.sin(r), s = a0 * Math.PI / 180, e = a1 * Math.PI / 180, P = [];
+    if (full) e = s + Math.PI * 2; else { while (e <= s) e += Math.PI * 2; }
+    var n = Math.max(8, Math.ceil((e - s) / (Math.PI / 36)));
+    for (var k = 0; k <= n; k++) { var t = s + (e - s) * k / n, x = rx * Math.cos(t), yy = ry * Math.sin(t); P.push([cx + x * cr - yy * sr, cy + x * sr + yy * cr]); }
+    return P;
+  }
+  // SFC: 「/*SXF #n = 名前(引数) SXF*/」の並び
+  function sfcArgs(s) {
+    var out = [], i = 0, n = s.length;
+    while (i < n) {
+      var c = s[i];
+      if (c === " " || c === "," || c === "\r" || c === "\n" || c === "\t") { i++; continue; }
+      var j;
+      if (c === "\\" && s[i + 1] === "'") { j = s.indexOf("\\'", i + 2); if (j < 0) j = n; out.push(s.slice(i + 2, j)); i = j + 2; }
+      else if (c === "'") { j = s.indexOf("'", i + 1); if (j < 0) j = n; out.push(s.slice(i + 1, j)); i = j + 1; }
+      else if (c === "(") { j = s.indexOf(")", i); if (j < 0) j = n; out.push(s.slice(i + 1, j).split(",").map(Number)); i = j + 1; }
+      else { j = s.indexOf(",", i); if (j < 0) j = n; out.push(s.slice(i, j).trim()); i = j; }
+    }
+    return out;
+  }
+  var unX2 = function (s) { return String(s).replace(/\\X2\\([0-9A-Fa-f]+)\\X0\\/g, function (m, h) { var t = ""; for (var k = 0; k + 4 <= h.length; k += 4) t += String.fromCharCode(parseInt(h.slice(k, k + 4), 16)); return t; }); };
+  G.sfcToEnts = function (text) {
+    var re = /#\d+\s*=\s*([a-z_0-9]+)\(([\s\S]*?)\)\s*\r?\n?\s*SXF\*\//g, m, layers = [], ents = [], cur = [], groups = {}, N = Number;
+    var add = function (e) { ents.push(e); cur.push(e); };
+    while ((m = re.exec(text))) {
+      var k = m[1], a;
+      if (!/^(layer|line|polyline|circle|arc|ellipse|ellipse_arc|text_string|point_marker|sfig_org|sfig_locate)_feature$/.test(k)) continue;
+      a = sfcArgs(m[2]);
+      var lay = N(a[0]) - 1;
+      switch (k) {
+        case "layer_feature": layers.push(unX2(a[0])); break;
+        case "line_feature": add({ t: "line", lay: lay, x1: N(a[4]), y1: N(a[5]), x2: N(a[6]), y2: N(a[7]) }); break;
+        case "polyline_feature": { var xs = a[5] || [], ys = a[6] || [], P = []; for (var q = 0; q < xs.length && q < ys.length; q++) P.push([xs[q], ys[q]]); add({ t: "poly", lay: lay, pts: P }); break; }
+        case "circle_feature": add({ t: "circle", lay: lay, x: N(a[4]), y: N(a[5]), r: N(a[6]) }); break;
+        case "arc_feature": { var d0 = N(a[7]) === 1; add({ t: "arc", lay: lay, x: N(a[4]), y: N(a[5]), r: N(a[6]), a0: d0 ? N(a[9]) : N(a[8]), a1: d0 ? N(a[8]) : N(a[9]) }); break; }
+        case "ellipse_feature": add({ t: "poly", lay: lay, closed: true, pts: ellPts(N(a[4]), N(a[5]), N(a[6]), N(a[7]), N(a[8]), 0, 360, true).slice(0, -1) }); break;
+        case "ellipse_arc_feature": { var cw = N(a[8]) === 1; add({ t: "poly", lay: lay, pts: ellPts(N(a[4]), N(a[5]), N(a[6]), N(a[7]), N(a[9]), cw ? N(a[11]) : N(a[10]), cw ? N(a[10]) : N(a[11])) }); break; }
+        case "text_string_feature": add({ t: "text", lay: lay, s: unX2(a[3]), x: N(a[4]), y: N(a[5]), h: N(a[6]), ang: N(a[9]) || 0, b: N(a[11]) || 1 }); break;
+        case "point_marker_feature": add({ t: "point", lay: lay, x: N(a[2]), y: N(a[3]) }); break;
+        case "sfig_org_feature": groups[unX2(a[0])] = { kind: a[1], ents: cur }; cur.forEach(function (e) { e.grp = 1; }); cur = []; break;
+        case "sfig_locate_feature": {   // 複合図形を置く(用紙の図形は縮尺だけなので動かさない)
+          var G2 = groups[unX2(a[1])]; if (!G2) break;
+          var x0 = N(a[2]), y0 = N(a[3]), rot = N(a[4]) * Math.PI / 180, sx = N(a[5]) || 1, sy = N(a[6]) || 1, cr = Math.cos(rot), sr = Math.sin(rot);
+          var id = G2.kind === "1" || (!x0 && !y0 && !rot && sx === 1 && sy === 1);
+          var tf = function (x, y) { x *= sx; y *= sy; return [x * cr - y * sr + x0, x * sr + y * cr + y0]; };
+          G2.ents.forEach(function (e) {
+            e.grp = 0; if (id) return;
+            var p;
+            if (e.t === "line") { p = tf(e.x1, e.y1); e.x1 = p[0]; e.y1 = p[1]; p = tf(e.x2, e.y2); e.x2 = p[0]; e.y2 = p[1]; }
+            else if (e.t === "poly") e.pts = e.pts.map(function (q2) { return tf(q2[0], q2[1]); });
+            else { p = tf(e.x, e.y); e.x = p[0]; e.y = p[1]; if (e.r) e.r *= Math.abs(sx); if (e.h) e.h *= Math.abs(sy); if (e.t === "arc" || e.t === "text") { var dd = N(a[4]) || 0; if (e.t === "arc") { e.a0 += dd; e.a1 += dd; } else e.ang += dd; } }
+          });
+          break;
+        }
+      }
+    }
+    return { layers: layers, ents: ents.filter(function (e) { return !e.grp; }) };
+  };
+  // ANT(A納図): 先頭に画層の表(@Layer@)、そのあと zlib の塊([元の大きさ u32][縮めた大きさ u32][zlib])。塊をつないだ中に図形の記録
+  // (「CKsCvRecDataEntity」+0x68 に 0x80000040、+0x6C 種類 u16(1 点・2 線・4 円/円弧・8 文字・0x10 だ円・0x20 折れ線)、+0x70 画層番号、+0x88 から座標 double)
+  async function inflateZ(u8) {
+    if (typeof DecompressionStream !== "function") throw new Error("この端末では A納図の図面を開けません(A納図で SFC に書き出して開いてください)");
+    var s = new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  G.antToEnts = async function (buf) {
+    var d = new Uint8Array(buf), dv = new DataView(d.buffer, d.byteOffset, d.byteLength), u32 = function (o) { return dv.getUint32(o, true); };
+    if (String.fromCharCode.apply(null, d.subarray(4, 9)) !== "Mark2") throw new Error("A納図の図面ではないようです");
+    var sj = new TextDecoder("shift_jis"), layers = [], first = -1, i;
+    for (i = 12; i < d.length - 12; i++) {
+      if (first < 0 && d[i] === 0x78 && (d[i + 1] === 0x9c || d[i + 1] === 0xda || d[i + 1] === 0x01 || d[i + 1] === 0x5e) && u32(i - 4) > 0 && u32(i - 4) <= d.length - i && u32(i - 8) > 0 && u32(i - 8) <= (1 << 24)) { first = i; break; }
+      if (d[i] === 0x40 && d[i + 1] === 0x4c && d[i + 6] === 0x40 && String.fromCharCode.apply(null, d.subarray(i, i + 7)) === "@Layer@") {
+        var n = dv.getUint32(i + 8, false); layers.push(n < 256 ? sj.decode(d.subarray(i + 12, i + 12 + n)) : "");
+      }
+    }
+    if (first < 0) throw new Error("図形が見つかりません");
+    var parts = [], total = 0;
+    for (i = first; i < d.length - 2;) {
+      if (d[i] === 0x78 && (d[i + 1] === 0x9c || d[i + 1] === 0xda || d[i + 1] === 0x01 || d[i + 1] === 0x5e) && i >= 8) {
+        var cm = u32(i - 4), rw = u32(i - 8);
+        if (cm > 2 && cm <= d.length - i && rw > 0 && rw <= (1 << 24)) {
+          try { var x = await inflateZ(d.subarray(i, i + cm)); if (x.length === rw) { parts.push(x); total += x.length; i += cm; continue; } } catch (e) { if (/この端末/.test(e.message)) throw e; }
+        }
+      }
+      i++;
+    }
+    var U = new Uint8Array(total), o = 0; parts.forEach(function (p) { U.set(p, o); o += p.length; });
+    var V = new DataView(U.buffer), D = function (p) { return V.getFloat64(p, true); }, W = function (p) { return V.getUint32(p, true); }, H = function (p) { return V.getUint16(p, true); };
+    var KEY = [67, 75, 115, 67, 118, 82, 101, 99, 68, 97, 116, 97, 69, 110, 116, 105, 116, 121], starts = [];   // "CKsCvRecDataEntity"
+    for (i = 0; i < U.length - 200; i++) {
+      if (U[i] !== 67 || U[i + 4] !== 118 || U[i + 5] !== 82) continue;
+      var ok = true; for (var k = 1; k < KEY.length; k++) if (U[i + k] !== KEY[k]) { ok = false; break; }
+      if (ok) starts.push(i);
+    }
+    var ents = [], texts = [], okf = function (v) { return Number.isFinite(v) && Math.abs(v) < 1e12; };
+    for (var s = 0; s < starts.length; s++) {
+      var a = starts[s], end = s + 1 < starts.length ? starts[s + 1] : U.length;
+      if (a + 200 > U.length || W(a + 104) !== 0x80000040) continue;
+      var t = H(a + 108), lay = W(a + 112); if (lay >= 100000) lay = 0;
+      if (t === 2) { var e2 = { t: "line", lay: lay, x1: D(a + 136), y1: D(a + 144), x2: D(a + 152), y2: D(a + 160) }; if (okf(e2.x1) && okf(e2.y2)) ents.push(e2); }
+      else if (t === 4) {
+        var cx = D(a + 136), cy = D(a + 144), r = D(a + 152), a0 = D(a + 160), a1 = D(a + 168);
+        if (!okf(cx) || !(r > 0)) continue;
+        if (Math.abs(a1 - a0) >= 359.9999) ents.push({ t: "circle", lay: lay, x: cx, y: cy, r: r }); else ents.push({ t: "arc", lay: lay, x: cx, y: cy, r: r, a0: a0, a1: a1 });
+      }
+      else if (t === 1) { var px = D(a + 132), py = D(a + 140); if (okf(px)) ents.push({ t: "point", lay: lay, x: px, y: py }); }
+      else if (t === 8) {
+        var sb = U.subarray(a + 228, Math.min(a + 228 + 512, end)), z = sb.indexOf(0); var str = sj.decode(z >= 0 ? sb.subarray(0, z) : sb);
+        var tx = { t: "text", lay: lay, x: D(a + 212), y: D(a + 220), h: D(a + 132), ang: D(a + 156), s: str };
+        if (okf(tx.x) && str) { ents.push(tx); texts.push(tx); }
+      }
+      else if (t === 0x10) { var ex = D(a + 136), ey = D(a + 144), rx = D(a + 152), ry = D(a + 160), ro = D(a + 168), b0 = D(a + 176), b1 = D(a + 184); if (okf(ex) && rx > 0) { var full = Math.abs(b1 - b0) >= 359.9999 || (!b0 && !b1); ents.push({ t: "poly", lay: lay, closed: full, pts: ellPts(ex, ey, rx, ry, ro, b0, b1, full) }); } }
+      else if (t === 0x20) {
+        var np = W(a + 168), pts = [], q = a + 196;
+        while (pts.length < np && q + 96 <= end && W(q) === 0x8000) { for (var j = 0; j < 5 && pts.length < np; j++) pts.push([D(q + 16 + 16 * j), D(q + 24 + 16 * j)]); q += 108; }
+        if (pts.length >= 2 && okf(pts[0][0])) ents.push({ t: "poly", lay: lay, pts: pts });
+      }
+    }
+    if (texts.length) {   // 文字の大きさ(用紙の mm)× 縮尺。縮尺は図面の広さ(線の 0.1〜99.9%)を A3 の横 420 mm で割って、よくある縮尺に丸める
+      var xs = [], ys = []; ents.forEach(function (e) { if (e.t === "line") { xs.push(e.x1); ys.push(e.y1); } });
+      xs.sort(function (p, q2) { return p - q2; }); ys.sort(function (p, q2) { return p - q2; });
+      var qt = function (A, p) { return A.length ? A[Math.min(A.length - 1, Math.floor(A.length * p))] : 0; };
+      var raw = Math.max((qt(xs, 0.999) - qt(xs, 0.001)) / 420, (qt(ys, 0.999) - qt(ys, 0.001)) / 297, 1), SC = [1, 2, 5, 10, 20, 50, 100, 200, 250, 300, 500, 600, 1000, 1500, 2000, 2500, 3000, 5000, 10000], sc = 1, best = 1e9;
+      SC.forEach(function (c) { var dd = Math.abs(Math.log(c / raw)); if (dd < best) { best = dd; sc = c; } });
+      texts.forEach(function (tx2) { tx2.h = (tx2.h > 0 ? tx2.h : 2.5) * sc; });
+    }
+    return { layers: layers, ents: ents };
+  };
+  G.sxfToDxf = async function (name, bytes) {
+    var E = /\.ant$/i.test(name) ? await G.antToEnts(bytes) : G.sfcToEnts(new TextDecoder("shift_jis").decode(new Uint8Array(bytes)));
+    if (!E.ents.length) throw new Error("線が見つかりません");
+    return { bytes: G.sjisBytes(entsToDxf(E)), n: E.ents.length };
+  };
+  var sxfBusy = false;
+  document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で SFC・A納図(.ant)を選んだら、DXF に変えてからアプリに渡す
+    var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
+    if (!f || sxfBusy || !SXF_RE.test(f.name)) return;
+    e.stopImmediatePropagation();
+    var keepOpening = opening, kind = /\.ant$/i.test(f.name) ? "A納図" : "SFC";
+    bar(kind + "「" + esc(f.name) + "」を DXF に変えています…(大きい図面は少しかかります)");
+    f.arrayBuffer().then(function (b) { return G.sxfToDxf(f.name, b); }).then(function (r) {
+      var nf = new File([r.bytes], f.name.replace(SXF_RE, "") + ".dxf", { type: "application/dxf", lastModified: f.lastModified });
+      var dt = new DataTransfer(); dt.items.add(nf);
+      sxfBusy = true; dwgBusy = true; opening = keepOpening; inp.files = dt.files;
+      try { inp.dispatchEvent(new Event("change", { bubbles: true })); } finally { sxfBusy = false; dwgBusy = false; opening = false; }
+      bar("✓ " + kind + "「" + esc(f.name) + "」を DXF に変えて開きました(図形 " + r.n + ")。" + (kind === "A納図" ? "文字の大きさは縮尺を見積もっています。" : ""), null, 7000);
+    }).catch(function (er) { bar("⚠ " + kind + "を読めません: " + esc(er.message) + (kind === "A納図" ? "(A納図で「SFC で保存」してから開いてください)" : "")); });
+  }, true);
   document.addEventListener("change", function (e) {   // 図面を開く欄(#file)で DWG(名前が .dwg)を選んだら、DXF に変えてからアプリに渡す
     var inp = e.target, f = inp && inp.id === "file" && inp.files && inp.files[0];
     if (!f || dwgBusy || !/\.dwg$/i.test(f.name)) return;
