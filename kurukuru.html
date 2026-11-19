@@ -2573,7 +2573,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.31.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.31.2</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -3128,6 +3128,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
               <div><small>前へ</small><b id="gFwd">--- m</b></div>
               <div><small>右へ</small><b id="gRight">--- m</b></div>
               <div><small>下へ(切り)</small><b id="gDown">--- m</b></div>
+              <div><small>今の標高</small><b id="gElev">---</b></div>
               <div class="grem"><small>残り</small><b id="gRemain">---</b></div>
             </div>
           </div>
@@ -7527,6 +7528,10 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (!$("gFwd")) return;
           const p = byName(target), P = p ? prismPos() : null;
           const lab = (id, t) => { const s = $(id).previousElementSibling; if (s) s.textContent = t; };
+          if ($("gElev")) {   // 今の標高 = 器械の高さ + プリズムまでの高低差 - ミラー高(出す点を選んでいなくても出す)
+            const P0 = P || prismPos(), zi = KuiNavi.zInst;
+            $("gElev").textContent = P0 && zi != null ? `${(zi + P0.vd - Number($("cfgMirror").value || 0)).toFixed(3)} m` : "---";
+          }
           const opView = ($("cfgGuideView") || {}).value !== "inst";
           if (!p || !P) {
             guideNow = null;
