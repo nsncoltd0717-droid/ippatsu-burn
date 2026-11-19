@@ -702,6 +702,32 @@
       .modes-wrap .modes button:first-child { border-radius: 10px 0 0 0 !important; }
       .modes-wrap .modes button:nth-child(4) { border-radius: 0 10px 0 0 !important; }
       .modes-wrap .modes button.coordbtn { flex: 1 1 100%; min-height: 34px !important; border-radius: 0 0 10px 10px !important; }
+      /* 放射観測のモニター(今のプリズムの位置・標高) */
+      .rad-mon { background: var(--bg); border: 2px solid var(--accent2); border-radius: 14px; padding: 8px 10px; margin: 0 0 10px; }
+      .rad-mon .rm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+      .rad-mon .rm-head span { font-size: 12px; color: var(--sub); text-align: right; }
+      .rad-mon .rm-head span.ok { color: var(--ok); }
+      .rad-mon .rm-nums { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 6px; margin-top: 6px; }
+      .rad-mon small { display: block; font-size: 11px; color: var(--sub); font-weight: 600; }
+      .rad-mon b { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--accent2); word-break: break-all; }
+      .panel .rad-mon { margin-top: 10px; }
+      .rad-mon .rm-head b { font-size: 15px; color: inherit; }
+      /* 器械設置の枠:タップで既知点を前もって選ぶ・枠を足す(しおりちゃんの依頼 2026-11-19) */
+      .kslot { cursor: pointer; }
+      .kslot.plan { border: 1px solid #60a5fa; }
+      .kslot.add { display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--sub); min-height: 64px; }
+      .kslot .tap { color: #60a5fa; }
+      .kpick-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 12px; color: var(--sub); }
+      .kpick-mode button { width: auto; min-height: 30px; padding: 2px 10px; font-size: 12px; border-radius: 999px; }
+      .kpick-mode button[aria-pressed="true"] { background: var(--accent, #2563eb); color: #fff; border-color: transparent; }
+      .kp-list { max-height: 52vh; overflow: auto; margin-top: 8px; display: grid; gap: 4px; }
+      .kp-list .kp-h { font-size: 12px; color: var(--sub); font-weight: 700; margin: 6px 0 2px; }
+      .kp-list button { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px; text-align: left; font-size: 16px; }
+      .kp-list button small { font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+      .kp-list button.on { border: 2px solid #f59e0b; }
+      .kp-list button[disabled] { opacity: .45; }
+      .kpick-mode button[aria-pressed="false"] { background: transparent !important; color: var(--sub) !important; border: 1px solid var(--line) !important; }
+      .kpick-mode button[aria-pressed="true"] { background: #f59e0b !important; color: #111 !important; border: 1px solid #f59e0b !important; }
     </style>
 
     <script>window.IPPATSU_APP = "kurukuru";</script>
@@ -2585,7 +2611,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.32.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.33.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -2791,6 +2817,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <button class="big primary" id="radRec" type="button" style="align-self:end">📏 測って保存</button>
         </div>
         <div id="radLast" class="rad-last" aria-live="polite"></div>
+        <div class="rad-mon" id="radMon">
+          <div class="rm-head"><b>📡 今のプリズムの位置</b><span id="radMonSt">---</span></div>
+          <div class="rm-nums"><div><small id="radMonXL">X(北)</small><b id="radMonX">---</b></div><div><small id="radMonYL">Y(東)</small><b id="radMonY">---</b></div><div><small>標高 H</small><b id="radMonH">---</b></div></div>
+        </div>
         <button class="big ctlopen" type="button" data-ctl="radial" style="margin-top:10px">🎛 杭ナビ操作盤(サーチ・追尾)</button>
         <p class="step-note" id="radProg"></p>
         <div class="tblwrap"><table class="pts" id="radTable"></table></div>
@@ -2910,6 +2940,18 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <div class="field2" style="margin-top:12px">
           <button class="ghost" type="button" data-dlgx="pmDlg">やめる</button>
           <button class="big primary" id="pmOk" type="button">決める</button>
+        </div>
+      </div>
+    </div>
+    <!-- 器械設置:枠(1点目・2点目…)の既知点を選ぶ小窓 -->
+    <div class="dlg" id="kpDlg" hidden style="z-index:420">
+      <div class="dlg-card">
+        <div class="dlg-head"><div class="dlg-title" id="kpTitle">既知点を選ぶ</div><button type="button" class="ghost dlg-x" data-dlgx="kpDlg" aria-label="閉じる">✕</button></div>
+        <input id="kpQ" type="search" placeholder="点名でさがす" autocomplete="off" aria-label="点名でさがす" />
+        <div class="kp-list" id="kpList"></div>
+        <div class="field2" style="margin-top:10px">
+          <button class="ghost" type="button" id="kpClear">この枠を空にする</button>
+          <button class="ghost" type="button" id="kpScreen">📋 座標リストで選ぶ</button>
         </div>
       </div>
     </div>
@@ -3130,6 +3172,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           </div>
           <p class="step-note" id="ctMethodNote" hidden></p>
           <div class="kseq-wrap" id="kSeqWrap">
+            <div class="kpick-mode" id="kPickMode"><span>枠をタップして既知点を選ぶ:</span><button type="button" data-kpm="dlg" aria-pressed="true">小窓</button><button type="button" data-kpm="screen" aria-pressed="false">座標リストの画面</button></div>
             <div class="kseq" id="kSeq"></div>
             <div class="kseq-next" hidden><span id="kNextName">既知点1:未選択</span><button type="button" class="ghost" data-clpick="next">📋 次の既知点を選ぶ</button></div>
             <button type="button" class="big primary kmeas" id="kMeasBtn">📏 計測</button>
@@ -3177,6 +3220,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
         </div>
         <!-- 放射観測 -->
         <div class="ctl-pane" data-pane="radial" hidden>
+          <div class="rad-mon" id="ctMon">
+            <div class="rm-head"><b>📡 今のプリズムの位置</b><span id="ctMonSt">---</span></div>
+            <div class="rm-nums"><div><small id="ctMonXL">X(北)</small><b id="ctMonX">---</b></div><div><small id="ctMonYL">Y(東)</small><b id="ctMonY">---</b></div><div><small>標高 H</small><b id="ctMonH">---</b></div></div>
+          </div>
           <div class="field2"><div><label class="big-label sm" for="ctName">点名</label><input id="ctName" type="text" value="M001" maxlength="16" autocomplete="off" /></div>
             <button type="button" class="big primary" data-act="record" style="align-self:end">記録</button></div>
           <div id="ctRadLast" class="rad-last" aria-live="polite"></div>
@@ -7571,7 +7618,21 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           return { x: inst.x + g * 1000 * Math.sin(a), y: inst.y + g * 1000 * Math.cos(a), az, hd, vd };
         }
         const fmtLen = (mm) => (Math.abs(mm) < 1000 ? `${Math.abs(mm).toFixed(0)} mm` : `${(Math.abs(mm) / 1000).toFixed(3)} m`);
+        // 放射観測のモニター:今のプリズムの位置(X・Y)と標高を、杭ナビの読みが来るたびに出す(操作盤の放射観測と ④ の画面)
+        function renderRadMon() {
+          const P = prismPos(), zi = KuiNavi.zInst, [nx, ny] = axisNames();
+          const st = !inst ? "器械設置をしてください" : !KuiNavi.connected ? "杭ナビにつないでください" : !P ? ((KuiNavi.last && KuiNavi.last.trk === 3) ? "🔍 プリズムをさがしています…" : "プリズムを追尾してください") : "追尾中・" + (P.hd * gridK()).toFixed(3) + " m";
+          let X = "---", Y = "---", H = "---";
+          if (P) { [X, Y] = fmtXY(P.x, P.y); if (zi != null) H = (zi + P.vd - Number($("cfgMirror").value || 0)).toFixed(3); }
+          for (const p of ["ct", "rad"]) {
+            if (!$(p + "MonX")) continue;
+            $(p + "MonXL").textContent = nx; $(p + "MonYL").textContent = ny;
+            $(p + "MonX").textContent = X; $(p + "MonY").textContent = Y; $(p + "MonH").textContent = H;
+            $(p + "MonSt").textContent = st; $(p + "MonSt").classList.toggle("ok", !!P);
+          }
+        }
         function renderGuide() {
+          try { renderRadMon(); } catch (e) { /* モニターが出せなくても誘導は続ける */ }
           if (!$("gFwd")) return;
           const p = byName(target), P = p ? prismPos() : null;
           const lab = (id, t) => { const s = $(id).previousElementSibling; if (s) s.textContent = t; };
@@ -7796,8 +7857,21 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         // 方向角 = 杭ナビの水平角 + 向きのずれ(hOff)。杭ナビ本体の角度は書きかえない(IHANG は送らない)。
         let kSeq = [];       // 計測した既知点 [{ name, h(度), hd(m), vd(m), sd, n, t, r?(残差 mm) }]
         let kNext = null;    // 次に測る既知点の点名
+        // 枠(1点目・2点目…)ごとに前もって選んだ既知点の点名。null = 空の枠。測る順は枠の順(後方交会)
+        let kPlan = (() => { try { const a = JSON.parse(load("kr.kplan") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } })();
+        const kPlanSave = () => store("kr.kplan", JSON.stringify(kPlan));
+        const kSlotCount = () => { const filled = kPlan.filter((x) => x && byName(x)).length; return Math.max(4, kPlan.length, filled >= 4 ? filled + 1 : 0); };
+        function kPlanPut(name, at) {   // 点を枠に入れる(ほかの枠にあれば外す)。at が無ければ最初の空いた枠
+          const old = kPlan.indexOf(name);
+          if (at == null) { if (old >= 0) return old; at = kPlan.findIndex((n) => n == null || !byName(n)); if (at < 0) at = kPlan.length; }
+          if (old >= 0 && old !== at) kPlan[old] = null;
+          while (kPlan.length <= at) kPlan.push(null);
+          kPlan[at] = name; kPlanSave(); return at;
+        }
         function nextKnown() {
           if (ctMethod === "known") { const bs = [k2].find((n) => n && n !== k1 && !kSeq.some((q) => q.name === n)); return bs || null; }
+          const fromPlan = kPlan.find((n) => n && byName(n) && !kSeq.some((q) => q.name === n));
+          if (fromPlan) return fromPlan;
           return [k1, k2].find((n) => n && byName(n) && !kSeq.some((q) => q.name === n)) || null;
         }
         function obsAvg() {
@@ -7817,6 +7891,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (!L || L.trk !== 2 || L.sd == null) { setStatus(`${p.name} のプリズムを追尾して、距離が出てから押してください(🔍 サーチ)。`, true); return; }
           const o = obsAvg(); if (!o) { setStatus("読み取りが足りません。少し待ってからもう一度押してください。", true); return; }
           kSeq = kSeq.filter((q) => q.name !== p.name).concat([{ name: p.name, ...o }]); KuiNavi.measAt = Date.now();
+          if (ctMethod !== "known") kPlanPut(p.name);
           if (roleOf(p) !== "known") p.role = "known";
           if (ctMethod !== "known") { if (kSeq.length === 1) k1 = p.name; else if (kSeq.length === 2 && p.name !== k1) k2 = p.name; }
           beep("meas"); $("kResult").hidden = true; kPending = null;
@@ -7864,6 +7939,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         }
         function renderRad() {
           if (!$("radTable")) return;
+          try { renderRadMon(); } catch (e) { /* */ }
           const [nx, ny] = axisNames();
           $("radLast").innerHTML = radLastHtml(); if ($("ctRadLast")) $("ctRadLast").innerHTML = radLastHtml();
           $("radProg").textContent = rad.length ? `測った点 ${rad.length} 点(この現場に保存しています)` : "まだ測った点はありません。";
@@ -8102,14 +8178,18 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             $("kSeq").innerHTML = `<div class="kseq-row inst"><b>器械点</b><span>${esc(k1 || "未選択")}</span></div>` + kSeq.map((q, i) => row(q, "後視" + (i + 1))).join("") +
               (kSeq.length ? "" : `<p class="step-note" style="margin:0">まだ計測していません。</p>`);
           } else {
-            // 1点目〜4点目の枠(測った点・いま測る点・まだの点)
-            const n = Math.max(4, kSeq.length + 1), cells = [];
+            // 1点目・2点目…の枠。タップでその枠の既知点を前もって選ぶ・変える。全部うまったら枠が1つ増える。「＋ 枠を足す」でも増やせる
+            for (const q of kSeq) kPlanPut(q.name);   // 測った点は必ずどこかの枠に入れる
+            const n = kSlotCount(), cells = [];
+            let curShown = false;
             for (let i = 0; i < n; i++) {
-              const [t, why] = SLOT[i] || [`${i + 1}点目`, "任意"], q = kSeq[i];
-              if (q) cells.push(`<div class="kslot done"><div class="kt">${t}<em>✓ 計測済み</em></div><b>${esc(q.name)}</b><small>${q.hd.toFixed(3)} m${q.r != null ? `・ずれ ${q.r.toFixed(1)} mm` : ""}</small><button type="button" class="ghost" data-kdel="${esc(q.name)}" aria-label="${esc(q.name)} を消す">✕</button></div>`);
-              else if (i === kSeq.length) cells.push(`<div class="kslot cur"><div class="kt">${t}<em>▶ いま測る</em></div>${kNext ? `<b>${esc(kNext)}</b><small>プリズムを立てて追尾 →「📏 計測」</small>` : `<small>(上の点のボタンで選ぶ)</small>`}</div>`);
-              else cells.push(`<div class="kslot"><div class="kt">${t}<em>${why}</em></div><small>(まだ選んでいない)</small></div>`);
+              const [t, why] = SLOT[i] || [`${i + 1}点目`, "任意"], nm = kPlan[i] && byName(kPlan[i]) ? kPlan[i] : null, q = nm && kSeq.find((s) => s.name === nm);
+              if (q) cells.push(`<div class="kslot done" data-kslot="${i}" role="button" aria-label="${t} ${esc(nm)} を変える"><div class="kt">${t}<em>✓ 計測済み</em></div><b>${esc(nm)}</b><small>${q.hd.toFixed(3)} m${q.r != null ? `・ずれ ${q.r.toFixed(1)} mm` : ""}</small><button type="button" class="ghost" data-kdel="${esc(nm)}" aria-label="${esc(nm)} の計測を消す">✕</button></div>`);
+              else if (nm && nm === kNext) { curShown = true; cells.push(`<div class="kslot cur" data-kslot="${i}" role="button" aria-label="${t} ${esc(nm)} を変える"><div class="kt">${t}<em>▶ いま測る</em></div><b>${esc(nm)}</b><small>プリズムを立てて追尾 →「📏 計測」</small></div>`); }
+              else if (nm) cells.push(`<div class="kslot plan" data-kslot="${i}" role="button" aria-label="${t} ${esc(nm)} を変える"><div class="kt">${t}<em>予定・${why}</em></div><b>${esc(nm)}</b><small class="tap">タップで変える</small></div>`);
+              else { const cur = !kNext && !curShown; if (cur) curShown = true; cells.push(`<div class="kslot${cur ? " cur" : ""}" data-kslot="${i}" role="button" aria-label="${t} の既知点を選ぶ"><div class="kt">${t}<em>${cur ? "▶ いま測る" : why}</em></div><small class="tap">タップして既知点を選ぶ</small></div>`); }
             }
+            cells.push(`<div class="kslot add" data-kslot="add" role="button" aria-label="枠を足す">＋ 枠を足す</div>`);
             $("kSeq").innerHTML = `<div class="kslots">${cells.join("")}</div>`;
           }
           const lbl = ctMethod === "known" ? `後視${kSeq.filter((q) => q.name !== k1).length + 1}` : `${kSeq.length + 1}点目`;
@@ -8121,9 +8201,62 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("kDone").textContent = `✓ 計算する(${kSeq.length} 点)`;
         }
         $("kSeqWrap").addEventListener("click", (e) => {
-          const d = e.target.closest("[data-kdel]"); if (!d) return;
-          kSeq = kSeq.filter((q) => q.name !== d.dataset.kdel); kNext = d.dataset.kdel; renderCtl();
+          const d = e.target.closest("[data-kdel]");
+          if (d) { kSeq = kSeq.filter((q) => q.name !== d.dataset.kdel); kNext = d.dataset.kdel; renderCtl(); return; }
+          const pm = e.target.closest("[data-kpm]");
+          if (pm) { store("kr.kpick", pm.dataset.kpm); renderKPickMode(); return; }
+          const s = e.target.closest("[data-kslot]"); if (!s) return;
+          if (s.dataset.kslot === "add") { const n = kSlotCount(); while (kPlan.length < n + 1) kPlan.push(null); kPlanSave(); renderCtl(); return; }
+          kSlotOpen(Number(s.dataset.kslot));
         });
+        // 枠の既知点の選び方:小窓(ダイアログ)か、座標リストの画面か(設定で選ぶ・端末に覚える)
+        const kPickMode = () => (load("kr.kpick") === "screen" ? "screen" : "dlg");
+        function renderKPickMode() { for (const b of $("kPickMode").querySelectorAll("[data-kpm]")) b.setAttribute("aria-pressed", String(b.dataset.kpm === kPickMode())); }
+        renderKPickMode();
+        let kpSlot = 0;
+        const slotName = (i) => (SLOT[i] || [`${i + 1}点目`])[0];
+        function kSlotOpen(i) {
+          kpSlot = i;
+          if (kPickMode() === "screen") { startPick("slot:" + i); return; }
+          $("kpTitle").textContent = `${slotName(i)}の既知点を選ぶ`;
+          $("kpQ").value = ""; renderKpList(); $("kpDlg").hidden = false;
+        }
+        function renderKpList() {
+          const q = $("kpQ").value.trim().toLowerCase(), cur = kPlan[kpSlot];
+          const hit = (p) => !q || p.name.toLowerCase().includes(q);
+          const ks = knowns().filter(hit), os = picks.filter((p) => roleOf(p) !== "known" && !p.temp && hit(p));
+          const row = (p) => { const at = kPlan.indexOf(p.name), [X, Y] = fmtXY(p.x, p.y);
+            return `<button type="button" class="ghost${p.name === cur ? " on" : ""}" data-kp="${esc(p.name)}"><span>${esc(p.name)}${at >= 0 && at !== kpSlot ? `<small>(いま ${slotName(at)})</small>` : ""}</span><small>${X}, ${Y}${inst ? `・${dm(inst, p).toFixed(1)} m` : ""}</small></button>`; };
+          const lim = 300;
+          $("kpList").innerHTML = (ks.length ? `<div class="kp-h">既知点(${ks.length})</div>` + ks.slice(0, lim).map(row).join("") : `<div class="kp-h">既知点はまだありません。下の点から選ぶと既知点になります。</div>`) +
+            (os.length ? `<div class="kp-h">ほかの登録した点(${os.length}。選ぶと既知点になります)</div>` + os.slice(0, lim).map(row).join("") + (os.length > lim ? `<div class="kp-h">…ほか ${os.length - lim} 点(点名でさがしてください)</div>` : "") : "");
+          $("kpClear").disabled = !cur;
+        }
+        $("kpQ").addEventListener("input", renderKpList);
+        $("kpList").addEventListener("click", (e) => { const b = e.target.closest("[data-kp]"); if (!b) return; $("kpDlg").hidden = true; kSlotSet(kpSlot, byName(b.dataset.kp)); });
+        $("kpClear").addEventListener("click", () => { $("kpDlg").hidden = true; kSlotSet(kpSlot, null); });
+        $("kpScreen").addEventListener("click", () => { $("kpDlg").hidden = true; startPick("slot:" + kpSlot); });
+        // 枠 i に点 p を入れる(p = null で空にする)。その枠をもう測ってあって別の点に変えるときは、測った値を消すか聞く
+        function kSlotSet(i, p) {
+          const old = kPlan[i] && byName(kPlan[i]) ? kPlan[i] : null;
+          if (p && old === p.name) { renderCtl(); return; }
+          if (old && kSeq.some((q) => q.name === old)) {
+            if (!confirm(`${slotName(i)} の ${old} はもう計測してあります。${p ? p.name + " に変える" : "空にする"}と、${old} の計測は消えます。よいですか?`)) return;
+            kSeq = kSeq.filter((q) => q.name !== old); kPending = null; $("kResult").hidden = true;
+          }
+          if (p) {
+            if (roleOf(p) !== "known") p.role = "known";
+            const at = kPlan.indexOf(p.name);
+            if (at >= 0 && at !== i) { if (kSeq.some((q) => q.name === p.name)) { /* 測った値はそのまま、枠だけ移す */ } kPlan[at] = null; }
+            while (kPlan.length <= i) kPlan.push(null);
+            kPlan[i] = p.name;
+          } else if (i < kPlan.length) kPlan[i] = null;
+          kPlanSave();
+          if (kNext === old || !kNext || kSeq.some((q) => q.name === kNext)) kNext = null;
+          kNext = nextKnown();
+          setStatus(p ? `📐 ${slotName(i)}を ${p.name} にしました。` + (kNext ? `次に測るのは ${kNext} です。プリズムを立てて追尾し「📏 計測」。` : "") : `${slotName(i)}を空にしました。`);
+          afterChange(); renderCtl();
+        }
         $("kMeasBtn").addEventListener("click", measNext);
         $("kDone").addEventListener("click", solveInst);
         $("kReset").addEventListener("click", () => { if (kSeq.length && !confirm("計測した既知点を全部消して、はじめから測り直しますか?")) return; kSeq = []; kNext = null; $("kResult").hidden = true; renderCtl(); });
@@ -8704,7 +8837,8 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         function setKnown(which, p) {
           if (!p) return;
           if (roleOf(p) !== "known") p.role = "known";
-          if (which === "next") { kNext = p.name; afterChange(); renderCtl(); setStatus(`📐 次に計測する既知点を ${p.name} にしました。プリズムを立てて追尾し「📏 計測」を押してください。`); return; }
+          if (/^slot:/.test(which)) { kSlotSet(Number(which.slice(5)), p); return; }
+          if (which === "next") { kNext = p.name; if (ctMethod !== "known") kPlanPut(p.name); afterChange(); renderCtl(); setStatus(`📐 次に計測する既知点を ${p.name} にしました。プリズムを立てて追尾し「📏 計測」を押してください。`); return; }
           if (which === "k1") { k1 = p.name; if (k2 === k1) k2 = null; } else { k2 = p.name; if (k1 === k2) k1 = null; }
           afterChange();
           setStatus(`📐 ${p.name} を${which === "k1" ? "既知点1" : "既知点2"}にしました(後方交会)。` + (k1 && k2 ? `既知点1 ${k1}・既知点2 ${k2}。` : ""));
@@ -8761,7 +8895,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             return `<tr data-n="${esc(p.name)}" class="${p.name === clSelN ? "sel" : ""} ${p.name === target ? "tgt" : ""}"><td><b>${esc(p.name)}</b>${p.name === k1 ? '<span class="k">既知1</span>' : p.name === k2 ? '<span class="k">既知2</span>' : kn ? '<span class="k">既知</span>' : ""}${p.done ? '<span class="dn">✓</span>' : ""}</td><td>${X}</td><td>${Y}</td><td>${fmtH(p.h)}</td><td>${inst ? dm(inst, p).toFixed(2) : "--"}</td></tr>`;
           }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--sub)">${picks.length ? "合う点がありません" : "まだ点がありません(⚙ 座標値設定・📥 受け取る で入れます)"}</td></tr>`;
           $("clPickBar").hidden = !clPick;
-          if (clPick) $("clPickMsg").textContent = clPick === "target" ? "出す点にする点をタップ(既知点・基地点も選べます)" : clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
+          if (clPick) $("clPickMsg").textContent = clPick === "target" ? "出す点にする点をタップ(既知点・基地点も選べます)" : clPick === "next" ? `次に計測する既知点をタップ(計測済み ${kSeq.length} 点)` : /^slot:/.test(clPick) ? `${slotName(Number(clPick.slice(5)))}にする既知点をタップ(器械設置)` : `${clPick === "k1" ? "既知点1" : "既知点2"}にする点をタップ(後方交会)` + (clPick === "k1" && k2 ? `・既知点2 は ${k2}` : clPick === "k2" && k1 ? `・既知点1 は ${k1}` : "");
           const ds = picks.filter((p) => roleOf(p) !== "known");
           $("clCsv").disabled = $("clSima").disabled = !list.length;
           $("clNote").textContent = `${list.length} 点を表示(全部 ${picks.length} 点・設計点 ${ds.length}・打った ${ds.filter((p) => p.done).length})。` + (clF === "near" && !inst ? "近い順は ① 据付 で杭ナビの位置を決めると使えます。" : "") + "点をタップして選びます。⬇ は表示している点をそのまま書き出します。";
