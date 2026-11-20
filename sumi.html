@@ -2180,7 +2180,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>ECP一撃逃墨太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.3.1 11/19</small></h1>
+      <h1>ECP一撃逃墨太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.4.0 11/20</small></h1>
       <button class="help-btn ghost" id="helpBtn" type="button">使い方</button>
     </header>
     <main>
@@ -4771,7 +4771,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let toScreen = (p) => p;
         // 拡大縮小・移動。fit(全体が入る写し方)の上に、倍率 zk と画面の移動量 panX・panY を掛ける
         let zk = 1, panX = 0, panY = 0;
-        const ZMIN = 0.5, ZMAX = 5000;
+        const ZMIN = 0.5, ZMAX = 200000;   // 2026-11-20 ゆきちゃん「倍率をもっと上げて」(5000 → 200000)
         let frame = 0;
         const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
         function zoomAt(sx, sy, f) {

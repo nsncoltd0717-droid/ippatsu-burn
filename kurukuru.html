@@ -2705,7 +2705,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.34.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.34.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -5754,7 +5754,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let toScreen = (p) => p;
         // 拡大縮小・移動。fit(全体が入る写し方)の上に、倍率 zk と画面の移動量 panX・panY を掛ける
         let zk = 1, panX = 0, panY = 0;
-        const ZMIN = 0.5, ZMAX = 100000;   // くるくるは公共座標の広い現場もあるので大きく拡大できるように
+        const ZMIN = 0.5, ZMAX = 2000000;   // くるくるは公共座標の広い現場もあるので大きく拡大できるように(2026-11-20 100000 → 2000000)
         let frame = 0;
         const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
         function zoomAt(sx, sy, f) {
