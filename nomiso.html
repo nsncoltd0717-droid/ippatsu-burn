@@ -2237,7 +2237,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.12.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -2316,6 +2316,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <button type="button" data-t="mark" aria-pressed="false">× 記号</button>
           <button type="button" data-t="text" aria-pressed="false">Ａ 文字入れ</button>
           <button type="button" data-t="erase" aria-pressed="false">🧽 消しゴム</button>
+          <button type="button" data-t="mv" aria-pressed="false">✥ 図形移動</button>
+          <button type="button" data-t="etext" aria-pressed="false">✏ 文字編集</button>
           <button type="button" data-t="vtx" aria-pressed="false">↔ 端点</button>
           <button type="button" data-t="cut" aria-pressed="false">✂ 切る</button>
         </div>
@@ -2340,6 +2342,21 @@ canvas.xs-3d { background: #0b0c0e !important; }
             <label class="big-label" for="eText">文字を直す</label>
             <div class="row"><div><input id="eText" type="text" /></div><button class="ghost" id="eTextOk" type="button" style="width:auto">直す</button></div>
           </div>
+        </div>
+        <div id="eMvBox" hidden>
+          <p class="step-note" id="eMvNote">① 動かしたい図形をタップ(いくつでも)</p>
+          <div class="field2">
+            <button class="ghost" id="eMvBase" type="button" disabled>② 元の点をえらぶ</button>
+            <button class="ghost" id="eMvCancel" type="button" disabled>やめる</button>
+          </div>
+          <label class="big-label"><input id="eMvCopy" type="checkbox" /> 元を残して写す(コピー)</label>
+        </div>
+        <div id="eEtBox" hidden>
+          <div class="field2">
+            <div><label class="big-label sm" for="eEtText">文字</label><input id="eEtText" type="text" /></div>
+            <div><label class="big-label sm" for="eEtH">文字の高さ(mm)</label><input id="eEtH" type="number" step="50" inputmode="decimal" /></div>
+          </div>
+          <button id="eEtOk" type="button" disabled>直す</button>
         </div>
         <div id="eTextAdd" hidden>
           <div class="field2">
@@ -4750,6 +4767,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let mSub = "pts";             // pts | ent
         let eTool = "sel";            // sel | line | aux | mark | text | erase(消しゴム 2026-11-19) | vtx(端点を動かす)| cut(切る)(2026-11-20)
         let vtxSt = null;             // 端点を動かす:えらんだ端 {key, i, x, y}
+        let mvSt = null;              // 図形移動:{ keys, from? }(2026-11-21)
+        let etKey = null;             // 文字編集:えらんだ文字のキー(2026-11-21)
         let aKind = "h";
         const kindOf = { line: "poly", aux: "h" };   // 「線」と「補助線」で、えらんだ種類を別々に覚える              // 補助線: h 水平 | v 垂直 | ang 角度 | par 平行 | circ 補助円
         let auxSt = null;             // 補助線の途中 {seg} {arc} {c}
@@ -4846,7 +4865,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             });
             else if (op.t === "line") L.set(`A${n}`, { key: `A${n}`, layer: op.layer, closed: !!op.closed, points: op.pts, draw: op.pts, added: true });
             else if (op.t === "text") T.set(`A${n}`, { key: `A${n}`, x: op.x, y: op.y, text: op.text, height: op.height, ang: 0, layer: op.layer, added: true });
-            else if (op.t === "edtext") { const t = T.get(op.key); if (t) T.set(op.key, { ...t, text: op.text }); }
+            else if (op.t === "edtext") { const t = T.get(op.key); if (t) T.set(op.key, { ...t, text: op.text, ...(op.height > 0 ? { height: op.height } : {}) }); }
             else if (op.t === "aux") L.set(`A${n}`, auxEnt(op, `A${n}`));
             else if (op.t === "arc") L.set(`A${n}`, { key: `A${n}`, layer: op.layer, added: true, ...arcGeo(op.x, op.y, op.r, op.a0 || 0, op.a1 || 360, !!op.full) });
             else if (op.t === "mark") M.set(`A${n}`, { key: `A${n}`, mark: true, x: op.x, y: op.y, kind: op.kind || 9, size: op.size || 400, ang: 0, layer: op.layer, added: true });
@@ -5226,6 +5245,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
             }
             if (auxSt && auxSt.seg) el("polyline", { points: ptsAttr([auxSt.seg.a, auxSt.seg.b]), class: "sel" });
             if (auxSt && auxSt.arc) hiEnt(auxSt.ent);
+            if (mvSt) { for (const k of mvSt.keys) hiEnt(findEnt(k)); if (mvSt.base) { const s = toScreen([mvSt.base.x, mvSt.base.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 6, class: "mp" }); label(s[0] + 8, s[1] - 8, "元", "ms"); } }
+            if (etKey && eTool === "etext") hiEnt(findEnt(etKey));
             if (vtxSt) { hiEnt(findEnt(vtxSt.key)); const s = toScreen([vtxSt.x, vtxSt.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 6, class: "mp" }); label(s[0] + 8, s[1] - 8, "端", "ms"); }
             if (auxSt && auxSt.c) { const s = toScreen([auxSt.c.x, auxSt.c.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5.5, class: "auxpt" }); }
             if (auxSt && auxSt.c2) { const s = toScreen([auxSt.c2.x, auxSt.c2.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5.5, class: "auxpt" }); }
@@ -5681,6 +5702,34 @@ canvas.xs-3d { background: #0b0c0e !important; }
             const size = Number($("eMarkSize").value) || 400;
             addOp({ t: "mark", x: s.x, y: s.y, kind: 9, size, layer: layerName() });
             setStatus(`✓ × を置きました(${KIND[s.kind]})。続けて置けます。`);
+          } else if (eTool === "mv") {   // 図形移動:① 図形をタップ(いくつでも) → 「② 元の点へ」→ 元の点 → 行き先
+            if (!mvSt || !mvSt.base) {
+              if (mvSt && mvSt.pickBase) {
+                const s = snapAt(sx, sy); hover = s; mvSt.base = s;
+                setStatus(`③ 行き先をタップしてください(${KIND[s.kind]}から動かします。吸い付きます)。`); draw(); return;
+              }
+              const k = entAt(sx, sy);
+              if (!k) { setStatus("そばに図形がありません。拡大して、動かしたい図形をタップしてください。", true); return; }
+              if (!mvSt) mvSt = { keys: [] };
+              const i = mvSt.keys.indexOf(k); if (i >= 0) mvSt.keys.splice(i, 1); else mvSt.keys.push(k);
+              if (!mvSt.keys.length) mvSt = null;
+              mvUi();
+              setStatus(mvSt ? `① ${mvSt.keys.length} 個えらびました(もう一度タップで外す)。ほかにも動かすならタップ、決まったら下の「② 元の点をえらぶ」。` : "動かしたい図形をタップしてください。");
+              draw(); return;
+            }
+            const s = snapAt(sx, sy), b = mvSt.base, dx = s.x - b.x, dy = s.y - b.y;
+            if (Math.hypot(dx, dy) < 0.01) { setStatus("元の点と同じ所です。行き先をタップしてください。", true); return; }
+            const keys = mvSt.keys, copy = $("eMvCopy").checked;
+            mvSt = null; hover = s; mvUi();
+            addOp({ t: "move", keys, dx, dy, copy });
+            const [DX, DY] = TL.toDisplay([dx, dy], axis(), unitName()), [nx, ny] = axisNames();
+            setStatus(`✓ ${keys.length} 個を${copy ? "写しました" : "動かしました"}(Δ${nx} ${TL.formatCoord(DX, 3)}・Δ${ny} ${TL.formatCoord(DY, 3)} ${unitName()})。続けて、次に動かす図形をタップできます。`);
+          } else if (eTool === "etext") {   // 文字編集:文字をタップ → 下の欄で文字・高さを直す
+            const k = entAt(sx, sy); const t = k ? findEnt(k) : null;
+            if (!t || t.text === undefined) { setStatus("そばに文字がありません。拡大して、直したい文字をタップしてください。", true); return; }
+            etKey = k; $("eEtText").value = t.text; $("eEtH").value = Math.round(t.height || (idx && idx.hDef) || 300); $("eEtBox").hidden = false; $("eEtOk").disabled = false;
+            setStatus(`「${t.text}」をえらびました。下の欄で文字・高さを直して「直す」を押してください。`);
+            draw(); setTimeout(() => { try { $("eEtText").focus(); $("eEtText").select(); } catch (e) { /* */ } }, 50);
           } else if (eTool === "vtx") {   // 端点を動かす:① 端をタップ → ② 行き先をタップ(吸い付く)
             if (!vtxSt) {
               const v = vtxAt(sx, sy);
@@ -5974,6 +6023,23 @@ canvas.xs-3d { background: #0b0c0e !important; }
           doMove(dx, dy);
         });
         $("eMove2").addEventListener("click", () => { if (!sel.size) return; move2 = {}; setStatus("① 動かす元の点(角など)をタップしてください。"); });
+        function mvUi() {
+          const n = mvSt ? mvSt.keys.length : 0;
+          $("eMvBase").disabled = !n || !!(mvSt && mvSt.pickBase); $("eMvCancel").disabled = !mvSt;
+          $("eMvNote").textContent = !mvSt ? "① 動かしたい図形をタップ(いくつでも)" : mvSt.base ? "③ 行き先をタップ" : mvSt.pickBase ? "② 元の点(角・端など)をタップ" : `① ${n} 個えらんでいます`;
+        }
+        $("eMvBase").addEventListener("click", () => { if (!mvSt || !mvSt.keys.length) return; mvSt.pickBase = true; mvUi(); setStatus("② 動かす元の点(角・端など)をタップしてください(吸い付きます)。"); });
+        $("eMvCancel").addEventListener("click", () => { mvSt = null; hover = null; mvUi(); draw(); setStatus("やめました。動かしたい図形をタップしてください。"); });
+        $("eEtOk").addEventListener("click", () => {
+          const t = etKey && findEnt(etKey), s = $("eEtText").value.trim(), h = Number($("eEtH").value) || 0;
+          if (!t || t.text === undefined) { setStatus("先に直したい文字をタップしてください。", true); return; }
+          if (!s) { setStatus("⚠ 文字を入れてください(消すときは 🧽 消しゴム)。", true); return; }
+          const hOld = Math.round(t.height || (idx && idx.hDef) || 300), hNew = h > 0 && Math.round(h) !== hOld ? h : 0;
+          if (s === t.text && !hNew) { setStatus("変わっていません。"); return; }
+          addOp({ t: "edtext", key: etKey, text: s, ...(hNew ? { height: hNew } : {}) });
+          setStatus(`✓ 文字を「${s}」に直しました${hNew ? `(高さ ${hNew} mm)` : ""}。続けて、ほかの文字をタップできます。`);
+        });
+        $("eEtText").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("eEtOk").click(); } });
         $("eTextOk").addEventListener("click", () => {
           const k = [...sel][0], t = findEnt(k), s = $("eText").value.trim();
           if (!t || t.text === undefined || !s || s === t.text) return;
@@ -6248,7 +6314,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
         });
         for (const b of $("eTool").querySelectorAll("button")) b.addEventListener("click", () => {
           if (eTool === "line" || eTool === "aux") kindOf[eTool] = aKind;
-          eTool = b.dataset.t; newLine = []; move2 = null; hover = null; auxSt = null; auxPickAng = false; vtxSt = null;
+          eTool = b.dataset.t; newLine = []; move2 = null; hover = null; auxSt = null; auxPickAng = false; vtxSt = null; mvSt = null; etKey = null;
+          $("eMvBox").hidden = eTool !== "mv"; $("eEtBox").hidden = true; $("eEtOk").disabled = true; mvUi();
           if (eTool === "line" || eTool === "aux") { aKind = kindOf[eTool]; for (const c of $("eAuxKind").querySelectorAll("button")) c.setAttribute("aria-pressed", String(c.dataset.a === aKind)); }
           for (const c of $("eTool").querySelectorAll("button")) c.setAttribute("aria-pressed", String(c === b));
           $("eSelBox").hidden = eTool !== "sel"; $("eTextAdd").hidden = eTool !== "text";
@@ -6257,9 +6324,11 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("eLineEnd").disabled = $("eLineCancel").disabled = true;
           $("eNote").textContent = eTool === "sel" ? "直したい図形(線・文字・記号・補助線)をタップしてえらびます(もう一度タップで外す。いくつでもえらべます)。" : eTool === "line" ? "線の引き方をえらんでください(折れ線・自由・水平・垂直・角度・平行・垂線・中心線・円・3点円弧)。画層は下の「足す図形の画層」。" : eTool === "aux" ? "補助線は点線で出ます。交点・線の上に吸い付くので、寸法・座標・線を引くときの目安に使えます。" : eTool === "mark" ? "大きさを入れて、× を置く所をタップ(吸い付きます)。" : "文字と高さを入れてから、置きたい所をタップ。";
           if (eTool === "erase") $("eNote").textContent = "消したい図形(線・文字・記号・補助線)をタップすると、すぐ消えます。まちがえたら左上の「↶ 戻す」。";
+          if (eTool === "mv") $("eNote").textContent = "① 動かしたい図形(線・文字・記号・補助線)をタップ(いくつでも)→「② 元の点をえらぶ」→ 元の点 → ③ 行き先。点は端・交点などに吸い付きます。「元を残して写す」にすると、コピーになります。";
+          if (eTool === "etext") $("eNote").textContent = "直したい文字をタップすると、下に文字と高さが出ます。直して「直す」(またはキーボードの改行)。";
           if (eTool === "vtx") $("eNote").textContent = "① 動かしたい線の端・角をタップ → ② 行き先をタップ(端・交点・線の上に吸い付きます)。円弧の端は円の上でずれます(のばす・ちぢめる)。まちがえたら「↶ 戻す」。";
           if (eTool === "cut") $("eNote").textContent = "切りたい所をタップすると、そこで線が 2 本に分かれます(交点・線の上に吸い付きます)。円弧も切れます。分けたあとは「えらぶ」で片方だけ消す・動かすができます。";
-          setStatus(eTool === "sel" ? NOTE.edit : eTool === "line" ? auxNote() : eTool === "aux" ? auxNote() : eTool === "mark" ? "× を置く所をタップしてください。" : eTool === "erase" ? "🧽 消しゴム:消したい図形をタップしてください。" : eTool === "vtx" ? "↔ 端点:動かしたい線の端・角をタップしてください。" : eTool === "cut" ? "✂ 切る:線を切りたい所をタップしてください。" : "文字を置く所をタップしてください。");
+          setStatus(eTool === "sel" ? NOTE.edit : eTool === "line" ? auxNote() : eTool === "aux" ? auxNote() : eTool === "mark" ? "× を置く所をタップしてください。" : eTool === "erase" ? "🧽 消しゴム:消したい図形をタップしてください。" : eTool === "mv" ? "✥ 図形移動:動かしたい図形をタップしてください。" : eTool === "etext" ? "✏ 文字編集:直したい文字をタップしてください。" : eTool === "vtx" ? "↔ 端点:動かしたい線の端・角をタップしてください。" : eTool === "cut" ? "✂ 切る:線を切りたい所をタップしてください。" : "文字を置く所をタップしてください。");
           draw();
         });
         $("tTexts").setAttribute("aria-pressed", String(showTexts));
@@ -6352,7 +6421,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             if (!orig.texts.length) orig.texts = TL.textsFromDxf(buf, 1).map((t, i) => ({ ...t, ang: 0, layer: t.layer || "0", key: "T" + i }));
             origMarks = rawMarks.map((m, i) => ({ ...m, key: "M" + i, mark: true }));
             zMarks = origMarks;
-            hiddenLayers = new Set(); sel = new Set(); viewPick = null; mPts = []; mEnt = null; cPts = []; cNo = 0; newLine = []; move2 = null; hover = null; auxSt = null; auxPickAng = false; vtxSt = null;
+            hiddenLayers = new Set(); sel = new Set(); viewPick = null; mPts = []; mEnt = null; cPts = []; cNo = 0; newLine = []; move2 = null; hover = null; auxSt = null; auxPickAng = false; vtxSt = null; mvSt = null; etKey = null;
             $("viewInfo").innerHTML = ""; $("mInfo").innerHTML = ""; coordTable();
             loadOps();
             rebuild();
