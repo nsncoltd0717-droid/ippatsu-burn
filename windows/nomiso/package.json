@@ -13,6 +13,7 @@
     "electron": "39.8.9",
     "@electron/packager": "20.3.0",
     "resedit": "3.1.1",
-    "png-to-ico": "3.0.2"
-  }
+    "electron-builder": "26.18.1"
+  },
+  "author": "一発バーン"
 }

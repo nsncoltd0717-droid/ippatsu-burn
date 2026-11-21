@@ -1,7 +1,8 @@
 // 脳みそバーン無敵CAD forWindows を組み立てる:  cd windows/nomiso && npm install && node build.js
 // 1. リポジトリ直下の nomiso.html・kamashi.html・vendor/libredwg を app/ に写す(元の HTML はさわらない)
 // 2. Windows 用に小さく手当て(sw.js を使わない・⌂ を2本の切り替えに・くるくるへ飛ばない・保存の名前)
-// 3. Electron で win32 x64 に固めて、exe のアイコンと版情報を書き換え、zip にする
+// 3. Electron で固め、exe のアイコンと版情報を書き換え、フォルダ版(zip)とインストーラー(setup.exe)を作る
+//    インストーラーは Windows で組み立てる(Linux で試すだけなら node build.js --no-setup)
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -56,7 +57,7 @@ function patch(src, me) {
   return s;
 }
 
-console.log("1/4 app/ を作る");
+console.log("1/5 app/ を作る");
 rm(APPDIR);
 fs.mkdirSync(APPDIR, { recursive: true });
 for (const me of ["nomiso", "kamashi"]) {
@@ -68,7 +69,7 @@ fs.copyFileSync(path.join(REPO, "icon-512.png"), path.join(HERE, "icon.png"));
 
 // ---- Electron で固める
 (async () => {
-  console.log("2/4 Electron で固める");
+  console.log("2/5 Electron で固める");
   rm(DIST);
   const { packager } = require("@electron/packager");
   const [out] = await packager({
@@ -81,10 +82,9 @@ fs.copyFileSync(path.join(REPO, "icon-512.png"), path.join(HERE, "icon.png"));
   const loc = path.join(out, "locales");
   for (const f of fs.readdirSync(loc)) if (!/^(ja|en-US)\.pak$/.test(f)) fs.rmSync(path.join(loc, f));
 
-  console.log("3/4 exe のアイコンと版情報");
+  console.log("3/5 exe のアイコンと版情報");
   const ResEdit = require("resedit");
-  const pngToIco = (require("png-to-ico").default || require("png-to-ico"));
-  const ico = await pngToIco(path.join(HERE, "icon.png"));
+  const ico = fs.readFileSync(path.join(HERE, "icon.ico"));   // 16〜256 の大きさ入り(icon-512.png から作ったもの。写真ペン太郎と同じ)
   const exePath = path.join(out, `${EXE}.exe`);
   const exe = ResEdit.NtExecutable.from(fs.readFileSync(exePath), { ignoreCert: true });
   const res = ResEdit.NtExecutableResource.from(exe);
@@ -107,9 +107,9 @@ fs.copyFileSync(path.join(REPO, "icon-512.png"), path.join(HERE, "icon.png"));
     `脳みそバーン無敵CAD forWindows  v${pkg.version}(一発かまし太郎入り)`,
     "",
     "■ 使い方",
-    `  このフォルダの中の ${EXE}.exe をダブルクリックすると開きます。`,
-    "  よく使うなら、exe を右クリック →「ショートカットの作成」→ できたショートカットをデスクトップへ。",
-    "  インストールは要りません。フォルダごと好きな場所に置いて使えます(フォルダの中身はばらさないでください)。",
+    "  ふつうはインストーラー(脳みそバーン無敵CADforWindows_Setup_v<版>.exe)で入れてください。",
+    "  デスクトップとスタートメニューに「脳みそバーン無敵CAD」ができます。",
+    `  このフォルダ(フォルダ版)のまま使うときは、中の ${EXE}.exe をダブルクリックします。`,
     "",
     "■ 2本の切り替え",
     "  上の「③ かまし太郎へ」「① 脳みそバーンへ」のボタン、またはメニューの「アプリ」(Ctrl+1 / Ctrl+2)で切り替えます。",
@@ -127,11 +127,13 @@ fs.copyFileSync(path.join(REPO, "icon-512.png"), path.join(HERE, "icon.png"));
     "",
   ].join("\r\n"), "utf8");
 
-  console.log("4/4 zip にする");
+  console.log("4/5 フォルダ版の zip");
   const top = path.join(DIST, OUTNAME);
   fs.renameSync(out, top);
   const zip = path.join(DIST, `${OUTNAME}.zip`);
-  execFileSync("python3", ["-I", "-c", `
+  // 日本語のファイル名が Windows のエクスプローラーで化けないように、Python の zipfile(UTF-8 の印付き)で固める
+  try {
+    execFileSync(process.platform === "win32" ? "python" : "python3", ["-I", "-c", `
 import os, sys, zipfile
 src, dst = sys.argv[1], sys.argv[2]
 base = os.path.dirname(src)
@@ -142,5 +144,36 @@ with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
             p = os.path.join(root, f)
             z.write(p, os.path.relpath(p, base))
 `, top, zip], { stdio: "inherit" });
-  console.log("できあがり:", zip, (fs.statSync(zip).size / 1048576).toFixed(1) + " MB");
+    console.log("できました:", zip);
+  } catch (e) {
+    console.warn("zip は作れませんでした(python がない等)。フォルダ版はそのまま使えます:", top);
+  }
+  if (process.argv.includes("--no-setup")) return;
+
+  // インストーラー(setup.exe)。上で作ったフォルダをそのまま NSIS で包む(Windows で組み立てる。Linux では wine が要る)
+  console.log("5/5 インストーラー");
+  const SETUP = `${OUTNAME.replace("forWindows_v", "forWindows_Setup_v")}.exe`;
+  const builder = require("electron-builder");
+  await builder.build({
+    targets: builder.Platform.WINDOWS.createTarget("nsis", builder.Arch.x64),
+    projectDir: HERE,
+    prepackaged: top,
+    config: {
+      appId: "net.ippatsu.nomiso",
+      productName: pkg.productName,
+      copyright: "一発バーン",
+      directories: { output: path.join(DIST, "installer") },
+      win: { icon: "icon.ico", executableName: EXE, signAndEditExecutable: false },
+      nsis: {
+        oneClick: false, perMachine: false, allowElevation: true, allowToChangeInstallationDirectory: true,
+        createDesktopShortcut: true, createStartMenuShortcut: true, shortcutName: pkg.productName, uninstallDisplayName: pkg.productName,
+        installerIcon: "icon.ico", uninstallerIcon: "icon.ico", installerLanguages: ["ja_JP"], language: "1041",
+        deleteAppDataOnUninstall: false, runAfterFinish: true,
+        artifactName: SETUP,
+      },
+    },
+  });
+  fs.renameSync(path.join(DIST, "installer", SETUP), path.join(DIST, SETUP));
+  fs.rmSync(path.join(DIST, "installer"), { recursive: true, force: true });
+  console.log("できました:", path.join(DIST, SETUP), (fs.statSync(path.join(DIST, SETUP)).size / 1048576).toFixed(1) + " MB");
 })().catch((e) => { console.error(e); process.exit(1); });
