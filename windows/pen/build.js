@@ -1,6 +1,7 @@
 // 写真ペン太郎 forWindows の組み立て
 //   node build.js --prepare  … app/ に pen.html と部品を写すだけ(npm start 用)
-//   node build.js            … Windows 用(64bit)に組み立てて dist/ に zip を作る
+//   node build.js            … Windows 用(64bit)に組み立てて dist/ にフォルダ・zip・インストーラー(setup.exe)を作る
+//                              ※インストーラーは Windows で組み立てること(Linux では wine が要る)
 // 元にするのはリポジトリ直下の pen.html(一発バーンのアプリ版と同じもの)。
 const fs = require('fs');
 const path = require('path');
@@ -41,7 +42,6 @@ HTMLAnchorElement.prototype.click = function(){ try { if (this.download && this.
 async function build() {
   prepare();
   const { packager } = require('@electron/packager');
-  const pngToIco = require('png-to-ico').default || require('png-to-ico');
   const ResEdit = require('resedit');
 
   fs.rmSync(DIST, { recursive: true, force: true });
@@ -60,7 +60,7 @@ async function build() {
 
   // exe のアイコンと説明を入れる(Linux でも動くように resedit で書き換える)
   const exe = path.join(outDir, 'ShashinPenTaro.exe');
-  const ico = await pngToIco([path.join(HERE, 'icon.png')]);
+  const ico = fs.readFileSync(path.join(HERE, 'icon.ico'));   // 16〜256 の大きさ入り(icon-512.png から作ったもの)
   const data = fs.readFileSync(exe);
   const ex = ResEdit.NtExecutable.from(data);
   const res = ResEdit.NtExecutableResource.from(ex);
@@ -81,8 +81,8 @@ async function build() {
 `写真ペン太郎 forWindows v${pkg.version}
 
 ■ 起動
-  このフォルダの「ShashinPenTaro.exe」をダブルクリックします。
-  よく使うなら、右クリック →「スタートにピン留めする」か「送る → デスクトップ (ショートカットを作成)」。
+  インストーラー版：デスクトップかスタートメニューの「写真ペン太郎」から。
+  フォルダ版(zip)：このフォルダの「ShashinPenTaro.exe」をダブルクリックします。
 
 ■ 使い方
   スマホ版と同じです。写真はボタンから選ぶか、窓へドラッグして入れます。
@@ -106,6 +106,32 @@ async function build() {
   } catch (e) {
     console.warn('zip は作れませんでした(python3 がない等)。フォルダはそのまま使えます:', path.join(DIST, folder));
   }
+
+  // インストーラー(setup.exe)。上で作ったフォルダをそのまま NSIS で包む
+  const builder = require('electron-builder');
+  await builder.build({
+    targets: builder.Platform.WINDOWS.createTarget('nsis', builder.Arch.x64),
+    projectDir: HERE,
+    prepackaged: path.join(DIST, folder),
+    config: {
+      appId: 'net.ippatsu.shashinpen',
+      productName: NAME,
+      copyright: '一発バーン',
+      directories: { output: path.join(DIST, 'installer') },
+      win: { icon: 'icon.ico', executableName: 'ShashinPenTaro', signAndEditExecutable: false },
+      nsis: {
+        oneClick: false, perMachine: false, allowElevation: true, allowToChangeInstallationDirectory: true,
+        createDesktopShortcut: true, createStartMenuShortcut: true, shortcutName: NAME, uninstallDisplayName: NAME,
+        installerIcon: 'icon.ico', uninstallerIcon: 'icon.ico', installerLanguages: ['ja_JP'], language: '1041',
+        deleteAppDataOnUninstall: false, runAfterFinish: true,
+        artifactName: `写真ペン太郎forWindows_Setup_v${pkg.version}.exe`,
+      },
+    },
+  });
+  const setup = `写真ペン太郎forWindows_Setup_v${pkg.version}.exe`;
+  fs.renameSync(path.join(DIST, 'installer', setup), path.join(DIST, setup));
+  fs.rmSync(path.join(DIST, 'installer'), { recursive: true, force: true });
+  console.log('できました:', path.join(DIST, setup));
 }
 
 if (process.argv.includes('--prepare')) prepare();
