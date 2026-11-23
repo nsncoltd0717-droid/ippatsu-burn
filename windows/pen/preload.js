@@ -5,6 +5,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('penApp', {
   windows: true,
+  editorWindow: true,   // 0.4.0 から：写真の編集を別の窓で開ける
+  focusSelf: () => ipcRenderer.send('pen:focus-self'),
   noteDownload: (href, name) => ipcRenderer.send('pen:dl-name', String(href || ''), String(name || '')),
   update: () => ipcRenderer.invoke('pen:update'),
   fs: {
