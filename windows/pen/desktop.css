@@ -68,8 +68,8 @@ html.dk.dk-cfg body.home #dk{display:none}
 #dkThumbs{flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px;align-content:start;background:#14161b}
 #dkThumbs .msg{grid-column:1/-1;color:var(--sub);font-size:13px;padding:20px;text-align:center;line-height:1.7}
 .dkth{background:#1f232b;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;user-select:none;position:relative}
-.dkth .im{aspect-ratio:4/3;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.dkth .im img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+.dkth .im{background:#000;display:block;line-height:0}
+.dkth .im img{width:100%;height:auto;aspect-ratio:4/3;object-fit:contain;display:block;pointer-events:none;background:#000}
 .dkth .nm{font-size:11px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub)}
 .dkth.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
 .dkth .used{position:absolute;right:4px;top:4px;background:#18c25a;color:#062;font-size:10px;font-weight:bold;border-radius:5px;padding:0 5px}
@@ -110,3 +110,6 @@ html.pen-editor #home, html.pen-editor #dk, html.pen-editor #bUpd{display:none!i
 .dkslot .txed .btns button:not(.pri){background:#e8ebf0;color:#222;border-color:#c5cad3}
 .dkslot.editing{outline:3px solid #1e7bff;outline-offset:-2px;z-index:2}
 .dkslot.editing .ops{display:none!important}
+/* ページを先に増やす */
+.dkpage.extra .empty{color:#b9bec8}
+#dkL>.dkbar{flex-wrap:wrap;overflow:visible;row-gap:4px}
