@@ -1,0 +1,81 @@
+/* 写真ペン太郎 forWindows：パソコン用の2列の画面
+   左＝工事写真の枠（ページ）、右＝写真フォルダのツリーと写真の一覧。
+   pen.html はさわらず、main.js が開くときにこのファイルを差し込む。 */
+
+/* 写し太郎は同じ端末のブラウザの中にあるので、Windows版からは読めない */
+#bUts{display:none!important}
+/* アプリを選ぶ画面はない */
+header .menuback{display:none!important}
+
+#bUpd{margin-left:6px}
+#bUpd.busy{opacity:.6;pointer-events:none}
+
+/* 一覧の画面：元の縦並び(#home)の代わりに2列(#dk)を出す。初期設定の時だけ元の画面を左に出す */
+body.home.dk #home{display:none}
+body.home.dk.dk-cfg #home{display:block}
+body.edit #dk{display:none!important}
+#dk{flex:1;min-height:0;display:flex;gap:0}
+body.home.dk.dk-cfg #dk{display:none}
+
+#dkL{flex:1 1 56%;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+#dkR{flex:1 1 44%;min-width:380px;display:flex;flex-direction:column}
+.dkbar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bar);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dkbar .sp{flex:1}
+.dkbar button{padding:6px 10px;font-size:13px}
+.dkbar .pg{font-size:13px;color:var(--sub);min-width:84px;text-align:center}
+.dkbar .ttl{font-weight:bold;font-size:13px;margin-right:4px}
+
+/* ---- 左：ページ ---- */
+#dkPages{flex:1;overflow:auto;background:#5b616b;padding:18px 0 40px;display:flex;flex-direction:column;align-items:center;gap:18px}
+.dkpage{background:#fff;color:#111;width:min(92%,calc((100vh - 150px) * 210 / 297 * var(--z,1)));aspect-ratio:210/297;box-shadow:0 4px 18px rgba(0,0,0,.45);padding:5.5% 6% 4%;display:flex;flex-direction:column;position:relative;flex:none}
+.dkpage .pno{position:absolute;right:10px;bottom:6px;font-size:11px;color:#888}
+.dkpage .side{position:absolute;left:10px;bottom:6px;font-size:11px;color:#888}
+.dkslot{flex:1;display:flex;border:1px solid #9aa;min-height:0;margin-top:-1px;position:relative}
+.dkslot .ph{flex:0 0 63%;border-right:1px solid #9aa;display:flex;align-items:center;justify-content:center;background:#f4f5f7;position:relative;overflow:hidden;cursor:pointer}
+.dkslot .ph img{max-width:100%;max-height:100%;object-fit:contain;display:block;pointer-events:none}
+.dkslot .ph .no{position:absolute;left:4px;top:4px;background:rgba(0,0,0,.72);color:#fff;border-radius:5px;padding:0 6px;font-size:11px;font-weight:bold}
+.dkslot .ph .empty{color:#9aa1ad;font-size:13px;text-align:center;line-height:1.6;pointer-events:none}
+.dkslot .tx{flex:1;display:flex;flex-direction:column;min-width:0;cursor:pointer}
+.dkslot .tx div{flex:1;border-bottom:1px dotted #c5cad3;font-size:clamp(8px,1.05vw,12px);line-height:1.2;padding:0 5px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:0}
+.dkslot .tx div:last-child{border-bottom:none}
+.dkslot .tx div.over{color:#c62828}
+.dkslot .tx .more{color:#c62828;font-size:10px}
+.dkslot.filled .ph{background:#fff}
+.dkslot .ops{position:absolute;right:calc(37% + 4px);top:4px;display:none;gap:4px}
+.dkslot:hover .ops{display:flex}
+.dkslot .ops button{padding:2px 7px;font-size:12px;background:rgba(20,22,28,.85);border-color:#444;color:#fff;border-radius:6px}
+.dkslot.cur{outline:3px solid var(--acc);outline-offset:-2px;z-index:1}
+.dkslot.drop{outline:3px dashed #1e7bff;outline-offset:-3px;z-index:2}
+.dkslot.drop::before{content:"";position:absolute;left:-2px;right:-2px;top:-3px;height:5px;background:#1e7bff;z-index:3}
+.dkslot.dragging{opacity:.4}
+
+/* ---- 右：ツリーと写真 ---- */
+#dkSrc{flex:1;display:flex;min-height:0}
+#dkTree{flex:0 0 42%;overflow:auto;border-right:1px solid var(--line);padding:6px 0;font-size:13px;background:#181b21}
+#dkTree .nd{display:flex;align-items:center;gap:3px;padding:3px 6px;cursor:pointer;white-space:nowrap;border-radius:5px;margin:0 4px}
+#dkTree .nd:hover{background:#262b35}
+#dkTree .nd.on{background:#2f4f7a}
+#dkTree .tw{width:16px;text-align:center;color:var(--sub);flex:none;font-size:10px}
+#dkTree .ic{flex:none}
+#dkTree .nm{overflow:hidden;text-overflow:ellipsis}
+#dkTree .root>.nd{font-weight:bold}
+#dkTree .sub{margin-left:14px}
+#dkTree .rm{margin-left:auto;color:var(--sub);font-size:11px;padding:0 4px;visibility:hidden}
+#dkTree .nd:hover .rm{visibility:visible}
+#dkTree .sec{color:var(--sub);font-size:11px;padding:8px 12px 3px}
+
+#dkThumbs{flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px;align-content:start;background:#14161b}
+#dkThumbs .msg{grid-column:1/-1;color:var(--sub);font-size:13px;padding:20px;text-align:center;line-height:1.7}
+.dkth{background:#1f232b;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;user-select:none;position:relative}
+.dkth .im{aspect-ratio:4/3;background:#000;display:flex;align-items:center;justify-content:center}
+.dkth .im img{max-width:100%;max-height:100%;display:block;pointer-events:none}
+.dkth .nm{font-size:11px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub)}
+.dkth.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
+.dkth .used{position:absolute;right:4px;top:4px;background:#18c25a;color:#062;font-size:10px;font-weight:bold;border-radius:5px;padding:0 5px}
+#dkStat{font-size:12px;color:var(--sub)}
+
+/* 編集画面から戻るボタンなどはそのまま */
+.dkbar{flex-wrap:nowrap;overflow:hidden}
+#dkStat{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+@media (max-width:1400px){ .dkbar .ttl{display:none} #dkMode{display:none} }
+#dkR>.dkbar:last-child{padding-right:58px}

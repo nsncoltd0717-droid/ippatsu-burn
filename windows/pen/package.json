@@ -1,0 +1,19 @@
+{
+  "name": "shashin-pen-taro",
+  "productName": "写真ペン太郎",
+  "version": "0.3.0",
+  "description": "写真ペン太郎 forWindows",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node build.js --prepare && electron .",
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "39.8.9",
+    "electron-builder": "26.18.1",
+    "resedit": "3.1.1"
+  },
+  "author": "一発バーン"
+}
