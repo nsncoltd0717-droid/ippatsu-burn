@@ -1,7 +1,7 @@
 {
   "name": "shashin-pen-taro",
   "productName": "写真ペン太郎",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "写真ペン太郎 forWindows",
   "main": "main.js",
   "private": true,

@@ -3,11 +3,16 @@
 // ・app://pen/ という自前の住所で開く(file:// だと DWG 読み込みの部品などが動かないため)
 // ・写真や現場の保存(IndexedDB/localStorage)は %APPDATA%\写真ペン太郎 に残る
 // ・Excel や画像の書き出しは「名前を付けて保存」の窓で保存先を選ぶ
-const { app, BrowserWindow, protocol, shell, Menu, dialog, ipcMain } = require('electron');
+// ・パソコン用の2列の画面(desktop.js / desktop.css)を pen.html に差し込んで出す
+// ・「アプリの更新」で公開ページから pen.html と desktop.* を取ってきて入れ替える(%APPDATA%\写真ペン太郎\web)
+const { app, BrowserWindow, protocol, shell, Menu, dialog, ipcMain, nativeImage, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 const ROOT = path.join(__dirname, 'app');           // pen.html と vendor/ が入っている所
+const SITE = process.env.PEN_SITE || 'https://nsncoltd0717-droid.github.io/ippatsu-burn/';   // PEN_SITE は試験用
+const WEB_FILES = { 'pen.html': 'pen.html', 'desktop.js': 'windows/pen/desktop.js', 'desktop.css': 'windows/pen/desktop.css' };
+const webDir = () => path.join(app.getPath('userData'), 'web');   // 「アプリの更新」で取ってきた物
 const HOST = 'pen';
 const START = `app://${HOST}/pen.html`;
 const MIME = {
@@ -38,7 +43,7 @@ function rememberDir(d) { const s = loadState(); s.dir = d; try { fs.writeFileSy
 function createWindow() {
   const st = loadState();
   win = new BrowserWindow({
-    width: 1280, height: 860, minWidth: 360, minHeight: 480,
+    width: 1400, height: 900, minWidth: 900, minHeight: 560,
     ...(st.bounds || {}),
     title: '写真ペン太郎',
     backgroundColor: '#16181d',
@@ -105,11 +110,113 @@ function buildMenu() {
     ] },
     { label: 'ヘルプ', submenu: [
       { label: `写真ペン太郎 forWindows ${app.getVersion()}`, enabled: false },
-      { label: 'データの保存場所を開く', click: () => shell.openPath(app.getPath('userData')) }
+      { label: 'データの保存場所を開く', click: () => shell.openPath(app.getPath('userData')) },
+      { label: '更新を元に戻す(入れたときの版に戻す)', click: () => { fs.rmSync(webDir(), { recursive: true, force: true }); if (win) win.reload(); } }
     ] }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(tpl));
 }
+
+// ---------- pen.html を Windows 版にする手当て(元の pen.html はさわらない) ----------
+function patchPen(html) {
+  // 題名に forWindows を足す
+  html = html.replace(/(<h1 class="hm">写真ペン太郎<small>v[^<]*)(<\/small>)/, `$1 forWindows ${app.getVersion()}$2`);
+  // ホーム画面アプリ用の sw.js はいらない
+  html = html.replace('navigator.serviceWorker.register("sw.js").catch(() => {});', '/* Windows版では使わない */');
+  // 書き出しの名前を本体へ知らせる(preload.js の penApp.noteDownload)
+  const head = `<script>(function(){ if (!window.penApp) return; var c = HTMLAnchorElement.prototype.click;
+HTMLAnchorElement.prototype.click = function(){ try { if (this.download && this.href) penApp.noteDownload(this.href, this.download); } catch (e) {} return c.apply(this, arguments); }; })();</script>
+<link rel="stylesheet" href="desktop.css">`;
+  html = html.includes('</head>') ? html.replace('</head>', head + '\n</head>') : head + html;
+  const tail = '<script src="desktop.js"></script>';
+  const i = html.lastIndexOf('</body>');
+  return i >= 0 ? html.slice(0, i) + tail + '\n' + html.slice(i) : html + tail;
+}
+
+// 「アプリの更新」で取った物があれば、そちらを使う(本体の版が変わったら、同梱の方に戻す)
+function webMeta() { try { return JSON.parse(fs.readFileSync(path.join(webDir(), 'meta.json'), 'utf8')); } catch (e) { return null; } }
+async function readWeb(name) {
+  const m = webMeta();
+  if (m && m.shell === app.getVersion()) { try { return await fs.promises.readFile(path.join(webDir(), name)); } catch (e) { /* */ } }
+  return fs.promises.readFile(path.join(ROOT, name));
+}
+const verOf = (html) => ((String(html).match(/<h1 class="hm">写真ペン太郎<small>v([0-9.]+)/) || [])[1] || '?');
+const newer = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+
+async function fetchText(rel) {
+  const r = await net.fetch(SITE + encodeURI(rel) + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(`${rel} を取れませんでした(${r.status})`);
+  return Buffer.from(await r.arrayBuffer());
+}
+ipcMain.handle('pen:update', async () => {
+  const got = {};
+  for (const [name, rel] of Object.entries(WEB_FILES)) {
+    try { got[name] = await fetchText(rel); } catch (e) { if (name === 'pen.html') return { ok: false, error: 'インターネットにつながらないか、公開ページが開けません。' + e.message }; }
+  }
+  const html = got['pen.html'].toString('utf8');
+  if (!/写真ペン太郎/.test(html) || !/<\/html>/i.test(html)) return { ok: false, error: '取ってきた pen.html が正しくありません' };
+  let shellNew = null;
+  try { const pk = JSON.parse((await fetchText('windows/pen/package.json')).toString('utf8')); if (newer(pk.version, app.getVersion())) shellNew = pk.version; } catch (e) { /* */ }
+  let changed = false;
+  for (const name of Object.keys(got)) { const cur = await readWeb(name).catch(() => null); if (!cur || !cur.equals(got[name])) changed = true; }
+  const before = verOf((await readWeb('pen.html')).toString('utf8'));
+  if (changed) {
+    const tmp = webDir() + '.new';
+    fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
+    for (const name of Object.keys(WEB_FILES)) {
+      const b = got[name] || await readWeb(name);   // desktop.* がまだ公開されていなければ今の物を使う
+      fs.writeFileSync(path.join(tmp, name), b);
+    }
+    fs.writeFileSync(path.join(tmp, 'meta.json'), JSON.stringify({ shell: app.getVersion(), at: new Date().toISOString(), pen: verOf(html) }));
+    fs.rmSync(webDir(), { recursive: true, force: true }); fs.renameSync(tmp, webDir());
+  }
+  return { ok: true, changed, before, after: verOf(html), shell: app.getVersion(), shellNew };
+});
+
+// ---------- パソコンの写真フォルダを見る(右の欄) ----------
+const IMG = /\.(jpe?g|png|webp)$/i;
+ipcMain.handle('pen:home-dirs', () => {
+  const out = [];
+  for (const k of ['pictures', 'desktop', 'documents', 'downloads']) { try { out.push({ name: { pictures: 'ピクチャ', desktop: 'デスクトップ', documents: 'ドキュメント', downloads: 'ダウンロード' }[k], path: app.getPath(k) }); } catch (e) { /* */ } }
+  if (process.platform === 'win32') for (const c of 'CDEFGHIJKLMNOPQRSTUVWXYZ') { const d = c + ':\\'; if (fs.existsSync(d)) out.push({ name: c + ':', path: d, drive: true }); }
+  return out;
+});
+ipcMain.handle('pen:pick-dir', async () => {
+  const r = await dialog.showOpenDialog(win, { title: '写真のフォルダを選ぶ', properties: ['openDirectory'] });
+  return r.canceled ? null : r.filePaths[0];
+});
+ipcMain.handle('pen:list-dir', async (_e, dir) => {
+  const ents = await fs.promises.readdir(dir, { withFileTypes: true });
+  const dirs = [], files = [];
+  for (const d of ents) {
+    if (d.name.startsWith('.') || d.name.startsWith('$')) continue;
+    if (d.isDirectory()) dirs.push(d.name);
+    else if (d.isFile() && IMG.test(d.name)) {
+      let st = null; try { st = await fs.promises.stat(path.join(dir, d.name)); } catch (e) { /* */ }
+      files.push({ name: d.name, path: path.join(dir, d.name), size: st ? st.size : 0, mtime: st ? st.mtimeMs : 0 });
+    }
+  }
+  const coll = new Intl.Collator('ja', { numeric: true });
+  dirs.sort(coll.compare); files.sort((a, b) => coll.compare(a.name, b.name));
+  return { dir, dirs, files };
+});
+ipcMain.handle('pen:has-sub', async (_e, dir) => {
+  try { const ents = await fs.promises.readdir(dir, { withFileTypes: true }); return ents.some(d => d.isDirectory() && !d.name.startsWith('.') && !d.name.startsWith('$')); } catch (e) { return false; }
+});
+ipcMain.handle('pen:thumb', async (_e, p) => {
+  try {
+    let im = null;
+    if (process.platform === 'win32') { try { im = await nativeImage.createThumbnailFromPath(p, { width: 320, height: 320 }); } catch (e) { im = null; } }
+    if (!im || im.isEmpty()) { im = nativeImage.createFromPath(p); if (im.isEmpty()) return ''; const s = im.getSize(); const k = 320 / Math.max(s.width, s.height); if (k < 1) im = im.resize({ width: Math.round(s.width * k), height: Math.round(s.height * k), quality: 'good' }); }
+    return im.toDataURL();
+  } catch (e) { return ''; }
+});
+ipcMain.handle('pen:read', async (_e, p) => {
+  if (!IMG.test(p)) throw new Error('画像ではありません');
+  const st = await fs.promises.stat(p);
+  return { name: path.basename(p), mtime: st.mtimeMs, data: await fs.promises.readFile(p) };
+});
+ipcMain.handle('pen:reveal', (_e, p) => { shell.showItemInFolder(p); });
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 
@@ -121,7 +228,8 @@ app.whenReady().then(() => {
     const file = path.normalize(path.join(ROOT, rel));
     if (!file.startsWith(ROOT + path.sep)) return new Response('forbidden', { status: 403 });
     try {
-      const body = await fs.promises.readFile(file);
+      let body = WEB_FILES[rel] ? await readWeb(rel) : await fs.promises.readFile(file);
+      if (rel === 'pen.html') body = patchPen(body.toString('utf8'));
       return new Response(body, { headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' } });
     } catch (e) { return new Response('not found', { status: 404 }); }
   });

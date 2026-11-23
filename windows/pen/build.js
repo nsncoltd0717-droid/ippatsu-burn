@@ -16,26 +16,13 @@ const pkg = require('./package.json');
 function prepare() {
   fs.rmSync(APP, { recursive: true, force: true });
   fs.mkdirSync(APP, { recursive: true });
-  let html = fs.readFileSync(path.join(REPO, 'pen.html'), 'utf8');
-  const patch = (from, to, what) => {
-    if (!html.includes(from)) throw new Error('pen.html の書き換え箇所が見つかりません: ' + what);
-    html = html.replace(from, to);
-  };
-  // 題名に forWindows を足す(版の番号は pen.html のまま)
-  html = html.replace(/(<h1 class="hm">写真ペン太郎)(<small>v[^<]*<\/small>)/, (m, a, b) => `${a}${b.replace('</small>', ' forWindows</small>')}`);
-  if (!html.includes(' forWindows</small>')) throw new Error('pen.html の題名が見つかりません');
-  // ホーム画面アプリ用の sw.js はいらない(アプリの中に全部入っている)
-  patch('navigator.serviceWorker.register("sw.js").catch(() => {});', '/* Windows版では使わない */', 'sw.js');
-  // 書き出しの名前を Windows 版の本体へ知らせる(preload.js の penApp.noteDownload)
-  patch('<meta charset="utf-8" />', `<meta charset="utf-8" />
-<script>(function(){ if (!window.penApp) return; var c = HTMLAnchorElement.prototype.click;
-HTMLAnchorElement.prototype.click = function(){ try { if (this.download && this.href) penApp.noteDownload(this.href, this.download); } catch (e) {} return c.apply(this, arguments); }; })();</script>
-<style>/* 写し太郎は同じ端末のブラウザの中にあるので、Windows版からは読めない */ #bUts{display:none!important}</style>`, 'charset');
+  // pen.html はそのまま写す。Windows 版の手当て(題名・sw.js・書き出し名・2列の画面)は main.js が開くときに入れる
+  const html = fs.readFileSync(path.join(REPO, 'pen.html'), 'utf8');
+  if (!/<h1 class="hm">写真ペン太郎<small>v/.test(html)) throw new Error('pen.html の題名が見つかりません');
   fs.writeFileSync(path.join(APP, 'pen.html'), html);
+  for (const f of ['desktop.js', 'desktop.css']) fs.copyFileSync(path.join(HERE, f), path.join(APP, f));
   fs.cpSync(path.join(REPO, 'vendor', 'libredwg'), path.join(APP, 'vendor', 'libredwg'), { recursive: true });
   fs.copyFileSync(path.join(REPO, 'icon-512.png'), path.join(HERE, 'icon.png'));
-  const v = (html.match(/<h1 class="hm">写真ペン太郎<small>v([0-9.]+)/) || [])[1];
-  if (v && v !== pkg.version) console.warn(`※ pen.html は v${v}、package.json は ${pkg.version}。合わせてください`);
   console.log('app/ を用意しました');
 }
 
@@ -50,7 +37,7 @@ async function build() {
     dir: HERE, out: DIST, name: NAME, executableName: 'ShashinPenTaro',
     platform: 'win32', arch: 'x64', overwrite: true, asar: true, prune: true,
     appVersion: pkg.version, appCopyright: '一発バーン',
-    ignore: [/^\/node_modules($|\/)/, /^\/dist($|\/)/, /^\/build\.js$/, /^\/README\.md$/, /^\/\.gitignore$/],
+    ignore: [/^\/node_modules($|\/)/, /^\/desktop\.(js|css)$/, /^\/引継ぎ/, /^\/icon\.ico$/, /^\/dist($|\/)/, /^\/build\.js$/, /^\/README\.md$/, /^\/\.gitignore$/],
     win32metadata: { CompanyName: '一発バーン', FileDescription: NAME, ProductName: NAME, InternalName: NAME },
   });
   const outDir = outs[0];
