@@ -10,12 +10,13 @@ header .menuback{display:none!important}
 #bUpd{margin-left:6px}
 #bUpd.busy{opacity:.6;pointer-events:none}
 
-/* 一覧の画面：元の縦並び(#home)の代わりに2列(#dk)を出す。初期設定の時だけ元の画面を左に出す */
-body.home.dk #home{display:none}
-body.home.dk.dk-cfg #home{display:block}
+/* しるし(dk / dk-cfg)は <html> に付ける。pen.html は画面を替えるとき body の class を丸ごと書き換えるため。
+   一覧の画面：元の縦並び(#home)の代わりに2列(#dk)を出す。初期設定の時だけ元の画面を左に出す */
+html.dk body.home #home{display:none}
+html.dk.dk-cfg body.home #home{display:block}
 body.edit #dk{display:none!important}
 #dk{flex:1;min-height:0;display:flex;gap:0}
-body.home.dk.dk-cfg #dk{display:none}
+html.dk.dk-cfg body.home #dk{display:none}
 
 #dkL{flex:1 1 56%;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
 #dkR{flex:1 1 44%;min-width:380px;display:flex;flex-direction:column}

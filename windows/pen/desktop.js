@@ -67,14 +67,15 @@
     <div class="dkbar"><span id="dkStat"></span><button id="dkPickFiles" title="ファイルを選んで最後に足す">🖼 ファイルから足す</button><button class="pri" id="dkAddSel" disabled>選んだ写真を足す</button></div>
   </div>`;
   home.parentNode.insertBefore(dk, home.nextSibling);
-  document.body.classList.add('dk');
+  const ROOTC = document.documentElement.classList;   // body の class は pen.html が書き換えるので html に付ける
+  ROOTC.add('dk');
 
   // 初期設定は元の画面（#home）を左に出す
   const cfgBack = document.createElement('button');
   cfgBack.textContent = '← 写真の枠に戻る'; cfgBack.className = 'pri'; cfgBack.style.margin = '0 0 12px';
   home.insertBefore(cfgBack, home.firstChild);
-  q('#dkCfg').onclick = () => document.body.classList.add('dk-cfg');
-  cfgBack.onclick = () => { document.body.classList.remove('dk-cfg'); render(); };
+  q('#dkCfg').onclick = () => ROOTC.add('dk-cfg');
+  cfgBack.onclick = () => { ROOTC.remove('dk-cfg'); render(); };
   q('#dkXlsx').onclick = () => q('#bXlsx').click();
   q('#dkClear').onclick = () => q('#bClear').click();
   q('#dkPickFiles').onclick = () => q('#fPick').click();
@@ -152,7 +153,7 @@
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (!document.body.classList.contains('home') || document.body.classList.contains('dk-cfg')) return;
+    if (!document.body.classList.contains('home') || ROOTC.contains('dk-cfg')) return;
     if (/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) return;
     if (e.key === 'Enter' && lastOpened >= 0 && ITEMS[lastOpened]) { e.preventDefault(); openItem(lastOpened); }
     if (e.key === 'PageDown') { e.preventDefault(); goPage(curPage + 1); }
@@ -323,7 +324,14 @@
   // ================= pen.html の一覧と連動 =================
   const origRender = renderList;
   // eslint-disable-next-line no-global-assign
-  renderList = function () { const r = origRender.apply(this, arguments); render(); return r; };
+  renderList = function () {
+    const r = origRender.apply(this, arguments); render();
+    if (lastOpened >= 0) { const el = pagesEl.querySelector(`.dkslot[data-i="${lastOpened}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
+    return r;
+  };
+  // 編集画面の ◀▶ で別の写真に移ったら、戻ったときはその写真を選んでおく
+  const origOpen = openItem;
+  openItem = function (i) { lastOpened = i; return origOpen.apply(this, arguments); };
   const origSave = saveCfg;
   // 初期設定（片面/両面・黒板の行数）が変わったら枠の行数も読み直す
   saveCfg = function () { const r = origSave.apply(this, arguments); readTplLines().then(render); return r; };
