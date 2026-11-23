@@ -80,3 +80,5 @@ html.dk.dk-cfg body.home #dk{display:none}
 #dkStat{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 @media (max-width:1400px){ .dkbar .ttl{display:none} #dkMode{display:none} }
 #dkR>.dkbar:last-child{padding-right:58px}
+/* 編集の窓（pen.html?edit=…）では一覧を出さない */
+html.pen-editor #home, html.pen-editor #dk, html.pen-editor #bUpd{display:none!important}

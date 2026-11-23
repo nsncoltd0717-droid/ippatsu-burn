@@ -16,6 +16,60 @@
   const h = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const q = (s, el) => (el || document).querySelector(s);
 
+  // ================= 窓どうしの知らせ合い（一覧の窓 ⇔ 編集の窓） =================
+  // 写真を保存・削除したら、もう一方の窓に知らせて読み直してもらう（どちらも同じ IndexedDB を使っている）
+  const bc = typeof BroadcastChannel === 'function' ? new BroadcastChannel('pen-sync') : null;
+  const send = (m) => { try { bc && bc.postMessage(m); } catch (e) { /* */ } };
+  for (const [k, t] of [['put', 'put'], ['del', 'del'], ['clear', 'clear']]) {
+    const f = idb[k]; if (typeof f !== 'function') continue;
+    idb[k] = function (x) { const r = f.apply(this, arguments); Promise.resolve(r).then(() => send({ t, id: x && x.id ? x.id : x })); return r; };
+  }
+  // ほかの窓で変わった写真を IndexedDB から読み直す。curId（編集中の写真）は持っている物を使う
+  async function syncFromDb(curId) {
+    let all = []; try { all = (await idb.all()) || []; } catch (e) { return false; }
+    const byId = new Map(ITEMS.map((it) => [it.id, it]));
+    const next = all.sort((a, b) => a.order - b.order).map((d) => {
+      const it = byId.get(d.id);
+      if (!it) return d;
+      if (d.id !== curId) Object.assign(it, { order: d.order, blob: d.blob, w: d.w, h: d.h, state: d.state, thumb: d.thumb });
+      else it.order = d.order;
+      return it;
+    });
+    ITEMS.splice(0, ITEMS.length, ...next);
+    return true;
+  }
+  const EDIT_ID = new URLSearchParams(location.search).get('edit');
+  if (EDIT_ID) { editorMode(); return; }
+
+  // ================= 編集の窓（pen.html?edit=写真のid） =================
+  function editorMode() {
+    document.documentElement.classList.add('pen-editor');
+    document.title = '写真ペン太郎 - 編集';
+    const back = q('#bBack');
+    let curId = EDIT_ID, closing = false;
+    const idxOf = (id) => ITEMS.findIndex((it) => it.id === id);
+    const close = async () => { if (closing) return; closing = true; try { if (CUR >= 0) await leaveItem(false); } catch (e) { /* */ } window.close(); };
+    if (back) { back.textContent = '✕ 閉じる'; back.title = '保存して編集の窓を閉じる'; back.onclick = close; }
+    const origOpen = openItem;
+    openItem = async function (i) { const r = await origOpen.apply(this, arguments); if (ITEMS[i]) { curId = ITEMS[i].id; send({ t: 'editing', id: curId }); } return r; };
+    const fixTitle = () => { const i = idxOf(curId); if (i >= 0 && CUR >= 0) { CUR = i; q('#edTitle').textContent = `No.${i + 1} / ${ITEMS.length}`; q('#bPrev').disabled = i === 0; q('#bNext').disabled = i === ITEMS.length - 1; } };
+    if (bc) bc.onmessage = async (ev) => {
+      const m = ev.data || {};
+      if (m.t === 'open' && m.id) { await syncFromDb(curId); const i = idxOf(m.id); if (i >= 0) openItem(i); if (PA.focusSelf) PA.focusSelf(); return; }
+      if (m.t === 'clear' || (m.t === 'del' && m.id === curId)) { closing = true; window.close(); return; }
+      if (m.t === 'put' || m.t === 'del') { await syncFromDb(curId); fixTitle(); }
+    };
+    // 窓の ✕ で閉じたときも、編集中の写真を残す
+    window.addEventListener('beforeunload', () => { if (!closing && CUR >= 0 && ITEMS[CUR]) { try { ITEMS[CUR].state = JSON.parse(snap()); persistItem(ITEMS[CUR]); } catch (e) { /* */ } } });
+    (async () => {
+      for (let k = 0; k < 100 && idxOf(curId) < 0; k++) await new Promise((r) => setTimeout(r, 50));
+      for (let k = 0; k < 50 && !TPL; k++) await new Promise((r) => setTimeout(r, 50));
+      const i = idxOf(curId);
+      if (i < 0) { alert('この写真は見つかりませんでした（消されたかもしれません）'); closing = true; window.close(); return; }
+      openItem(i);
+    })();
+  }
+
   // ================= アプリの更新（ホーム画面のボタン） =================
   const hdr = q('header'), sp = hdr && q('.sp', hdr);
   if (hdr && PA.update) {
@@ -80,6 +134,20 @@
   q('#dkClear').onclick = () => q('#bClear').click();
   q('#dkPickFiles').onclick = () => q('#fPick').click();
 
+  // ================= 編集を別の窓で開く =================
+  // 本体が別の窓に対応していれば（0.4.0 から）別の窓、古い本体ならこの窓の中で編集する
+  const SEPARATE = !!PA.editorWindow;
+  let editorWin = null, editingId = '';
+  function edit(i) {
+    const it = ITEMS[i]; if (!it) return;
+    lastOpened = i; markCur();
+    if (!SEPARATE) return openItem(i);
+    if (editorWin && !editorWin.closed) { send({ t: 'open', id: it.id }); return; }
+    editorWin = window.open('pen.html?edit=' + encodeURIComponent(it.id), 'penEdit');
+    if (!editorWin) openItem(i);
+  }
+  function markCur() { pagesEl.querySelectorAll('.dkslot').forEach((x) => x.classList.toggle('cur', +x.dataset.i === lastOpened && x.classList.contains('filled'))); }
+
   // ================= 左：ページ =================
   let slotLines = 7, curPage = 0, lastOpened = -1;
   async function readTplLines() {
@@ -140,12 +208,12 @@
   q('#dkNext').onclick = () => goPage(curPage + 1);
 
   pagesEl.addEventListener('dblclick', (e) => {
-    const s = e.target.closest('.dkslot.filled'); if (s) { lastOpened = +s.dataset.i; openItem(+s.dataset.i); }
+    const s = e.target.closest('.dkslot.filled'); if (s) edit(+s.dataset.i);
   });
   pagesEl.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]'), s = e.target.closest('.dkslot'); if (!b || !s || !s.classList.contains('filled')) return;
     const i = +s.dataset.i;
-    if (b.dataset.act === 'open' && b.tagName === 'BUTTON') { lastOpened = i; openItem(i); }
+    if (b.dataset.act === 'open' && b.tagName === 'BUTTON') edit(i);
     else if (b.dataset.act === 'open') { pagesEl.querySelectorAll('.dkslot.cur').forEach((x) => x.classList.remove('cur')); s.classList.add('cur'); lastOpened = i; }
     else if (b.dataset.act === 'del') {
       if (!confirm(`No.${i + 1} を消しますか？`)) return;
@@ -155,7 +223,7 @@
   document.addEventListener('keydown', (e) => {
     if (!document.body.classList.contains('home') || ROOTC.contains('dk-cfg')) return;
     if (/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) return;
-    if (e.key === 'Enter' && lastOpened >= 0 && ITEMS[lastOpened]) { e.preventDefault(); openItem(lastOpened); }
+    if (e.key === 'Enter' && lastOpened >= 0 && ITEMS[lastOpened]) { e.preventDefault(); edit(lastOpened); }
     if (e.key === 'PageDown') { e.preventDefault(); goPage(curPage + 1); }
     if (e.key === 'PageUp') { e.preventDefault(); goPage(curPage - 1); }
   });
@@ -335,6 +403,16 @@
   const origSave = saveCfg;
   // 初期設定（片面/両面・黒板の行数）が変わったら枠の行数も読み直す
   saveCfg = function () { const r = origSave.apply(this, arguments); readTplLines().then(render); return r; };
+
+  if (bc) bc.onmessage = async (ev) => {
+    const m = ev.data || {};
+    if (m.t === 'editing' && m.id) { const i = ITEMS.findIndex((it) => it.id === m.id); if (i >= 0) { lastOpened = i; markCur(); } return; }
+    if (m.t === 'put' || m.t === 'del' || m.t === 'clear') {
+      if (CUR >= 0) return;   // この窓で編集中なら、戻ったときに読み直す
+      const keep = pagesEl.scrollTop;
+      if (await syncFromDb('')) { origRender(); render(); pagesEl.scrollTop = keep; }
+    }
+  };
 
   (async () => {
     for (let k = 0; k < 50 && !TPL; k++) await new Promise((r) => setTimeout(r, 100));

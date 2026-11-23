@@ -29,6 +29,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); }
 
 let win = null;
 const dlNames = new Map();   // blob の住所 → 付けたい名前(preload.js から届く)
+ipcMain.on('pen:focus-self', (e) => { const w = BrowserWindow.fromWebContents(e.sender); if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
 ipcMain.on('pen:dl-name', (_e, href, name) => { if (href && name) { dlNames.set(href, name); setTimeout(() => dlNames.delete(href), 60000); } });
 const statePath = () => path.join(app.getPath('userData'), 'window.json');
 function loadState() { try { return JSON.parse(fs.readFileSync(statePath(), 'utf8')); } catch (e) { return {}; } }
@@ -53,12 +54,27 @@ function createWindow() {
   });
   if (st.max) win.maximize();
   win.on('close', saveState);
+  win.on('closed', () => { for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.close(); });
   win.on('closed', () => { win = null; });
 
   // 外のページへのリンクは既定のブラウザで開く。アプリの中は動かさない
   win.webContents.setWindowOpenHandler(({ url }) => {
+    // 写真の編集は別の窓で開く(desktop.js が pen.html?edit=写真のid を開く)
+    if (url.startsWith(`app://${HOST}/pen.html?edit=`)) {
+      const eb = loadState().editBounds || {};
+      return { action: 'allow', overrideBrowserWindowOptions: {
+        width: 1200, height: 860, minWidth: 600, minHeight: 480, ...eb,
+        title: '写真ペン太郎 - 編集', backgroundColor: '#16181d', icon: path.join(__dirname, 'icon.png'), autoHideMenuBar: true,
+        webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, spellcheck: false }
+      } };
+    }
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  win.webContents.on('did-create-window', (child) => {
+    child.setMenuBarVisibility(false);
+    child.on('close', () => { try { fs.writeFileSync(statePath(), JSON.stringify({ ...loadState(), editBounds: child.getNormalBounds() })); } catch (e) { /* */ } });
+    child.webContents.on('will-navigate', (e, url) => { if (!url.startsWith(`app://${HOST}/`)) { e.preventDefault(); if (/^https?:/i.test(url)) shell.openExternal(url); } });
   });
   win.webContents.on('will-navigate', (e, url) => {
     if (url.startsWith(`app://${HOST}/`)) return;
