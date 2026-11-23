@@ -78,6 +78,19 @@
       return;
     }
   }
+  // ---- 撮影日は黒板・Excel に載せない（2026-11-24 しおりちゃん）。一度だけ、今の設定と現場ごとに預けた設定から外す ----
+  let dateStripped = false;
+  {
+    const NODATE = 'pen.win.noDate';
+    const strip = (c) => { const a = (c && c.labels) || []; const b = a.filter((l) => !isDateLabel(l)); if (b.length === a.length) return false; c.labels = b; return true; };
+    if (!lsRaw.get(NODATE)) {
+      if (strip(CFG)) { saveCfg(); try { syncCfg(); } catch (e) { /* */ } dateStripped = true; }
+      lsRaw.set(NODATE, '1');
+      siteDb().then((db) => { const t = db.transaction('albums', 'readwrite'), st = t.objectStore('albums'); const rq = st.openCursor();
+        rq.onsuccess = () => { const c = rq.result; if (!c) return; const v = c.value; try { const cfg = JSON.parse(v.cfg || '{}'); if (strip(cfg)) { v.cfg = JSON.stringify(cfg); c.update(v); } } catch (e) { /* */ } c.continue(); };
+        t.oncomplete = () => db.close(); }).catch(() => {});
+    }
+  }
   function pickSite() {
     if (!GB || !GB.list || !GB.dialog) return;
     GB.list().then((a) => {
@@ -231,8 +244,8 @@
           const more = ls.length > slotLines ? `<div class="more">ほか${ls.length - slotLines}行は枠に入りません</div>` : '';
           html += `<div class="dkslot filled${i === lastOpened ? ' cur' : ''}" data-i="${i}" draggable="true">
             <div class="ph" data-act="open" title="ダブルクリックで編集"><img src="${it.thumb}" alt=""><span class="no">No.${i + 1}</span></div>
-            <div class="ops"><button data-act="open">✎ 編集</button><button data-act="del">🗑</button></div>
-            <div class="tx" data-act="open">${rows.join('')}${more}</div></div>`;
+            <div class="ops"><button data-act="open">✎ 編集</button><button data-act="text" title="右の文面（黒板の中身）を手入力で直す">✍ 文面</button><button data-act="del">🗑</button></div>
+            <div class="tx" data-act="text" title="ダブルクリックで文面を手入力">${rows.join('')}${more}</div></div>`;
         } else {
           const first = i === ITEMS.length;
           html += `<div class="dkslot" data-i="${ITEMS.length}">
@@ -264,12 +277,44 @@
   q('#dkNext').onclick = () => goPage(curPage + 1);
 
   pagesEl.addEventListener('dblclick', (e) => {
-    const s = e.target.closest('.dkslot.filled'); if (s) edit(+s.dataset.i);
+    if (e.target.closest('.txed')) return;
+    const s = e.target.closest('.dkslot.filled'); if (!s) return;
+    if (e.target.closest('.tx')) textEdit(+s.dataset.i); else edit(+s.dataset.i);
   });
+
+  // ---- 文面（写真の右の行＝黒板の中身）をその場で手入力する ----
+  function textEdit(i) {
+    const it = ITEMS[i], slot = pagesEl.querySelector(`.dkslot[data-i="${i}"]`); if (!it || !slot) return;
+    const prev = pagesEl.querySelector('.txed'); if (prev) prev.closest('.dkslot') && render();
+    const tx = pagesEl.querySelector(`.dkslot[data-i="${i}"] .tx`); if (!tx) return;
+    const labs = bodyLabels().slice(0, CFG.adopt), f = it.state.board.f || {};
+    slot.draggable = false; slot.classList.add('editing');
+    tx.className = 'txed'; tx.setAttribute('data-noipx', '');
+    tx.innerHTML = labs.map((l) => `<label><span>${h(l)}</span>${l === '備考' ? `<textarea data-f="${h(l)}" rows="2">${h(f[l] || '')}</textarea>` : `<input data-f="${h(l)}" value="${h(f[l] || '')}">`}</label>`).join('') +
+      `<div class="btns"><button data-x="ok" class="pri">保存（Enter）</button><button data-x="cancel">やめる（Esc）</button></div>`;
+    const first = tx.querySelector('input,textarea'); if (first) { first.focus(); first.select && first.select(); }
+    const done = async (save) => {
+      if (save) {
+        const nf = Object.assign({}, it.state.board.f);
+        tx.querySelectorAll('[data-f]').forEach((el) => { nf[el.dataset.f] = el.value; });
+        it.state = JSON.parse(JSON.stringify(Object.assign({}, it.state, { board: Object.assign({}, it.state.board, { f: nf }) })));
+        try { await makeThumb(it); } catch (e) { /* */ }
+        await persistItem(it);
+      }
+      lastOpened = i; render();
+    };
+    tx.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) { e.stopPropagation(); done(b.dataset.x === 'ok'); } });
+    tx.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      else if (e.key === 'Enter' && (e.target.tagName !== 'TEXTAREA' || e.ctrlKey)) { e.preventDefault(); done(true); }
+    });
+  }
   pagesEl.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]'), s = e.target.closest('.dkslot'); if (!b || !s || !s.classList.contains('filled')) return;
     const i = +s.dataset.i;
     if (b.dataset.act === 'open' && b.tagName === 'BUTTON') edit(i);
+    else if (b.dataset.act === 'text' && b.tagName === 'BUTTON') textEdit(i);
+    else if (b.dataset.act === 'text') { pagesEl.querySelectorAll('.dkslot.cur').forEach((x) => x.classList.remove('cur')); s.classList.add('cur'); lastOpened = i; }
     else if (b.dataset.act === 'open') { pagesEl.querySelectorAll('.dkslot.cur').forEach((x) => x.classList.remove('cur')); s.classList.add('cur'); lastOpened = i; }
     else if (b.dataset.act === 'del') {
       if (!confirm(`No.${i + 1} を消しますか？`)) return;
@@ -384,10 +429,10 @@
   q('#dkReload').onclick = async () => { await renderTree(); if (curDir) await listThumbs(curDir); };
 
   // ================= 右：写真の一覧 =================
-  let files = [], sel = new Set(), anchor = -1, tw = LS.get('tw', 150);
+  let files = [], sel = new Set(), anchor = -1, tw = LS.get('tw2', 220);
   thumbsEl.style.setProperty('--tw', tw + 'px');
-  q('#dkSmall').onclick = () => { tw = Math.max(90, tw - 30); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw', tw); };
-  q('#dkBig').onclick = () => { tw = Math.min(320, tw + 30); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw', tw); };
+  q('#dkSmall').onclick = () => { tw = Math.max(110, tw - 40); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw2', tw); };
+  q('#dkBig').onclick = () => { tw = Math.min(420, tw + 40); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw2', tw); };
 
   async function setDir(p) {
     curDir = p; LS.set('dir', p);
@@ -404,7 +449,7 @@
     if (seq !== listSeq) return;
     files = r.files;
     if (!files.length) { thumbsEl.innerHTML = `<div class="msg">このフォルダに写真（JPEG・PNG）はありません。${r.dirs.length ? '<br>左のツリーで中のフォルダを開いてください。' : ''}</div>`; q('#dkStat').textContent = h(p); return; }
-    thumbsEl.innerHTML = files.map((f, k) => `<div class="dkth" draggable="true" data-k="${k}" data-p="${h(f.path)}" title="${h(f.name)}\n${new Date(f.mtime).toLocaleString('ja-JP')}"><div class="im"></div><div class="nm">${h(f.name)}</div></div>`).join('');
+    thumbsEl.innerHTML = files.map((f, k) => `<div class="dkth" draggable="true" data-k="${k}" data-p="${h(f.path)}" title="${h(f.name)}\n${new Date(f.mtime).toLocaleString('ja-JP')}"><div class="im"></div><button class="zoom" type="button" title="大きく見る（ダブルクリック・スペースキーでも）">🔍</button><div class="nm">${h(f.name)}</div></div>`).join('');
     markUsed(); updSel();
     thumbsEl.querySelectorAll('.dkth').forEach((el) => io.observe(el));
   }
@@ -422,7 +467,7 @@
     thumbsEl.querySelectorAll('.dkth').forEach((el) => el.classList.toggle('sel', sel.has(+el.dataset.k)));
     q('#dkAddSel').disabled = !sel.size;
     q('#dkAddSel').textContent = sel.size ? `選んだ ${sel.size}枚を足す` : '選んだ写真を足す';
-    q('#dkStat').textContent = files.length ? `${files.length}枚の写真${sel.size ? `（${sel.size}枚を選択）` : ''}（Ctrl/Shiftで複数選択・左の枠へドラッグ）` : '';
+    q('#dkStat').textContent = files.length ? `${files.length}枚の写真${sel.size ? `（${sel.size}枚を選択）` : ''}（ダブルクリックで拡大・Ctrl/Shiftで複数選択・左の枠へドラッグ）` : '';
   }
   thumbsEl.addEventListener('click', (e) => {
     const el = e.target.closest('.dkth'); if (!el) return; const k = +el.dataset.k;
@@ -431,7 +476,61 @@
     else { sel.clear(); sel.add(k); anchor = k; }
     updSel();
   });
-  thumbsEl.addEventListener('dblclick', (e) => { const el = e.target.closest('.dkth'); if (el) addPaths([el.dataset.p], ITEMS.length); });
+  thumbsEl.addEventListener('dblclick', (e) => { const el = e.target.closest('.dkth'); if (el) preview(+el.dataset.k); });
+  thumbsEl.addEventListener('click', (e) => { const z = e.target.closest('.zoom'); if (z) { e.stopPropagation(); preview(+z.closest('.dkth').dataset.k); } }, true);
+
+  // ---- 大きく見る（プレビュー） ----
+  let pv = null;
+  function preview(k) {
+    if (!files[k]) return;
+    if (!pv) {
+      pv = document.createElement('div'); pv.id = 'dkPv';
+      pv.innerHTML = `<div class="bar"><b class="nm"></b><span class="info"></span><span class="sp"></span>
+        <button data-a="reveal" title="エクスプローラーで場所を開く">📂 場所を開く</button>
+        <button data-a="add" class="pri" title="写真の枠の最後に足す">＋ 写真の枠に足す</button>
+        <button data-a="close" title="閉じる（Esc）">✕</button></div>
+        <div class="stage"><button data-a="prev" class="nav l" title="前の写真（←）">◀</button><img alt=""><button data-a="next" class="nav r" title="次の写真（→）">▶</button><div class="msg"></div></div>`;
+      document.body.appendChild(pv);
+      pv.addEventListener('click', (e) => {
+        const a = (e.target.closest('[data-a]') || {}).dataset; const kk = +pv.dataset.k;
+        if (!a) { if (e.target.classList.contains('stage')) closePv(); return; }
+        if (a.a === 'close') closePv();
+        else if (a.a === 'prev') preview(Math.max(0, kk - 1));
+        else if (a.a === 'next') preview(Math.min(files.length - 1, kk + 1));
+        else if (a.a === 'add') { addPaths([files[kk].path], ITEMS.length); pv.querySelector('[data-a=add]').textContent = '✓ 足しました'; }
+        else if (a.a === 'reveal' && PA.fs.reveal) PA.fs.reveal(files[kk].path);
+      });
+    }
+    const f = files[k]; pv.dataset.k = k; pv.hidden = false;
+    sel.clear(); sel.add(k); anchor = k; updSel();
+    const el = thumbsEl.querySelector(`.dkth[data-k="${k}"]`); if (el) el.scrollIntoView({ block: 'nearest' });
+    pv.querySelector('.nm').textContent = f.name;
+    pv.querySelector('.info').textContent = `${k + 1} / ${files.length}　${new Date(f.mtime).toLocaleString('ja-JP')}　${(f.size / 1048576).toFixed(1)}MB${isUsed(f.path) ? '　貼付済' : ''}`;
+    pv.querySelector('[data-a=add]').textContent = '＋ 写真の枠に足す';
+    pv.querySelector('[data-a=prev]').disabled = k <= 0; pv.querySelector('[data-a=next]').disabled = k >= files.length - 1;
+    const img = pv.querySelector('img'), msg = pv.querySelector('.msg');
+    msg.textContent = '読み込み中…'; img.style.opacity = 0.3;
+    const want = f.path;
+    PA.fs.read(f.path).then((r) => {
+      if (pv.hidden || files[+pv.dataset.k] !== f || f.path !== want) return;
+      if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+      const u = URL.createObjectURL(new Blob([r.data])); img.dataset.url = u; img.src = u;
+      img.onload = () => { img.style.opacity = 1; msg.textContent = ''; };
+      img.onerror = () => { msg.textContent = 'この写真は表示できません'; };
+    }, () => { msg.textContent = 'この写真は読めませんでした'; });
+  }
+  function closePv() { if (!pv) return; pv.hidden = true; const img = pv.querySelector('img'); if (img.dataset.url) { URL.revokeObjectURL(img.dataset.url); img.dataset.url = ''; img.removeAttribute('src'); } }
+  document.addEventListener('keydown', (e) => {
+    if (pv && !pv.hidden) {
+      const kk = +pv.dataset.k;
+      if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePv(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); preview(Math.max(0, kk - 1)); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); preview(Math.min(files.length - 1, kk + 1)); }
+      else if (e.key === 'Enter') { e.preventDefault(); pv.querySelector('[data-a=add]').click(); }
+      return;
+    }
+    if (e.key === ' ' && document.body.classList.contains('home') && sel.size && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) { e.preventDefault(); preview([...sel][0]); }
+  }, true);
   thumbsEl.addEventListener('dragstart', (e) => {
     const el = e.target.closest('.dkth'); if (!el) return; const k = +el.dataset.k;
     if (!sel.has(k)) { sel.clear(); sel.add(k); anchor = k; updSel(); }
@@ -474,6 +573,7 @@
     for (let k = 0; k < 50 && !TPL; k++) await new Promise((r) => setTimeout(r, 100));
     await readTplLines();
     render();
+    if (dateStripped) { for (let k = 0; k < 40 && !ITEMS.length; k++) await new Promise((r) => setTimeout(r, 100)); try { await refreshThumbs(); } catch (e) { /* */ } }
     if (HAS_FS) {
       try { homeDirs = await PA.fs.homeDirs(); } catch (e) { homeDirs = []; }
       await renderTree();
