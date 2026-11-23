@@ -52,7 +52,7 @@ html.dk.dk-cfg body.home #dk{display:none}
 
 /* ---- 右：ツリーと写真 ---- */
 #dkSrc{flex:1;display:flex;min-height:0}
-#dkTree{flex:0 0 42%;overflow:auto;border-right:1px solid var(--line);padding:6px 0;font-size:13px;background:#181b21}
+#dkTree{flex:0 0 30%;min-width:170px;overflow:auto;border-right:1px solid var(--line);padding:6px 0;font-size:13px;background:#181b21}
 #dkTree .nd{display:flex;align-items:center;gap:3px;padding:3px 6px;cursor:pointer;white-space:nowrap;border-radius:5px;margin:0 4px}
 #dkTree .nd:hover{background:#262b35}
 #dkTree .nd.on{background:#2f4f7a}
@@ -68,8 +68,8 @@ html.dk.dk-cfg body.home #dk{display:none}
 #dkThumbs{flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px;align-content:start;background:#14161b}
 #dkThumbs .msg{grid-column:1/-1;color:var(--sub);font-size:13px;padding:20px;text-align:center;line-height:1.7}
 .dkth{background:#1f232b;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;user-select:none;position:relative}
-.dkth .im{aspect-ratio:4/3;background:#000;display:flex;align-items:center;justify-content:center}
-.dkth .im img{max-width:100%;max-height:100%;display:block;pointer-events:none}
+.dkth .im{aspect-ratio:4/3;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dkth .im img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
 .dkth .nm{font-size:11px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub)}
 .dkth.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
 .dkth .used{position:absolute;right:4px;top:4px;background:#18c25a;color:#062;font-size:10px;font-weight:bold;border-radius:5px;padding:0 5px}
@@ -85,3 +85,28 @@ html.pen-editor #home, html.pen-editor #dk, html.pen-editor #bUpd{display:none!i
 /* 現場の切り替え（写真と設定は現場ごと） */
 #dkSite{flex:none;font-weight:bold;max-width:260px;overflow:hidden;text-overflow:ellipsis;background:#1e3a5f;border-color:#2f5a8f}
 #dkSite.none{background:var(--chip);border-color:var(--line);font-weight:normal;color:var(--sub)}
+/* 右の写真：🔍 で大きく見る */
+.dkth .zoom{position:absolute;left:4px;top:4px;padding:2px 6px;font-size:13px;border-radius:6px;background:rgba(10,12,16,.75);border-color:#444;display:none}
+.dkth:hover .zoom{display:block}
+#dkPv{position:fixed;inset:0;z-index:4000;background:rgba(8,9,12,.94);display:flex;flex-direction:column}
+#dkPv[hidden]{display:none}
+#dkPv .bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#15181e;border-bottom:1px solid var(--line)}
+#dkPv .bar .nm{font-size:15px}
+#dkPv .bar .info{color:var(--sub);font-size:12px}
+#dkPv .bar .sp{flex:1}
+#dkPv .stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;padding:10px 60px}
+#dkPv img{max-width:100%;max-height:100%;object-fit:contain;transition:opacity .15s}
+#dkPv .nav{position:absolute;top:50%;transform:translateY(-50%);font-size:22px;padding:18px 12px;background:rgba(30,34,42,.8)}
+#dkPv .nav.l{left:8px} #dkPv .nav.r{right:8px}
+#dkPv .msg{position:absolute;color:var(--sub);font-size:14px}
+/* 文面の手入力 */
+.dkslot .txed{flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;min-width:0;overflow:auto;background:#fffbe8}
+.dkslot .txed label{display:flex;align-items:center;gap:4px;font-size:11px;color:#333}
+.dkslot .txed label span{flex:0 0 3.2em;color:#666;white-space:nowrap;overflow:hidden}
+.dkslot .txed input,.dkslot .txed textarea{flex:1;min-width:0;font:inherit;font-size:12px;padding:3px 5px;border:1px solid #b9c0cc;border-radius:4px;background:#fff;color:#111}
+.dkslot .txed textarea{resize:vertical}
+.dkslot .txed .btns{display:flex;gap:4px;margin-top:2px}
+.dkslot .txed .btns button{font-size:11px;padding:3px 8px}
+.dkslot .txed .btns button:not(.pri){background:#e8ebf0;color:#222;border-color:#c5cad3}
+.dkslot.editing{outline:3px solid #1e7bff;outline-offset:-2px;z-index:2}
+.dkslot.editing .ops{display:none!important}
