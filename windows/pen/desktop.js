@@ -41,6 +41,58 @@
   const EDIT_ID = new URLSearchParams(location.search).get('edit');
   if (EDIT_ID) { editorMode(); return; }
 
+  // ================= 現場ごとの写真帳 =================
+  // 一発バーンの「いまの現場」（Genba）ごとに、写真と初期設定（工事名・黒板の項目など）を分けて持つ。
+  // pen.html は写真を IndexedDB「sp-album」、設定を localStorage「sp.cfg」に1組だけ持つので、
+  // 現場が替わったら、今の組を IndexedDB「pen-sites」に現場名で預け、替わった先の組を戻して読み直す。
+  const GB = window.Genba;
+  const SITE_KEY = 'pen.win.albumSite';
+  const siteDb = () => new Promise((ok, ng) => { const r = indexedDB.open('pen-sites', 1); r.onupgradeneeded = () => r.result.createObjectStore('albums'); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); });
+  const siteTx = async (mode, fn) => { const db = await siteDb(); return new Promise((ok, ng) => { const t = db.transaction('albums', mode); const q2 = fn(t.objectStore('albums')); t.oncomplete = () => { db.close(); ok(q2 && q2.result); }; t.onerror = () => { db.close(); ng(t.error); }; t.onabort = () => { db.close(); ng(t.error || new Error('保存できませんでした')); }; }); };
+  const lsRaw = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { /* */ } } };
+  const siteNow = () => (GB && GB.current ? GB.current() : '') || '';
+  async function swapAlbum(from, to) {
+    const items = (await idb.all()) || [];
+    await siteTx('readwrite', (st) => st.put({ items, cfg: lsRaw.get('sp.cfg'), at: Date.now() }, from));
+    const rec = await siteTx('readonly', (st) => st.get(to));
+    await idb.clear();
+    if (rec && rec.items) { for (const it of rec.items) await idb.put(it); lsRaw.set('sp.cfg', rec.cfg); }
+    else {   // はじめての現場：写真は空、設定は今のまま（工事名は現場名にする）
+      let c = {}; try { c = JSON.parse(lsRaw.get('sp.cfg') || '{}') || {}; } catch (e) { /* */ }
+      c.name = to || ''; lsRaw.set('sp.cfg', JSON.stringify(c));
+    }
+    lsRaw.set(SITE_KEY, to);
+  }
+  {
+    const have = lsRaw.get(SITE_KEY), want = siteNow();
+    if (have == null) {   // はじめて：今の写真は今の現場のものにする。工事名が空なら現場名を入れる
+      lsRaw.set(SITE_KEY, want);
+      if (want && !CFG.name) { CFG.name = want; saveCfg(); try { syncCfg(); } catch (e) { /* */ } }
+    } else if (have !== want) {
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(10,12,16,.92);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px';
+      ov.textContent = `現場「${want || '現場なし'}」の写真に切り替えています…`;
+      document.body.appendChild(ov);
+      send({ t: 'clear' });   // 編集の窓は閉じる
+      setTimeout(() => swapAlbum(have, want).then(() => location.reload(), (e) => { ov.textContent = '切り替えられませんでした: ' + e.message; setTimeout(() => ov.remove(), 4000); }), 400);
+      return;
+    }
+  }
+  function pickSite() {
+    if (!GB || !GB.list || !GB.dialog) return;
+    GB.list().then((a) => {
+      const cur = siteNow();
+      const body = `<div class="ipx-list">${['<button type="button" data-n="" aria-pressed="' + (!cur) + '">（現場を選ばない）</button>'].concat(a.map((r) => `<button type="button" data-n="${h(r.name)}" aria-pressed="${r.name === cur}">🏗 ${h(r.name)}</button>`)).join('')}</div>
+        <div style="display:flex;gap:6px;margin-top:10px"><input type="text" id="dkNewSite" data-noipx placeholder="新しい現場の名前" style="flex:1;font:inherit;padding:8px;border-radius:8px;border:1px solid #444;background:#111;color:#fff"><button type="button" id="dkMkSite">＋ 作る</button></div>`;
+      const d = GB.dialog('現場を選ぶ', body, [{ label: '閉じる' }], '現場ごとに、写真と初期設定（工事名・黒板の項目など）を分けて持ちます。切り替えると、今の写真はその現場に残ります。');
+      const go = (n) => { d.close(); if (n === cur) return; GB.setCurrent(n); location.reload(); };
+      d.el.querySelector('.ipx-list').addEventListener('click', (e) => { const t = e.target.closest('button[data-n]'); if (t) go(t.getAttribute('data-n')); });
+      const mk = () => { const n = d.el.querySelector('#dkNewSite').value.trim(); GB.create(n).then(() => go(n), (e) => alert(e.message)); };
+      d.el.querySelector('#dkMkSite').onclick = mk;
+      d.el.querySelector('#dkNewSite').addEventListener('keydown', (e) => { if (e.key === 'Enter') mk(); });
+    }).catch((e) => alert(e.message));
+  }
+
   // ================= 編集の窓（pen.html?edit=写真のid） =================
   function editorMode() {
     document.documentElement.classList.add('pen-editor');
@@ -97,7 +149,7 @@
   dk.innerHTML = `
   <div id="dkL">
     <div class="dkbar">
-      <span class="ttl">工事写真</span>
+      <button id="dkSite" class="site" title="現場を切り替える・作る（現場ごとに写真と設定を分けて持ちます）"></button>
       <button id="dkCfg" title="印刷（片面・両面）・工事名・黒板の項目・ひな形">⚙ 初期設定</button>
       <span id="dkMode" class="pg" style="min-width:0"></span>
       <span class="sp"></span>
@@ -128,6 +180,10 @@
   const cfgBack = document.createElement('button');
   cfgBack.textContent = '← 写真の枠に戻る'; cfgBack.className = 'pri'; cfgBack.style.margin = '0 0 12px';
   home.insertBefore(cfgBack, home.firstChild);
+  const siteBtn = q('#dkSite');
+  const drawSite = () => { const n = siteNow(); siteBtn.textContent = '🏗 ' + (n || '現場なし') + ' ▾'; siteBtn.classList.toggle('none', !n); };
+  drawSite(); siteBtn.onclick = pickSite;
+  window.addEventListener('genba', drawSite);
   q('#dkCfg').onclick = () => ROOTC.add('dk-cfg');
   cfgBack.onclick = () => { ROOTC.remove('dk-cfg'); render(); };
   q('#dkXlsx').onclick = () => q('#bXlsx').click();

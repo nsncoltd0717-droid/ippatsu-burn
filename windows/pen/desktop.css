@@ -82,3 +82,6 @@ html.dk.dk-cfg body.home #dk{display:none}
 #dkR>.dkbar:last-child{padding-right:58px}
 /* 編集の窓（pen.html?edit=…）では一覧を出さない */
 html.pen-editor #home, html.pen-editor #dk, html.pen-editor #bUpd{display:none!important}
+/* 現場の切り替え（写真と設定は現場ごと） */
+#dkSite{flex:none;font-weight:bold;max-width:260px;overflow:hidden;text-overflow:ellipsis;background:#1e3a5f;border-color:#2f5a8f}
+#dkSite.none{background:var(--chip);border-color:var(--line);font-weight:normal;color:var(--sub)}
