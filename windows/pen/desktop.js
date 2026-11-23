@@ -168,8 +168,9 @@
       <span class="sp"></span>
       <button id="dkZo" title="ページを小さく">－</button><button id="dkZi" title="ページを大きく">＋</button>
       <button id="dkPrev" title="前のページ">◀</button><span class="pg" id="dkPg">1 / 1ページ</span><button id="dkNext" title="次のページ">▶</button>
+      <button id="dkPgAdd" title="空のページを1枚増やす（写真を貼る前に用意できます）">📄＋</button><button id="dkPgDel" title="最後の空のページを1枚減らす">📄－</button>
       <span class="sp"></span>
-      <button id="dkClear" title="写真を全部消す">全部消す</button>
+      <button id="dkClear" title="写真を全部消す">🗑 全部</button>
       <button class="pri" id="dkXlsx">📊 Excelに書き出す</button>
     </div>
     <div id="dkPages"></div>
@@ -228,13 +229,23 @@
     } catch (e) { /* ひな形がまだ読めていない */ }
   }
   const pagesEl = q('#dkPages');
-  function pageCount() { return Math.max(1, Math.ceil((ITEMS.length + 1) / PER_PAGE)); }
+  // 先に増やしたページ数（現場ごと）
+  const wantKey = () => 'pages.' + (localStorage.getItem(SITE_KEY) || '');
+  function wantPages() { return LS.get(wantKey(), 0); }
+  function needPages() { return Math.max(1, Math.ceil((ITEMS.length + 1) / PER_PAGE)); }
+  function pageCount() { return Math.max(needPages(), wantPages()); }
+  function addPages(d) {
+    const before = pageCount(), n = Math.max(needPages(), before + d);
+    if (d < 0 && n === before) { toast('写真が入っているページは減らせません', 2500); return; }
+    LS.set(wantKey(), n); render();
+    if (d > 0) goPage(n - 1);
+  }
   function render() {
     const n = pageCount(), mode = CFG.mode === 'double' ? '両面' : '片面';
     q('#dkMode').textContent = `${mode}印刷・${ITEMS.length}枚`;
     let html = '';
     for (let p = 0; p < n; p++) {
-      html += `<div class="dkpage" data-p="${p}">`;
+      html += `<div class="dkpage${p >= needPages() ? ' extra' : ''}" data-p="${p}">`;
       for (let k = 0; k < PER_PAGE; k++) {
         const i = p * PER_PAGE + k, it = ITEMS[i];
         if (it) {
@@ -275,6 +286,8 @@
   pagesEl.addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); } }, { passive: false });
   q('#dkPrev').onclick = () => goPage(curPage - 1);
   q('#dkNext').onclick = () => goPage(curPage + 1);
+  q('#dkPgAdd').onclick = () => addPages(1);
+  q('#dkPgDel').onclick = () => addPages(-1);
 
   pagesEl.addEventListener('dblclick', (e) => {
     if (e.target.closest('.txed')) return;
@@ -429,10 +442,10 @@
   q('#dkReload').onclick = async () => { await renderTree(); if (curDir) await listThumbs(curDir); };
 
   // ================= 右：写真の一覧 =================
-  let files = [], sel = new Set(), anchor = -1, tw = LS.get('tw2', 220);
+  let files = [], sel = new Set(), anchor = -1, tw = LS.get('tw3', 120);
   thumbsEl.style.setProperty('--tw', tw + 'px');
-  q('#dkSmall').onclick = () => { tw = Math.max(110, tw - 40); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw2', tw); };
-  q('#dkBig').onclick = () => { tw = Math.min(420, tw + 40); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw2', tw); };
+  q('#dkSmall').onclick = () => { tw = Math.max(80, tw - 30); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw3', tw); };
+  q('#dkBig').onclick = () => { tw = Math.min(420, tw + 30); thumbsEl.style.setProperty('--tw', tw + 'px'); LS.set('tw3', tw); };
 
   async function setDir(p) {
     curDir = p; LS.set('dir', p);
