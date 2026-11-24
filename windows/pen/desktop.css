@@ -65,9 +65,9 @@ html.dk.dk-cfg body.home #dk{display:none}
 #dkTree .nd:hover .rm{visibility:visible}
 #dkTree .sec{color:var(--sub);font-size:11px;padding:8px 12px 3px}
 
-#dkThumbs{flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px;align-content:start;background:#14161b}
+#dkThumbs{flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px;align-content:start;grid-auto-rows:max-content;background:#14161b}
 #dkThumbs .msg{grid-column:1/-1;color:var(--sub);font-size:13px;padding:20px;text-align:center;line-height:1.7}
-.dkth{background:#1f232b;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;user-select:none;position:relative}
+.dkth{min-height:max-content;background:#1f232b;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;user-select:none;position:relative}
 .dkth .im{background:#000;display:block;line-height:0}
 .dkth .im img{width:100%;height:auto;aspect-ratio:4/3;object-fit:contain;display:block;pointer-events:none;background:#000}
 .dkth .nm{font-size:11px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub)}
