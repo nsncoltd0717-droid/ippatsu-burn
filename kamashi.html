@@ -1825,19 +1825,19 @@
       h += '<div class="nm" style="font-size:17px">☁ ' + esc(c.name || SHARE) + "<\/div>";
       h += '<div class="info">' + (c.type === "drive" ? "Google ドライブ" + (st.email ? "(" + esc(st.email) + ")" : "") + (c.path ? "・" + esc(c.path) : "") : "パソコンのフォルダ(Google ドライブで同期)") + "<br>";
       h += L.at ? "最後の同期 " + when(L.at) + (L.err ? ' <b style="color:var(--ng)">⚠ ' + esc(L.perm ? "「☁ いますぐ同期」を押してフォルダの使用を許可してください" : L.err) + "<\/b>" : "(受け取り " + (L.pulled || 0) + "・送り " + (L.pushed || 0) + (L.merged ? "・まとめ " + L.merged : "") + ")") : "まだ同期していません";
-      h += '<\/div><div class="btns"><button type="button" class="pri" data-c="sync">☁ いますぐ同期<\/button><button type="button" data-c="change">フォルダを変える<\/button>' + (c.type === "drive" ? '<button type="button" data-c="logout">ログアウト<\/button>' : '<button type="button" data-c="stop">やめる<\/button>') + "<\/div>";
+      h += '<\/div><div class="btns"><button type="button" class="pri" data-c="sync">☁ いますぐ同期<\/button><button type="button" data-c="change">接続するフォルダを変える<\/button>' + (c.type === "drive" ? '<button type="button" data-c="logout">接続を切る<\/button>' : '<button type="button" data-c="stop">接続を切る<\/button>') + "<\/div>";
       h += '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:14px"><input type="checkbox" data-c="auto" ' + (c.auto !== false ? "checked" : "") + ' style="width:22px;height:22px" /> 一発バーンを開いたとき自動で同期する<\/label>';
       h += '<div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
     } else if (isAndroid) {
-      h += '<div class="info">Google ドライブの共有フォルダ「' + SHARE + '」を通して、ほかの携帯・パソコンと現場(座標・図面・工事写真・写真帳・3D)を自動で受け渡します。どの端末でも、同じ Google のアカウント(またはフォルダを共有した人)でログインすれば、同じフォルダを自動で見つけます。<\/div>';
+      h += '<div class="info">Google ドライブの共有フォルダ「' + SHARE + '」に接続して、ほかの携帯・パソコンと現場(座標・図面・工事写真・写真帳・3D)を自動で受け渡します。どの端末でも、同じ Google のアカウント(またはフォルダを共有した人)でログインすれば、同じフォルダを自動で見つけて接続します。<\/div>' + '<div class="info" style="background:rgba(46,160,67,.12);border-radius:8px;padding:8px 10px">✅ <b>この端末の現場は消えません。<\/b>接続すると、この端末の現場はそのままフォルダにも置かれ、フォルダにあるほかの端末の現場がこの端末に足されます。<\/div>';
       if (!st.client) h += '<div class="info"><b>⚠ Google の登録ファイルがまだアプリに入っていません。<\/b>手順書のとおりに作った <code>google_client.json<\/code>(client_secret_〜.json)を「🔑 登録ファイルを読む」で選んでください。<\/div>';
-      h += '<div class="btns">' + (st.client ? '<button type="button" class="pri" data-c="login">' + (st.login ? "☁ 共有フォルダを選ぶ" : "G Google でログイン") + "<\/button>" : "") + '<button type="button" data-c="client">🔑 登録ファイルを読む<\/button><\/div><input type="file" id="ipxCloudCli" accept=".json,application/json,*/*" hidden />';
+      h += '<div class="btns">' + (st.client ? '<button type="button" class="pri" data-c="login">' + (st.login ? "🔗 クラウドのフォルダに接続" : "🔗 クラウドのフォルダに接続(Google でログイン)") + "<\/button>" : "") + '<button type="button" data-c="client">🔑 登録ファイルを読む<\/button><\/div><input type="file" id="ipxCloudCli" accept=".json,application/json,*/*" hidden />';
       h += '<div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
     } else if (hasFolderApi) {
-      h += '<div class="info">パソコンでは、Google ドライブ(パソコン版)で見えている共有フォルダ「' + SHARE + '」を選ぶだけです(ログイン不要)。携帯は同じフォルダを Google ドライブとして使います。<\/div>';
-      h += '<div class="btns"><button type="button" class="pri" data-c="dir">📁 共有フォルダを選ぶ<\/button><\/div><div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
+      h += '<div class="info">パソコンでは、Google ドライブ(パソコン版)で見えている共有フォルダ「' + SHARE + '」を選んで接続するだけです(ログイン不要)。携帯は同じフォルダに Google ドライブとして接続します。<\/div>' + '<div class="info" style="background:rgba(46,160,67,.12);border-radius:8px;padding:8px 10px">✅ <b>この端末の現場は消えません。<\/b>接続すると、この端末の現場はそのままフォルダにも置かれ、フォルダにあるほかの端末の現場がこの端末に足されます。<\/div>';
+      h += '<div class="btns"><button type="button" class="pri" data-c="dir">🔗 クラウドのフォルダに接続<\/button><\/div><div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
     } else {
-      h += '<div class="info">このブラウザではフォルダを選べません。Chrome か Edge で開くか、「⬇ 保存」「⬆ 読み込む」の ZIP で受け渡してください。<\/div>';
+      h += '<div class="info">このブラウザではフォルダを選べません。Chrome か Edge で開くか、「⬇ 保存」「⬆ 取り込む」の ZIP で受け渡してください。<\/div>';
     }
     box.innerHTML = h;
   }
@@ -1858,7 +1858,7 @@
   }
   // ---- Google ドライブのフォルダを選ぶ
   function driveSetup() {
-    msg("☁ 共有フォルダ「" + SHARE + "」をさがしています…");
+    msg("☁ 接続するフォルダ「" + SHARE + "」をさがしています…");
     if (A.netInternet) try { A.netInternet(true); } catch (e) { /* */ }
     return dList("name=" + qs(SHARE) + " and mimeType='" + FOLDER + "' and trashed=false").then(function (fs) {
       if (fs.length === 1) return useDrive(fs[0]);
@@ -1878,7 +1878,7 @@
     var show = function (title, items, here) {
       var body = '<div style="max-height:50vh;overflow:auto">' + (items.length ? items.map(function (f, i) { return '<button type="button" data-i="' + i + '" style="display:block;width:100%;text-align:left;margin:4px 0;padding:10px;border-radius:8px;border:1px solid var(--line,#ccd);background:transparent;color:inherit;font:inherit">📁 ' + esc(f.name) + (f.note ? '<br><small style="opacity:.7">' + esc(f.note) + "<\/small>" : "") + "<\/button>"; }).join("") : '<div class="ipx-sub">フォルダがありません<\/div>') + "<\/div>";
       var btns = [];
-      if (here) btns.push({ label: "ここを共有フォルダにする", ok: true, run: function () { useDrive(here, stack.map(function (s) { return s.name; }).join(" / ")); } });
+      if (here) btns.push({ label: "このフォルダに接続する", ok: true, run: function () { useDrive(here, stack.map(function (s) { return s.name; }).join(" / ")); } });
       if (here) btns.push({ label: "＋ここに「" + SHARE + "」を作る", run: function () {
         api("files?supportsAllDrives=true", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: SHARE, mimeType: FOLDER, parents: [here.id] }) }).then(function (f) { stack.push(here); useDrive({ id: f.id, name: SHARE }, stack.map(function (s) { return s.name; }).join(" / ")); }).catch(function (e) { msg(esc(e.message)); });
       } });
@@ -1903,8 +1903,8 @@
         var items = (found || []).map(function (f) { f.note = "見つかった「" + SHARE + "」" + (f.driveId ? "(共有ドライブ「" + (m[f.driveId] || "?") + "」)" : ""); f.open = function () { useDrive(f); if (d) d.close(); }; return f; });
         items.push(folder({ id: "root", name: "マイドライブ" }));
         Object.keys(m).forEach(function (id) { items.push(folder({ id: id, name: m[id], note: "共有ドライブ" })); });
-        show(found && found.length ? "「" + SHARE + "」がいくつかあります。どれを使いますか" : "共有フォルダの場所を選んでください", items, null);
-        msg(found && found.length ? "" : "「" + SHARE + "」が見つかりませんでした。共有フォルダを置く場所を選んで「作る」か、使うフォルダを選んでください。");
+        show(found && found.length ? "「" + SHARE + "」がいくつかあります。どれを使いますか" : "接続するフォルダを選んでください", items, null);
+        msg(found && found.length ? "" : "「" + SHARE + "」が見つかりませんでした。フォルダを作る場所を選んで「作る」か、接続するフォルダを選んでください。");
       });
     } };
     top.open();
@@ -1925,14 +1925,14 @@
       return window.showDirectoryPicker({ id: "ippatsu-cloud", mode: "readwrite" }).then(function (h) {
         return kv("readwrite", function (s) { return s.put(h, "dir"); }).then(function () {
           setCfg({ type: "folder", id: "dir:" + h.name, name: h.name, auto: true });
-          if (h.name !== SHARE) G.dialog("フォルダを選びました", "", null, "「" + esc(h.name) + "」を共有フォルダにします。携帯からも同じフォルダ(Google ドライブ上の同じ場所)を選んでください。名前を「" + SHARE + "」にしておくと、携帯は自動で見つけます。");
+          if (h.name !== SHARE) G.dialog("フォルダに接続しました", "", null, "「" + esc(h.name) + "」に接続しました。この端末の現場はそのまま残ります。携帯からも同じフォルダ(Google ドライブ上の同じ場所)を選んでください。名前を「" + SHARE + "」にしておくと、携帯は自動で見つけます。");
           render(); return runSync(true);
         });
       }).catch(function (e) { if (e && e.name !== "AbortError") msg(esc(e.message)); });
     }
     if (a === "change") { if (c.type === "drive") { setCfg({}); render(); return driveSetup(); } setCfg({}); render(); return; }
-    if (a === "logout") { if (!confirm("Google からログアウトしますか?(この端末の現場はそのまま残ります)")) return; A.driveLogout(); setCfg({}); render(); return; }
-    if (a === "stop") { setCfg({}); kv("readwrite", function (s) { return s.delete("dir"); }).catch(function () {}); render(); return; }
+    if (a === "logout") { if (!confirm("クラウドのフォルダとの接続を切りますか?\n(この端末の現場も、フォルダの中身も、そのまま残ります)")) return; A.driveLogout(); setCfg({}); render(); return; }
+    if (a === "stop") { if (!confirm("クラウドのフォルダとの接続を切りますか?\n(この端末の現場も、フォルダの中身も、そのまま残ります)")) return; setCfg({}); kv("readwrite", function (s) { return s.delete("dir"); }).catch(function () {}); render(); return; }
   }
   G.cloud = {
     sync: sync, config: cfg, setConfig: setCfg, restore: restore, transports: TS,
