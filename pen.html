@@ -2761,7 +2761,7 @@ async function buildXlsx(entries) {   // entries: [{jpg:Uint8Array, w, h, lines:
   if (!dRels) dRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
   let mk = 1; const media = n => { while (z[`xl/media/sp_photo${mk}.jpeg`]) mk++; return `xl/media/sp_photo${mk}.jpeg`; };
   entries.forEach((en, i) => {
-    const b = blocks[i]; if (!b) return;
+    const b = blocks[i]; if (!b || !en.jpg) return;   // 空けておく枠（Windows版）は写真なし
     const x0 = colX(b.p.c1), y0 = rowY(b.p.r1);
     let aw = 0; for (let c = b.p.c1; c <= b.p.c2; c++) aw += colPx(c);
     let ah = 0; for (let r = b.p.r1; r <= b.p.r2; r++) ah += rowPx(r);

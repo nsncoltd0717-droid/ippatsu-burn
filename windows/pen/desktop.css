@@ -113,3 +113,7 @@ html.pen-editor #home, html.pen-editor #dk, html.pen-editor #bUpd{display:none!i
 /* ページを先に増やす */
 .dkpage.extra .empty{color:#b9bec8}
 #dkL>.dkbar{flex-wrap:wrap;overflow:visible;row-gap:4px}
+/* 空けた枠 */
+.dkslot.gap .ph{background:repeating-linear-gradient(45deg,#f4f5f7 0 10px,#e9ecf1 10px 20px)}
+.dkslot.gap .empty{color:#7a8494}
+.dkslot.gap:hover .ops{display:flex}
