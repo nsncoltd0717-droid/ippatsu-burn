@@ -10,7 +10,7 @@
   const PA = window.penApp, HAS_FS = !!PA.fs;
   const PER_PAGE = 3;
   // 画面の版（「⟳ アプリの更新」で届く分）。直したら上げる。見出しの forWindows の後ろに出す
-  const SCREEN_VER = '画面 2026-11-25a';
+  const SCREEN_VER = '画面 2026-11-25b';
   { const sm = document.querySelector('h1.hm small'); if (sm && !sm.querySelector('.scrv')) { const e = document.createElement('span'); e.className = 'scrv'; e.textContent = ' · ' + SCREEN_VER; e.style.color = '#7fd1a0'; sm.appendChild(e); } }
   const LS = {
     get(k, d) { try { const v = localStorage.getItem('pen.win.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -251,7 +251,30 @@
   window.addEventListener('genba', drawSite);
   q('#dkCfg').onclick = () => ROOTC.add('dk-cfg');
   cfgBack.onclick = () => { ROOTC.remove('dk-cfg'); render(); };
-  q('#dkXlsx').onclick = () => q('#bXlsx').click();
+  // Excel：空けた枠があれば、その枠は写真も文字も入れずに空けて書き出す（無ければ pen.html の書き出しのまま）
+  q('#dkXlsx').onclick = async () => {
+    if (!gaps.size) return q('#bXlsx').click();
+    const btn = q('#dkXlsx'); btn.disabled = true;
+    try {
+      const arr = layout(), entries = [];
+      for (let k = 0; k < arr.length; k++) {
+        const it = arr[k];
+        if (!it) { entries.push({ jpg: null, w: 1, h: 1, lines: [] }); continue; }
+        toast(`Excel 作成中… 枠 ${k + 1}/${arr.length}`, 10000);
+        const c = await renderItem(it, CFG.px);
+        const bl = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.88));
+        entries.push({ jpg: new Uint8Array(await bl.arrayBuffer()), w: c.width, h: c.height, lines: excelLines(it.state) });
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      toast('Excel をまとめています…', 10000);
+      const res = await buildXlsx(entries);
+      const d = new Date(), pad = (n) => String(n).padStart(2, '0');
+      const name = `工事写真_${(CFG.name || '').replace(/[\\/:*?"<>|]/g, '_').slice(0, 30)}${CFG.name ? '_' : ''}${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${res.sheet}.xlsx`;
+      await saveBlob(res.blob, name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      toast(`${name}（${(res.blob.size / 1048576).toFixed(1)}MB・空き枠${gaps.size}）`, 5000);
+    } catch (e) { console.error(e); toast('Excel を作れませんでした: ' + e.message, 6000); }
+    finally { btn.disabled = false; }
+  };
   q('#dkClear').onclick = () => q('#bClear').click();
   q('#dkPickFiles').onclick = () => q('#fPick').click();
 
@@ -283,7 +306,30 @@
   // 先に増やしたページ数（現場ごと）
   const wantKey = () => 'pages.' + (localStorage.getItem(SITE_KEY) || '');
   function wantPages() { return LS.get(wantKey(), 0); }
-  function needPages() { return Math.max(1, Math.ceil((ITEMS.length + 1) / PER_PAGE)); }
+  // 空けておく枠（現場ごと）：写真の枠の通し番号(0〜)のうち、写真を入れずに空けておく所
+  const gapKey = () => 'gaps.' + (localStorage.getItem(SITE_KEY) || '');
+  let gaps = new Set(LS.get(gapKey(), []));
+  // 枠の並び：写真(ITEMS の1枚) か null(空けた枠)
+  function layout() {
+    const arr = []; let k = 0;
+    for (let sI = 0; k < ITEMS.length; sI++) arr.push(gaps.has(sI) ? null : ITEMS[k++]);
+    return arr;
+  }
+  // 並びを ITEMS と空けた枠に戻す（最後の写真より後ろの空きは捨てる）
+  function commit(arr) {
+    while (arr.length && !arr[arr.length - 1]) arr.pop();
+    ITEMS.splice(0, ITEMS.length, ...arr.filter(Boolean));
+    gaps = new Set(); arr.forEach((x, i) => { if (!x) gaps.add(i); }); LS.set(gapKey(), [...gaps]);
+    renumber(); renderList();
+  }
+  const slotOfItem = (i) => { let sI = 0, k = -1; for (; ; sI++) { if (!gaps.has(sI)) k++; if (k === i) return sI; } };
+  // 写真(1枚以上)を枠 sI に入れる。空いた枠・最後より後ろなら、そこに入れる（間は空けた枠になる）
+  function placeAt(arr, sI, its) {
+    if (sI >= arr.length) { while (arr.length < sI) arr.push(null); arr.push(...its); }
+    else if (!arr[sI]) { arr[sI] = its[0]; arr.splice(sI + 1, 0, ...its.slice(1)); }
+    else arr.splice(sI, 0, ...its);
+  }
+  function needPages() { return Math.max(1, Math.ceil((ITEMS.length + gaps.size + 1) / PER_PAGE)); }
   function pageCount() { return Math.max(needPages(), wantPages()); }
   function addPages(d) {
     const before = pageCount(), n = Math.max(needPages(), before + d);
@@ -293,25 +339,31 @@
   }
   function render() {
     const n = pageCount(), mode = CFG.mode === 'double' ? '両面' : '片面';
-    q('#dkMode').textContent = `${mode}印刷・${ITEMS.length}枚`;
+    q('#dkMode').textContent = `${mode}印刷・${ITEMS.length}枚${gaps.size ? `・空き枠${gaps.size}` : ''}`;
+    const arr = layout();
     let html = '';
     for (let p = 0; p < n; p++) {
       html += `<div class="dkpage${p >= needPages() ? ' extra' : ''}" data-p="${p}">`;
       for (let k = 0; k < PER_PAGE; k++) {
-        const i = p * PER_PAGE + k, it = ITEMS[i];
-        if (it) {
+        const sI = p * PER_PAGE + k, it = arr[sI], i = it ? ITEMS.indexOf(it) : -1;
+        if (sI < arr.length && !it) {   // 空けた枠
+          html += `<div class="dkslot gap" data-s="${sI}">
+            <div class="ph"><div class="empty">空けた枠<br><small>右の写真をドラッグで入れられます</small></div></div>
+            <div class="ops"><button data-act="ungap" title="この空きを消して、後ろの写真を前に詰める">✕ 空きを詰める</button></div>
+            <div class="tx">${'<div></div>'.repeat(slotLines)}</div></div>`;
+        } else if (it) {
           const ls = excelLines(it.state);
           const rows = [];
           for (let r = 0; r < slotLines; r++) rows.push(`<div>${h(ls[r] || '')}</div>`);
           const more = ls.length > slotLines ? `<div class="more">ほか${ls.length - slotLines}行は枠に入りません</div>` : '';
-          html += `<div class="dkslot filled${i === lastOpened ? ' cur' : ''}" data-i="${i}" draggable="true">
+          html += `<div class="dkslot filled${i === lastOpened ? ' cur' : ''}" data-i="${i}" data-s="${sI}" draggable="true">
             <div class="ph" data-act="open" title="ダブルクリックで編集"><img src="${it.thumb}" alt=""><span class="no">No.${i + 1}</span></div>
-            <div class="ops"><button data-act="open">✎ 編集</button><button data-act="text" title="右の文面（黒板の中身）を手入力で直す">✍ 文面</button><button data-act="del">🗑</button></div>
+            <div class="ops"><button data-act="open">✎ 編集</button><button data-act="text" title="右の文面（黒板の中身）を手入力で直す">✍ 文面</button><button data-act="gap" title="この写真の前に空の写真枠を1つ入れる（後ろの写真は1つずつ後ろへ）">＋枠</button><button data-act="del">🗑</button></div>
             <div class="tx" data-act="text" title="ダブルクリックで文面を手入力">${rows.join('')}${more}</div></div>`;
         } else {
-          const first = i === ITEMS.length;
-          html += `<div class="dkslot" data-i="${ITEMS.length}">
-            <div class="ph"><div class="empty">${first ? '右の写真を<br>ここへドラッグ' : ''}</div></div>
+          const first = sI === arr.length;
+          html += `<div class="dkslot" data-s="${sI}">
+            <div class="ph"><div class="empty">${first ? '右の写真を<br>ここへドラッグ' : '<small>ここへドラッグすると<br>間の枠は空けておきます</small>'}</div></div>
             <div class="tx">${'<div></div>'.repeat(slotLines)}</div></div>`;
         }
       }
@@ -374,15 +426,18 @@
     });
   }
   pagesEl.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-act]'), s = e.target.closest('.dkslot'); if (!b || !s || !s.classList.contains('filled')) return;
+    const b = e.target.closest('[data-act]'), s = e.target.closest('.dkslot'); if (!b || !s) return;
+    if (b.dataset.act === 'ungap') { const arr = layout(); arr.splice(+s.dataset.s, 1); commit(arr); return; }
+    if (!s.classList.contains('filled')) return;
     const i = +s.dataset.i;
+    if (b.dataset.act === 'gap') { const arr = layout(); arr.splice(+s.dataset.s, 0, null); lastOpened = i + 0; commit(arr); return; }
     if (b.dataset.act === 'open' && b.tagName === 'BUTTON') edit(i);
     else if (b.dataset.act === 'text' && b.tagName === 'BUTTON') textEdit(i);
     else if (b.dataset.act === 'text') { pagesEl.querySelectorAll('.dkslot.cur').forEach((x) => x.classList.remove('cur')); s.classList.add('cur'); lastOpened = i; }
     else if (b.dataset.act === 'open') { pagesEl.querySelectorAll('.dkslot.cur').forEach((x) => x.classList.remove('cur')); s.classList.add('cur'); lastOpened = i; }
     else if (b.dataset.act === 'del') {
       if (!confirm(`No.${i + 1} を消しますか？`)) return;
-      const [it] = ITEMS.splice(i, 1); idb.del(it.id); forgetUsed(it.id); renumber(); renderList();
+      const arr = layout(), it = ITEMS[i]; arr.splice(arr.indexOf(it), 1); idb.del(it.id); forgetUsed(it.id); commit(arr);
     }
   });
   document.addEventListener('keydown', (e) => {
@@ -412,11 +467,12 @@
   pagesEl.addEventListener('drop', async (e) => {
     const s = e.target.closest('.dkslot'); if (!s) return;
     e.preventDefault(); e.stopPropagation(); s.classList.remove('drop');
-    const at = Math.min(+s.dataset.i, ITEMS.length), dt = e.dataTransfer;
+    const at = +s.dataset.s, dt = e.dataTransfer;
     if (dt.types.includes(T_ITEM)) {
-      const from = +dt.getData(T_ITEM); if (!(from >= 0) || from === at) return;
-      const [it] = ITEMS.splice(from, 1); const to = from < at ? at - 1 : at; ITEMS.splice(Math.min(to, ITEMS.length), 0, it);
-      lastOpened = Math.min(to, ITEMS.length - 1); renumber(); renderList(); return;
+      const from = +dt.getData(T_ITEM), it = ITEMS[from]; if (!it) return;
+      const arr = layout(), fs = arr.indexOf(it); if (fs === at) return;
+      arr.splice(fs, 1); placeAt(arr, fs < at ? at - 1 : at, [it]);   // 元の所は詰めて、行き先に入れる
+      commit(arr); lastOpened = ITEMS.indexOf(it); render(); return;
     }
     if (dt.types.includes(T_PATHS)) { let ps = []; try { ps = JSON.parse(dt.getData(T_PATHS)); } catch (err) { /* */ } return addPaths(ps, at); }
     if (dt.files && dt.files.length) return addAt([...dt.files], at, []);
@@ -429,10 +485,9 @@
     const added = ITEMS.splice(before);
     if (!added.length) return;
     if (paths && paths.length === added.length) added.forEach((it, k) => rememberUsed(paths[k], it.id));
-    ITEMS.splice(Math.min(at, ITEMS.length), 0, ...added);
-    lastOpened = Math.min(at, ITEMS.length - 1);
-    renumber(); renderList();
-    goPage(Math.floor((Math.min(at, ITEMS.length - 1)) / PER_PAGE));
+    const arr = layout(); placeAt(arr, at, added);
+    commit(arr); lastOpened = ITEMS.indexOf(added[0]); render();
+    goPage(Math.floor(at / PER_PAGE));
   }
   async function addPaths(paths, at) {
     if (!HAS_FS || !paths.length) return;
@@ -441,7 +496,7 @@
       try { const r = await PA.fs.read(p); files.push(new File([r.data], r.name, { type: /\.png$/i.test(r.name) ? 'image/png' : /\.webp$/i.test(r.name) ? 'image/webp' : 'image/jpeg', lastModified: r.mtime })); ok.push(p); }
       catch (e) { toast(`${p} を読めませんでした`, 3000); }
     }
-    await addAt(files, at == null ? ITEMS.length : at, ok);
+    await addAt(files, at == null ? layout().length : at, ok);
   }
 
   // ---- 使った写真の印（元の写真のパス → 貼った写真の id） ----
@@ -561,7 +616,7 @@
         if (a.a === 'close') closePv();
         else if (a.a === 'prev') preview(Math.max(0, kk - 1));
         else if (a.a === 'next') preview(Math.min(files.length - 1, kk + 1));
-        else if (a.a === 'add') { addPaths([files[kk].path], ITEMS.length); pv.querySelector('[data-a=add]').textContent = '✓ 足しました'; }
+        else if (a.a === 'add') { addPaths([files[kk].path], null); pv.querySelector('[data-a=add]').textContent = '✓ 足しました'; }
         else if (a.a === 'reveal' && PA.fs.reveal) PA.fs.reveal(files[kk].path);
       });
     }
@@ -602,7 +657,7 @@
     e.dataTransfer.setData(T_PATHS, JSON.stringify(ps)); e.dataTransfer.effectAllowed = 'copy';
     const img = q('img', el); if (img) e.dataTransfer.setDragImage(img, 30, 30);
   });
-  q('#dkAddSel').onclick = () => addPaths([...sel].sort((a, b) => a - b).map((i) => files[i].path), ITEMS.length);
+  q('#dkAddSel').onclick = () => addPaths([...sel].sort((a, b) => a - b).map((i) => files[i].path), null);
   document.addEventListener('keydown', (e) => {
     if (!document.body.classList.contains('home') || !files.length) return;
     if (e.ctrlKey && e.key === 'a' && thumbsEl.matches(':hover')) { e.preventDefault(); files.forEach((f, i) => sel.add(i)); updSel(); }
