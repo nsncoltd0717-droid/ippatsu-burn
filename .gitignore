@@ -1,0 +1,3 @@
+# Google の登録ファイル（client_secret 入り）は上げない
+google_client.json
+client_secret*.json
