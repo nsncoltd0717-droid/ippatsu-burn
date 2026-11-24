@@ -47,19 +47,29 @@ const MIME = {
 };
 
 // ---------- 写真ペン太郎 forWindows のデータを引き継ぐ(初めて開いたときだけ) ----------
+// fs.cpSync は Windows の Electron 39 で、写し先に同じ名前の物があると本体ごと落ちる(kkw01x で確認)。自前で1つずつ写す
+function copyTree(src, dst) {
+  const st = fs.statSync(src);
+  if (st.isDirectory()) {
+    fs.mkdirSync(dst, { recursive: true });
+    for (const n of fs.readdirSync(src)) copyTree(path.join(src, n), path.join(dst, n));
+  } else if (st.isFile()) {
+    fs.copyFileSync(src, dst);
+  }
+}
 function migrateFromPen() {
   const to = app.getPath('userData');
   const from = path.join(app.getPath('appData'), '写真ペン太郎');
   const mark = path.join(to, 'migrated.json');
   if (fs.existsSync(mark) || fs.existsSync(path.join(to, 'IndexedDB')) || !fs.existsSync(from)) return;
-  const skip = new Set(['Cache', 'Code Cache', 'GPUCache', 'DawnGraphiteCache', 'DawnWebGPUCache', 'Crashpad', 'web', 'web.new',
+  const skip = new Set(['DIPS', 'Cache', 'Code Cache', 'GPUCache', 'DawnGraphiteCache', 'DawnWebGPUCache', 'Crashpad', 'web', 'web.new',
     'SingletonLock', 'SingletonCookie', 'SingletonSocket', 'lockfile', 'blob_storage', 'Shared Dictionary']);
   try {
     fs.mkdirSync(to, { recursive: true });
     const copied = [];
     for (const n of fs.readdirSync(from)) {
       if (skip.has(n)) continue;
-      fs.cpSync(path.join(from, n), path.join(to, n), { recursive: true, force: true, errorOnExist: false });
+      try { copyTree(path.join(from, n), path.join(to, n)); } catch (e) { continue; }
       copied.push(n);
     }
     fs.writeFileSync(mark, JSON.stringify({ from, at: new Date().toISOString(), copied }));
