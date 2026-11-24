@@ -5,7 +5,7 @@
 // ・Excel や画像の書き出しは「名前を付けて保存」の窓で保存先を選ぶ
 // ・パソコン用の2列の画面(desktop.js / desktop.css)を pen.html に差し込んで出す
 // ・「アプリの更新」で公開ページから pen.html と desktop.* を取ってきて入れ替える(%APPDATA%\写真ペン太郎\web)
-const { app, BrowserWindow, protocol, shell, Menu, dialog, ipcMain, nativeImage, net } = require('electron');
+const { app, BrowserWindow, protocol, shell, Menu, dialog, ipcMain, nativeImage, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -186,6 +186,7 @@ ipcMain.handle('pen:update', async () => {
     fs.writeFileSync(path.join(tmp, 'meta.json'), JSON.stringify({ shell: app.getVersion(), at: new Date().toISOString(), pen: verOf(html) }));
     fs.rmSync(webDir(), { recursive: true, force: true }); fs.renameSync(tmp, webDir());
   }
+  try { await session.defaultSession.clearCache(); } catch (e) { /* */ }
   return { ok: true, changed, before, after: verOf(html), shell: app.getVersion(), shellNew };
 });
 
@@ -246,11 +247,11 @@ app.whenReady().then(() => {
     try {
       let body = WEB_FILES[rel] ? await readWeb(rel) : await fs.promises.readFile(file);
       if (rel === 'pen.html') body = patchPen(body.toString('utf8'));
-      return new Response(body, { headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' } });
+      return new Response(body, { headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'cache-control': 'no-store' } });
     } catch (e) { return new Response('not found', { status: 404 }); }
   });
-  buildMenu();
-  createWindow();
+  // 「アプリの更新」で入れた画面が古い一時保存(キャッシュ)に負けないように、開くたびにキャッシュを消す。写真や設定は消えない
+  session.defaultSession.clearCache().catch(() => {}).finally(() => { buildMenu(); createWindow(); });
 });
 
 app.on('window-all-closed', () => app.quit());
