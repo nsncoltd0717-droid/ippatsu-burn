@@ -9,6 +9,9 @@
   if (!window.penApp || typeof ITEMS === 'undefined' || typeof renderList !== 'function') return;
   const PA = window.penApp, HAS_FS = !!PA.fs;
   const PER_PAGE = 3;
+  // 画面の版（「⟳ アプリの更新」で届く分）。直したら上げる。見出しの forWindows の後ろに出す
+  const SCREEN_VER = '画面 2026-11-25a';
+  { const sm = document.querySelector('h1.hm small'); if (sm && !sm.querySelector('.scrv')) { const e = document.createElement('span'); e.className = 'scrv'; e.textContent = ' · ' + SCREEN_VER; e.style.color = '#7fd1a0'; sm.appendChild(e); } }
   const LS = {
     get(k, d) { try { const v = localStorage.getItem('pen.win.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem('pen.win.' + k, JSON.stringify(v)); } catch (e) { /* */ } },
