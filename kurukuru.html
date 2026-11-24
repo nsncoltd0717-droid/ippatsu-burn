@@ -1791,6 +1791,663 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(place, 300); }); else setTimeout(place, 300);
 })();
 
+;// 一発バーン 現場まるごと受け渡し(2026-11-25 ゆきちゃん「Google ドライブ等のクラウドで現場データを共有。座標・図面・工事写真・アルバム すべてぬけ無く」)
+//   1つの現場(または全部)を1つの ZIP(genba_〜.zip)にする。中身:
+//     genba.json … 現場の設定・座標・アプリごとの作業(くるくる等)・図面の一覧・写し太郎の写真の情報・ツリー・黒板のひな形・測点・
+//                  ペン太郎の写真帳(現場ごと)・3D(LandXML)。写真・図面などの中身は ZIP の中の別ファイルにして、json には置き場所だけ書く。
+//     b/0001 …    写真(JPEG)・図面・LandXML などの中身(圧縮しない)
+//   読み込みは「まとめる」(足りないものを足す。同じ写真・同じ点は重ねない)か「置き換える」。genba_〜.json(前の形)・ECP の kurukuru_〜.json も読める。
+//   Genba.exportZip(names) → Blob、Genba.importFile(file, {mode, ask}) → 入れた現場名の配列。make_apps.py が ippatsu_common.js のあとに入れる。
+(function () {
+  "use strict";
+  var G = window.Genba; if (!G || G.exportZip) return;
+
+  // ---------------------------------------------------------------- IndexedDB(アプリと同じ作りで開く)
+  var DBS = {
+    genba: { name: "ippatsu-genba", up: function (d) { ["sites", "files", "points", "apps"].forEach(function (s) { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s); }); } },
+    uts: { name: "utsushi", up: function (d) {
+      if (!d.objectStoreNames.contains("photos")) { var p = d.createObjectStore("photos", { keyPath: "id" }); p.createIndex("site", "site"); }
+      if (!d.objectStoreNames.contains("trees")) d.createObjectStore("trees");
+      if (!d.objectStoreNames.contains("boards")) { var b = d.createObjectStore("boards", { keyPath: "id" }); b.createIndex("site", "site"); }
+    } },
+    pen: { name: "sp-album", up: function (d) { if (!d.objectStoreNames.contains("items")) d.createObjectStore("items", { keyPath: "id" }); if (!d.objectStoreNames.contains("kv")) d.createObjectStore("kv"); } },
+    pens: { name: "pen-sites", up: function (d) { if (!d.objectStoreNames.contains("albums")) d.createObjectStore("albums"); } },
+    xs: { name: "ippatsu-3d", up: function (d) { if (!d.objectStoreNames.contains("kv")) d.createObjectStore("kv"); } }
+  };
+  function odb(k) {
+    var D = DBS[k];
+    return new Promise(function (ok, ng) {
+      var rq = indexedDB.open(D.name, 1);
+      rq.onupgradeneeded = function () { D.up(rq.result); };
+      rq.onsuccess = function () { ok(rq.result); }; rq.onerror = function () { ng(rq.error); };
+    });
+  }
+  function run(k, store, mode, fn) {
+    return odb(k).then(function (db) {
+      return new Promise(function (ok, ng) {
+        var t = db.transaction(store, mode), st = t.objectStore(store), out; var rq = fn(st);
+        if (rq) rq.onsuccess = function () { out = rq.result; };
+        t.oncomplete = function () { db.close(); ok(out); };
+        t.onerror = function () { db.close(); ng(t.error); };
+        t.onabort = function () { db.close(); ng(t.error || new Error("保存できませんでした(容量が足りないかもしれません)")); };
+      });
+    });
+  }
+  var FK = function (s, n) { return s + "\n" + n; };
+  var range = function (s) { return IDBKeyRange.bound(s + "\n", s + "\n￿"); };
+  var allIn = function (k, store, s) { return run(k, store, "readonly", function (st) { return st.getAll(range(s)); }); };
+  var keysIn = function (k, store, s) { return run(k, store, "readonly", function (st) { return st.getAllKeys(range(s)); }); };
+  var lsGet = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  var lsSet = function (k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* */ } };
+
+  // ---------------------------------------------------------------- 中身(Blob・ArrayBuffer)を ZIP の別ファイルへ
+  function Packer() { this.files = []; this.n = 0; }
+  Packer.prototype.add = function (data, type) {
+    var p = "b/" + String(++this.n).padStart(5, "0");
+    this.files.push({ name: p, data: data });
+    return { $bin: p, type: type || (data && data.type) || "", kind: data instanceof Blob ? "blob" : "buf" };
+  };
+  Packer.prototype.pack = function (o, depth) {   // Blob・ArrayBuffer を探して置き場所に替える(写真の記録は浅いので 3 段まで)
+    if (o == null || typeof o !== "object") return o;
+    if (o instanceof Blob || o instanceof ArrayBuffer) return this.add(o);
+    if (ArrayBuffer.isView(o)) return this.add(o.buffer.slice(o.byteOffset, o.byteOffset + o.byteLength));
+    if ((depth || 0) > 3) return o;
+    var out = Array.isArray(o) ? [] : {}, self = this;
+    Object.keys(o).forEach(function (k) { out[k] = self.pack(o[k], (depth || 0) + 1); });
+    return out;
+  };
+  function unpack(o, get, depth) {   // 置き場所を Blob・ArrayBuffer に戻す
+    if (o == null || typeof o !== "object") return Promise.resolve(o);
+    if (o.$bin) return get(o.$bin).then(function (b) { return o.kind === "blob" ? new Blob([b], { type: o.type || "" }) : b; });
+    if ((depth || 0) > 3) return Promise.resolve(o);
+    var out = Array.isArray(o) ? [] : {}, ks = Object.keys(o);
+    return ks.reduce(function (p, k) { return p.then(function () { return unpack(o[k], get, (depth || 0) + 1).then(function (v) { out[k] = v; }); }); }, Promise.resolve()).then(function () { return out; });
+  }
+
+  // ---------------------------------------------------------------- ZIP(書き:圧縮なし / 読み:圧縮なし・deflate)
+  var CRC = (function () { var t = new Uint32Array(256); for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(u, c) { c = c == null ? 0xffffffff : c; for (var i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return c; }
+  function toU8(d) { return d instanceof Blob ? d.arrayBuffer().then(function (b) { return new Uint8Array(b); }) : Promise.resolve(d instanceof Uint8Array ? d : new Uint8Array(d)); }
+  function zipBlob(files, progress) {
+    var parts = [], cen = [], off = 0, i = 0;
+    var step = function () {
+      if (i >= files.length) {
+        var cs = cen.reduce(function (a, b) { return a + b.length; }, 0), e = new DataView(new ArrayBuffer(22));
+        e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cs, true); e.setUint32(16, off, true);
+        return Promise.resolve(new Blob(parts.concat(cen, [new Uint8Array(e.buffer)]), { type: "application/zip" }));
+      }
+      var f = files[i++];
+      return toU8(f.data).then(function (d) {
+        var nm = new TextEncoder().encode(f.name), c = (crc32(d) ^ 0xffffffff) >>> 0, h = new DataView(new ArrayBuffer(30));
+        h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint32(14, c, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nm.length, true);
+        parts.push(new Uint8Array(h.buffer), nm, d);
+        var ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint32(16, c, true); ch.setUint32(20, d.length, true); ch.setUint32(24, d.length, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+        cen.push(new Uint8Array(ch.buffer), nm); off += 30 + nm.length + d.length;
+        if (progress) progress(i, files.length);
+        return step();
+      });
+    };
+    return step();
+  }
+  function zipReader(file) {   // 中央ディレクトリだけ読んで、中身は要るときに file.slice で取る(大きな ZIP でも端末が重くならない)
+    var tail = Math.min(file.size, 65557);
+    return file.slice(file.size - tail).arrayBuffer().then(function (b) {
+      var u = new DataView(b), e = -1;
+      for (var i = b.byteLength - 22; i >= 0; i--) if (u.getUint32(i, true) === 0x06054b50) { e = i; break; }
+      if (e < 0) throw new Error("ZIP として読めません");
+      var n = u.getUint16(e + 10, true), cs = u.getUint32(e + 12, true), co = u.getUint32(e + 16, true);
+      return file.slice(co, co + cs).arrayBuffer().then(function (cb) {
+        var c = new DataView(cb), p = 0, map = {};
+        for (var k = 0; k < n; k++) {
+          var meth = c.getUint16(p + 10, true), csz = c.getUint32(p + 20, true), nl = c.getUint16(p + 28, true), xl = c.getUint16(p + 30, true), cl = c.getUint16(p + 32, true), lo = c.getUint32(p + 42, true);
+          var name = new TextDecoder().decode(new Uint8Array(cb, p + 46, nl));
+          map[name] = { meth: meth, csz: csz, lo: lo }; p += 46 + nl + xl + cl;
+        }
+        return {
+          has: function (nm) { return !!map[nm]; },
+          get: function (nm) {
+            var m = map[nm]; if (!m) return Promise.reject(new Error("ZIP の中に " + nm + " がありません"));
+            return file.slice(m.lo, m.lo + 30).arrayBuffer().then(function (hb) {
+              var h = new DataView(hb), st = m.lo + 30 + h.getUint16(26, true) + h.getUint16(28, true);
+              var raw = file.slice(st, st + m.csz);
+              if (m.meth === 0) return raw.arrayBuffer();
+              if (m.meth === 8 && window.DecompressionStream) return new Response(raw.stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+              throw new Error("この ZIP の形(圧縮 " + m.meth + ")は読めません");
+            });
+          }
+        };
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- 1つの現場を集める
+  function penAlbum(n) {   // ペン太郎の写真帳:いまペン太郎に出ている現場なら sp-album、ほかは pen-sites に預けてある
+    var shown = lsGet("pen.win.albumSite");
+    if (shown === n || (shown == null && G.current() === n)) {
+      return run("pen", "items", "readonly", function (st) { return st.getAll(); }).then(function (items) { return { items: items || [], cfg: lsGet("sp.cfg"), live: true }; });
+    }
+    return run("pens", "albums", "readonly", function (st) { return st.get(n); }).then(function (r) { return r ? { items: r.items || [], cfg: r.cfg || null } : null; });
+  }
+  function collect(n, P) {
+    return Promise.all([
+      G.get(n), G.points(n), allIn("genba", "files", n), keysIn("genba", "apps", n), allIn("genba", "apps", n),
+      run("uts", "photos", "readonly", function (st) { return st.index("site").getAll(n); }).catch(function () { return []; }),
+      run("uts", "trees", "readonly", function (st) { return st.get(n); }).catch(function () { return null; }),
+      run("uts", "boards", "readonly", function (st) { return st.index("site").getAll(n); }).catch(function () { return []; }),
+      penAlbum(n).catch(function () { return null; }),
+      run("xs", "kv", "readonly", function (st) { return st.get("g:" + n); }).catch(function () { return null; })
+    ]).then(function (r) {
+      var apps = {}; (r[3] || []).forEach(function (k, i) { apps[k.slice(n.length + 1)] = r[4][i]; });
+      var spots = lsGet("ut.spots." + n), pages = lsGet("pen.win.pages." + n);
+      return {
+        name: n, site: r[0], points: r[1], apps: P.pack(apps),
+        files: (r[2] || []).map(function (f) { return { name: f.name, type: f.type, lastModified: f.lastModified, at: f.at, from: f.from, base: f.base, bytes: P.add(f.bytes, f.type) }; }),
+        utsushi: { photos: (r[5] || []).map(function (p) { return P.pack(p); }), tree: r[6] || null, boards: r[7] || [], spots: spots ? JSON.parse(spots) : null },
+        pen: r[8] ? { cfg: r[8].cfg, items: r[8].items.map(function (it) { return P.pack(it); }), pages: pages ? JSON.parse(pages) : null } : null,
+        xs: r[9] ? P.pack(r[9]) : null
+      };
+    });
+  }
+  function count(s) {
+    return { pts: ((s.points && s.points.points) || []).length, files: (s.files || []).length,
+      photos: ((s.utsushi && s.utsushi.photos) || []).length, album: ((s.pen && s.pen.items) || []).length, xs: s.xs ? 1 : 0 };
+  }
+  G.exportZip = function (names, progress) {
+    var P = new Packer(), sites = [];
+    return names.reduce(function (p, n) { return p.then(function () { return collect(n, P).then(function (s) { sites.push(s); }); }); }, Promise.resolve()).then(function () {
+      var meta = { kind: "ippatsu-genba-zip", v: 1, app: "一発バーン", at: new Date().toISOString(), sites: sites };
+      var files = [{ name: "genba.json", data: new TextEncoder().encode(JSON.stringify(meta)) }].concat(P.files);
+      return zipBlob(files, progress).then(function (blob) { blob.summary = sites.map(function (s) { return Object.assign({ name: s.name }, count(s)); }); return blob; });
+    });
+  };
+
+  // 現場の中身のしるし(クラウド共有で「変わったか」を見る)。写真や図面の中身は読まず、記録と大きさで見る
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (x) { return (x < 16 ? "0" : "") + x.toString(16); }).join(""); }
+  function fnv(t) { var h1 = 0x811c9dc5, h2 = 0x01000193 ^ t.length; for (var i = 0; i < t.length; i++) { var c = t.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619); h2 = Math.imul(h2 ^ c, 2246822507); } return ((h1 >>> 0).toString(16) + (h2 >>> 0).toString(16) + t.length.toString(16)); }
+  G.siteSig = function (n) {
+    var P = new Packer();
+    return collect(n, P).then(function (s) {
+      var t = JSON.stringify(s) + "|" + P.files.map(function (f) { var d = f.data; return d ? d.size != null ? d.size : d.byteLength : 0; }).join(",");
+      var sum = window.crypto && crypto.subtle && window.TextEncoder ? crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function (b) { return hex(b).slice(0, 32); }) : Promise.reject();
+      return sum.catch(function () { return fnv(t); }).then(function (h) { return { sig: h, count: count(s) }; });
+    });
+  };
+  G.siteCount = count;
+
+  // ---------------------------------------------------------------- 読み込む(まとめる / 置き換える)
+  function newer(a, b) { return (a && a.at || 0) >= (b && b.at || 0); }
+  function putSite(q, n, mode, get) {
+    var rep = mode === "replace";
+    return G.get(n).then(function (old) {
+      var site = Object.assign({}, rep || !old ? q.site || {} : old, { name: n });
+      if (!rep && old && q.site) { site.settings = Object.assign({}, (q.site || {}).settings || {}, old.settings || {}); if (!site.mainFile) site.mainFile = q.site.mainFile; }
+      if (!site.created) site.created = Date.now();
+      var steps = [];
+      if (rep) steps.push(function () { return Promise.all(["files", "apps"].map(function (s) { return run("genba", s, "readwrite", function (st) { return st.delete(range(n)); }); })); });
+      // 図面
+      (q.files || []).forEach(function (f) { steps.push(function () {
+        return (rep ? Promise.resolve(null) : run("genba", "files", "readonly", function (st) { return st.get(FK(n, f.name)); })).then(function (cur) {
+          if (cur && (cur.at || 0) > (f.at || 0)) return;   // まとめる:この端末の方が新しければそのまま
+          return unpack(f.bytes, get).then(function (b) { var rec = { name: f.name, type: f.type || "", lastModified: f.lastModified || Date.now(), at: f.at || Date.now(), from: f.from || "", bytes: b }; if (f.base) rec.base = f.base; return run("genba", "files", "readwrite", function (st) { return st.put(rec, FK(n, f.name)); }); });
+        });
+      }); });
+      // アプリごとの作業(新しい方を残す)
+      steps.push(function () {
+        return unpack(q.apps || {}, get).then(function (apps) {
+          return Object.keys(apps).reduce(function (p, a) { return p.then(function () {
+            return run("genba", "apps", "readonly", function (st) { return st.get(FK(n, a)); }).then(function (cur) {
+              if (!rep && cur && !newer(apps[a], cur)) return;
+              return run("genba", "apps", "readwrite", function (st) { return st.put(apps[a], FK(n, a)); });
+            });
+          }); }, Promise.resolve());
+        });
+      });
+      // 座標(まとめる:名前で足す・置き換える)
+      steps.push(function () {
+        var pts = (q.points && q.points.points) || [];
+        if (rep) return run("genba", "points", "readwrite", function (st) { return st.put(q.points || { points: [] }, n); });
+        if (!pts.length) return;
+        return run("genba", "points", "readonly", function (st) { return st.get(n); }).then(function (cur) {
+          var a = ((cur && cur.points) || []).slice();
+          pts.forEach(function (p) { var i = a.findIndex(function (x) { return x.name === p.name; }); if (i < 0) a.push(p); else if ((q.points.at || 0) > ((cur && cur.at) || 0)) a[i] = p; });
+          return run("genba", "points", "readwrite", function (st) { return st.put({ points: a, at: Math.max((cur && cur.at) || 0, q.points.at || 0) || Date.now(), from: (q.points && q.points.from) || "sync" }, n); });
+        });
+      });
+      // 写し太郎(写真は id で重ねない。ツリーは無ければ入れる。黒板のひな形・測点は足す)
+      var U = q.utsushi;
+      if (U) {
+        if (rep) steps.push(function () { return run("uts", "photos", "readonly", function (st) { return st.index("site").getAllKeys(n); }).then(function (ks) { return run("uts", "photos", "readwrite", function (st) { (ks || []).forEach(function (k) { st.delete(k); }); }); }); });
+        (U.photos || []).forEach(function (ph) { steps.push(function () {
+          return (rep ? Promise.resolve(null) : run("uts", "photos", "readonly", function (st) { return st.get(ph.id); })).then(function (cur) {
+            if (cur && (cur.mt || cur.at || 0) >= (ph.mt || ph.at || 0)) return;   // まとめる:同じ写真で、直したのがこの端末の方が新しければそのまま
+            return unpack(ph, get).then(function (p) { p.site = n; return run("uts", "photos", "readwrite", function (st) { return st.put(p); }); });
+          });
+        }); });
+        if (U.tree) steps.push(function () { return run("uts", "trees", "readonly", function (st) { return st.get(n); }).then(function (cur) { if (!rep && cur && cur.length) return; return run("uts", "trees", "readwrite", function (st) { return st.put(U.tree, n); }); }); });
+        (U.boards || []).forEach(function (b) { steps.push(function () { b.site = n; return run("uts", "boards", "readwrite", function (st) { return st.put(b); }); }); });
+        if (U.spots) steps.push(function () { var cur = []; try { cur = JSON.parse(lsGet("ut.spots." + n) || "[]") || []; } catch (e) { /* */ } var a = rep ? [] : cur.slice(); U.spots.forEach(function (s) { if (a.indexOf(s) < 0) a.push(s); }); lsSet("ut.spots." + n, JSON.stringify(a)); });
+      }
+      // ペン太郎の写真帳(写真は id で重ねない。今の並びの後ろに足す)
+      if (q.pen) steps.push(function () {
+        return Promise.all((q.pen.items || []).map(function (it) { return unpack(it, get); })).then(function (inc) {
+          var shown = lsGet("pen.win.albumSite"), live = shown === n || (shown == null && G.current() === n);
+          var curP = live ? run("pen", "items", "readonly", function (st) { return st.getAll(); }).then(function (a) { return { items: a || [], cfg: lsGet("sp.cfg") }; })
+            : run("pens", "albums", "readonly", function (st) { return st.get(n); }).then(function (r) { return r || { items: [], cfg: null }; });
+          return curP.then(function (cur) {
+            var items = rep ? [] : (cur.items || []).slice().sort(function (a, b) { return a.order - b.order; }), have = {};
+            items.forEach(function (it) { have[it.id] = 1; });
+            inc.sort(function (a, b) { return a.order - b.order; }).forEach(function (it) { if (!have[it.id]) { items.push(it); have[it.id] = 1; } });
+            items.forEach(function (it, i) { it.order = i; });
+            var cfg = rep || !cur.cfg ? q.pen.cfg : cur.cfg;
+            if (q.pen.pages && (rep || !lsGet("pen.win.pages." + n))) lsSet("pen.win.pages." + n, JSON.stringify(q.pen.pages));
+            if (live) return run("pen", "items", "readwrite", function (st) { if (rep) st.clear(); items.forEach(function (it) { st.put(it); }); }).then(function () { if (cfg) lsSet("sp.cfg", cfg); });
+            return run("pens", "albums", "readwrite", function (st) { return st.put({ items: items, cfg: cfg, at: Date.now() }, n); });
+          });
+        });
+      });
+      // 3D(LandXML)
+      if (q.xs) steps.push(function () { return run("xs", "kv", "readonly", function (st) { return st.get("g:" + n); }).then(function (cur) { if (!rep && cur && !newer(q.xs, cur)) return; return unpack(q.xs, get).then(function (v) { return run("xs", "kv", "readwrite", function (st) { return st.put(v, "g:" + n); }); }); }); });
+      steps.push(function () { if (!site.mainFile && q.files && q.files[0]) site.mainFile = q.files[0].name; return G.put(site); });
+      return steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () { return Object.assign({ name: n }, count(q)); });
+    });
+  }
+  // file:File(.zip / .json)。opt.mode "merge"(既定)/"replace"。opt.ask(n) が false を返したら別の名前で入れる(置き換えのときだけ聞く)
+  G.importFile = function (file, opt) {
+    opt = opt || {};
+    var mode = opt.mode || "merge";
+    var isZip = file.slice(0, 4).arrayBuffer().then(function (b) { var u = new Uint8Array(b); return u[0] === 0x50 && u[1] === 0x4b; });
+    return isZip.then(function (z) {
+      if (!z) return file.text().then(function (t) { return G.importSites(JSON.parse(t), mode === "replace" ? { ask: opt.ask } : { overwrite: true }); }).then(function (a) { return (a || []).map(function (n) { return { name: n }; }); });
+      return zipReader(file).then(function (zr) {
+        return zr.get("genba.json").then(function (b) {
+          var meta = JSON.parse(new TextDecoder().decode(b));
+          if (!meta || meta.kind !== "ippatsu-genba-zip" || !Array.isArray(meta.sites)) throw new Error("一発バーンで保存した現場の ZIP ではありません");
+          var done = [];
+          return meta.sites.reduce(function (p, q) { return p.then(function () {
+            var n = String(q.name || "").slice(0, 30); if (!n) return;
+            return G.get(n).then(function (old) {
+              if (old && mode === "replace" && opt.ask && !opt.ask(n)) { var i = 2; while (G.names().indexOf(n + "(" + i + ")") >= 0) i++; n = n + "(" + i + ")"; }
+              return putSite(q, n, mode, zr.get).then(function (r) { done.push(r); });
+            });
+          }); }, Promise.resolve()).then(function () { return G.list().then(function () { try { window.dispatchEvent(new CustomEvent("genba", { detail: { type: "import", names: done.map(function (d) { return d.name; }), from: opt.from || "file" } })); } catch (e) { /* */ } return done; }); });
+        });
+      });
+    });
+  };
+})();
+
+;// 一発バーン クラウド共有(2026-11-25)
+// クラウドの「共有フォルダ」に、現場ごと genba_〈現場名〉.zip(中身は ippatsu_sync.js の ZIP)と、そのしるし genba_〈現場名〉.zip.json を置く。
+// 同じフォルダを選んだ端末どうしで、現場(座標・図面・工事写真・ツリー・測点・写真帳・3D)を自動で受け渡す。
+//   携帯(Android アプリ):Google でログイン → Google ドライブの共有フォルダ(名前「一発バーン現場共有」は自動で見つける)
+//   パソコン:Google ドライブ(パソコン版)で見えている同じフォルダを「📁 共有フォルダを選ぶ」で選ぶ(ログイン不要)
+// どちらも同じ中身なので、携帯⇔パソコンでも受け渡せる。
+// 変わったかどうかは、前に受け渡したときのしるし(この端末の記録)とくらべて決める:
+//   こちらだけ変わった → 送る/クラウドだけ変わった → 受け取って置き換える/両方変わった → まとめて(足し合わせ・新しい方)送る
+(function () {
+  "use strict";
+  var G = window.Genba; if (!G || G.cloud || !G.exportZip) return;
+  var A = window.KurukuruAndroid;
+  var SHARE = "一発バーン現場共有";
+  var CK = "ipx.cloud";
+  var lsGet = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  var lsSet = function (k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* */ } };
+  var esc = G.esc;
+  function cfg() { try { return JSON.parse(lsGet(CK) || "null") || {}; } catch (e) { return {}; } }
+  function setCfg(c) { lsSet(CK, JSON.stringify(c)); }
+  function baseKey(c) { return "ipx.cloud.base." + (c.type || "") + ":" + (c.id || ""); }
+  function bases(c) { try { return JSON.parse(lsGet(baseKey(c)) || "{}") || {}; } catch (e) { return {}; } }
+  function setBases(c, b) { lsSet(baseKey(c), JSON.stringify(b)); }
+  function devName() { try { return A && A.device ? A.device() : (navigator.platform || "PC"); } catch (e) { return "?"; } }
+  function safe(n) { var s = String(n).replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").trim(); return s === n ? s : s + "_" + hash4(n); }
+  function hash4(t) { var h = 0x811c9dc5; for (var i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); return (h >>> 0).toString(16).slice(0, 4); }
+  function zipName(n) { return "genba_" + safe(n) + ".zip"; }
+  var isAndroid = !!(A && A.driveStatus);
+  var hasFolderApi = typeof window.showDirectoryPicker === "function";
+
+  // ================================================================ Google ドライブ(Android アプリ)
+  var waiters = { tok: [], login: [] };
+  window.__driveToken = function (r) { var w = waiters.tok; waiters.tok = []; w.forEach(function (f) { f(r); }); };
+  window.__driveLogin = function (r) { var w = waiters.login; waiters.login = []; w.forEach(function (f) { f(r); }); };
+  function dStatus() { try { return JSON.parse(A.driveStatus()); } catch (e) { return {}; } }
+  function token() {
+    return new Promise(function (ok, ng) {
+      waiters.tok.push(function (r) { if (r && r.token) ok(r.token); else ng(new Error(r && r.error === "nologin" ? "Google のログインが切れました。もう一度ログインしてください" : "鍵をもらえません: " + (r && r.error))); });
+      if (waiters.tok.length === 1) A.driveToken();
+    });
+  }
+  function login() {
+    return new Promise(function (ok, ng) {
+      waiters.login.push(function (r) { if (r && r.ok) ok(r); else ng(new Error(r && r.error === "noclient" ? "noclient" : (r && r.error) || "ログインできませんでした")); });
+      if (waiters.login.length === 1) A.driveLogin();
+    });
+  }
+  var API = "https://www.googleapis.com/drive/v3/", UP = "https://www.googleapis.com/upload/drive/v3/files";
+  var ALL = "supportsAllDrives=true&includeItemsFromAllDrives=true";
+  function api(path, opt) {
+    opt = opt || {};
+    return token().then(function (t) {
+      var h = Object.assign({ Authorization: "Bearer " + t }, opt.headers || {});
+      return fetch(path.indexOf("https:") === 0 ? path : API + path, { method: opt.method || "GET", headers: h, body: opt.body });
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { var m = t; try { m = JSON.parse(t).error.message; } catch (e) { /* */ } throw new Error("ドライブ: " + r.status + " " + m); });
+      return opt.raw ? r : r.status === 204 ? null : opt.blob ? r.blob() : r.json();
+    });
+  }
+  function q(s) { return encodeURIComponent(s); }
+  function qs(s) { return "'" + String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'"; }
+  var FOLDER = "application/vnd.google-apps.folder";
+  function dList(query, fields) {
+    var out = [];
+    var page = function (tok) {
+      return api("files?q=" + q(query) + "&corpora=allDrives&" + ALL + "&pageSize=1000&fields=" + q("nextPageToken,files(" + (fields || "id,name,mimeType,size,modifiedTime,driveId,parents") + ")") + (tok ? "&pageToken=" + q(tok) : "")).then(function (r) {
+        out = out.concat(r.files || []);
+        return r.nextPageToken ? page(r.nextPageToken) : out;
+      });
+    };
+    return page(null);
+  }
+  function dUpload(parent, name, blob, id, mime) {
+    var meta = id ? {} : { name: name, parents: [parent] };
+    return api(UP + (id ? "/" + id : "") + "?uploadType=resumable&supportsAllDrives=true", {
+      method: id ? "PATCH" : "POST", raw: true, body: JSON.stringify(meta),
+      headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": mime, "X-Upload-Content-Length": String(blob.size) }
+    }).then(function (r) {
+      var loc = r.headers.get("Location");
+      if (!loc) {   // 送り先(Location)が読めないとき:中身といっしょに1回で送る
+        var bd = "ipx" + Date.now().toString(36);
+        var body = new Blob(["--" + bd + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(meta) + "\r\n--" + bd + "\r\nContent-Type: " + mime + "\r\n\r\n", blob, "\r\n--" + bd + "--"]);
+        return api(UP + (id ? "/" + id : "") + "?uploadType=multipart&supportsAllDrives=true", { method: id ? "PATCH" : "POST", body: body, headers: { "Content-Type": "multipart/related; boundary=" + bd } });
+      }
+      return fetch(loc, { method: "PUT", body: blob }).then(function (r2) { if (!r2.ok) throw new Error("ドライブ: 送れません " + r2.status); return r2.json(); });
+    });
+  }
+  var Drive = {
+    kind: "drive",
+    list: function (c) {
+      return dList(qs(c.id) + " in parents and trashed=false and name contains 'genba_'").then(function (fs) {
+        var by = {}; fs.forEach(function (f) { by[f.name] = f; });
+        var sides = fs.filter(function (f) { return /^genba_.*\.zip\.json$/.test(f.name); });
+        return Promise.all(sides.map(function (s) {
+          return api("files/" + s.id + "?alt=media&supportsAllDrives=true", { blob: true }).then(function (b) { return b.text(); }).then(function (t) {
+            var side = JSON.parse(t), z = by[s.name.replace(/\.json$/, "")];
+            return { site: side.site, side: side, side_ref: s.id, ref: z && z.id, size: z ? +z.size : -1, name: s.name.replace(/\.json$/, "") };
+          }).catch(function () { return null; });
+        })).then(function (a) { return a.filter(Boolean); });
+      });
+    },
+    get: function (c, e) { return api("files/" + e.ref + "?alt=media&supportsAllDrives=true", { blob: true }); },
+    put: function (c, n, blob, side, e) {
+      var zn = zipName(n);
+      return dUpload(c.id, zn, blob, e && e.ref, "application/zip").then(function () {
+        return dUpload(c.id, zn + ".json", new Blob([JSON.stringify(side)], { type: "application/json" }), e && e.side_ref, "application/json");
+      });
+    }
+  };
+
+  // ================================================================ パソコンのフォルダ(Google ドライブ パソコン版で同期しているフォルダ)
+  function kv(mode, fn) {
+    return new Promise(function (ok, ng) {
+      var rq = indexedDB.open("ippatsu-cloud", 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("kv"); };
+      rq.onerror = function () { ng(rq.error); };
+      rq.onsuccess = function () {
+        var db = rq.result, t = db.transaction("kv", mode), r = fn(t.objectStore("kv")), out;
+        if (r) r.onsuccess = function () { out = r.result; };
+        t.oncomplete = function () { db.close(); ok(out); }; t.onerror = function () { db.close(); ng(t.error); };
+      };
+    });
+  }
+  function dirHandle(ask) {
+    return kv("readonly", function (s) { return s.get("dir"); }).then(function (h) {
+      if (!h) throw new Error("共有フォルダがまだ選ばれていません");
+      var o = { mode: "readwrite" };
+      return h.queryPermission(o).then(function (p) {
+        if (p === "granted") return h;
+        if (!ask) { var e = new Error("perm"); e.perm = true; throw e; }
+        return h.requestPermission(o).then(function (p2) { if (p2 !== "granted") throw new Error("フォルダを使う許可がありません"); return h; });
+      });
+    });
+  }
+  var Folder = {
+    kind: "folder",
+    list: function (c, ask) {
+      return dirHandle(ask).then(function (d) {
+        var ents = {}, it = d.entries();
+        var step = function () {
+          return it.next().then(function (r) { if (r.done) return; ents[r.value[0]] = r.value[1]; return step(); });
+        };
+        return step().then(function () {
+          var names = Object.keys(ents).filter(function (k) { return /^genba_.*\.zip\.json$/.test(k) && ents[k].kind === "file"; });
+          return Promise.all(names.map(function (k) {
+            return ents[k].getFile().then(function (f) { return f.text(); }).then(function (t) {
+              var side = JSON.parse(t), zn = k.replace(/\.json$/, ""), zh = ents[zn];
+              return (zh ? zh.getFile().then(function (f) { return f.size; }) : Promise.resolve(-1)).then(function (sz) { return { site: side.site, side: side, ref: zn, size: sz, name: zn }; });
+            }).catch(function () { return null; });
+          })).then(function (a) { return a.filter(Boolean); });
+        });
+      });
+    },
+    get: function (c, e) { return dirHandle(false).then(function (d) { return d.getFileHandle(e.ref); }).then(function (h) { return h.getFile(); }); },
+    put: function (c, n, blob, side) {
+      var zn = zipName(n);
+      return dirHandle(false).then(function (d) {
+        var w = function (name, b) { return d.getFileHandle(name, { create: true }).then(function (h) { return h.createWritable(); }).then(function (s) { return s.write(b).then(function () { return s.close(); }); }); };
+        return w(zn, blob).then(function () { return w(zn + ".json", new Blob([JSON.stringify(side)], { type: "application/json" })); });
+      });
+    }
+  };
+  var TS = { drive: Drive, folder: Folder };
+  function T(c) { return TS[c.type] || null; }
+
+  // ================================================================ 受け渡し
+  var busy = null;
+  function sync(opt) {
+    opt = opt || {};
+    if (busy) return busy;
+    var c = cfg(), t = T(c);
+    if (!t || !c.id) return Promise.reject(new Error("クラウドの共有フォルダがまだ決まっていません"));
+    var rep = { pulled: [], pushed: [], merged: [], waiting: [], gone: [], errors: [] };
+    var note = opt.progress || function () {};
+    if (c.type === "drive" && A && A.netInternet) try { A.netInternet(true); } catch (e) { /* */ }
+    busy = t.list(c, opt.ask).then(function (remote) {
+      var R = {}; remote.forEach(function (e) { if (e.site) R[e.site] = e; });
+      return G.list().then(function (recs) {
+        var B = bases(c), local = recs.map(function (r) { return r.name; });
+        var all = local.concat(Object.keys(R).filter(function (n) { return local.indexOf(n) < 0; }));
+        var i = 0;
+        return all.reduce(function (p, n) { return p.then(function () {
+          note("☁ " + n + "(" + (++i) + " / " + all.length + ")");
+          return one(c, t, n, local.indexOf(n) >= 0, R[n], B, rep).then(function () { setBases(c, B); }, function (e) { rep.errors.push(n + ": " + e.message); });
+        }); }, Promise.resolve());
+      });
+    }).then(function () {
+      c = cfg(); c.last = { at: Date.now(), pulled: rep.pulled.length, pushed: rep.pushed.length, merged: rep.merged.length, err: rep.errors[0] || "" }; setCfg(c);
+      if (rep.pulled.length || rep.merged.length) try { window.dispatchEvent(new CustomEvent("genba", { detail: { type: "import", names: rep.pulled.concat(rep.merged), from: "cloud" } })); } catch (e) { /* */ }
+      return rep;
+    }, function (e) {
+      c = cfg(); c.last = { at: Date.now(), err: e.message, perm: !!e.perm }; setCfg(c); throw e;
+    });
+    var done = function () { busy = null; if (c.type === "drive" && A && A.netInternet) try { A.netInternet(false); } catch (e) { /* */ } };
+    busy.then(done, done);
+    return busy;
+  }
+  function ready(e) { return e && e.ref && e.side && e.size === e.side.size; }   // ZIP としるしの大きさがそろっていなければ、まだ届いている途中
+  function sideOf(n, sig, blob) { return { kind: "ippatsu-genba-side", v: 1, site: n, sig: sig, size: blob.size, at: Date.now(), by: devName(), count: blob.summary && blob.summary[0] }; }
+  function push(c, t, n, e) {
+    return G.siteSig(n).then(function (s) {
+      return G.exportZip([n]).then(function (blob) { return t.put(c, n, blob, sideOf(n, s.sig, blob), e).then(function () { return s.sig; }); });
+    });
+  }
+  function pull(c, t, n, e, mode) {
+    return t.get(c, e).then(function (blob) {
+      if (blob.size !== e.side.size) throw new Error("クラウドの ZIP がまだ届いている途中です");
+      return G.importFile(blob, { mode: mode, from: "cloud" });
+    }).then(function () { return G.siteSig(n); }).then(function (s) { return s.sig; });
+  }
+  function one(c, t, n, isLocal, e, B, rep) {
+    var b = B[n] || {};
+    if (!isLocal) {
+      if (b.l) { rep.gone.push(n); return Promise.resolve(); }   // この端末で消した現場は、勝手に戻さない(「受け取る」で戻せる)
+      if (!ready(e)) { rep.waiting.push(n); return Promise.resolve(); }
+      return pull(c, t, n, e, "replace").then(function (L2) { B[n] = { l: L2, r: e.side.sig }; rep.pulled.push(n); });
+    }
+    return G.siteSig(n).then(function (s) {
+      var L = s.sig;
+      if (!e) return push(c, t, n, null).then(function (sig) { B[n] = { l: L, r: sig }; rep.pushed.push(n); });
+      if (!ready(e)) { rep.waiting.push(n); return; }
+      var R = e.side.sig, lc = L !== b.l, rc = R !== b.r;
+      if (R === L) { B[n] = { l: L, r: R }; return; }
+      if (!b.l && !b.r) { lc = rc = true; }
+      if (!lc && !rc) return;
+      if (!lc && rc) return pull(c, t, n, e, "replace").then(function (L2) { B[n] = { l: L2, r: R }; rep.pulled.push(n); });
+      if (lc && !rc) return push(c, t, n, e).then(function (sig) { B[n] = { l: L, r: sig }; rep.pushed.push(n); });
+      return pull(c, t, n, e, "merge").then(function () { return push(c, t, n, e); }).then(function (sig) { B[n] = { l: sig, r: sig }; rep.merged.push(n); });
+    });
+  }
+  // この端末で消した現場をクラウドから戻す
+  function restore(n) {
+    var c = cfg(), t = T(c), B = bases(c);
+    return t.list(c, true).then(function (remote) {
+      var e = remote.filter(function (x) { return x.site === n; })[0];
+      if (!ready(e)) throw new Error("クラウドに「" + n + "」がありません");
+      return pull(c, t, n, e, "replace").then(function (L2) { B[n] = { l: L2, r: e.side.sig }; setBases(c, B); });
+    });
+  }
+
+  // ================================================================ 画面(一発バーンのメニューの「☁ クラウド共有」)
+  var p2 = function (v) { return String(v).padStart(2, "0"); };
+  var when = function (t) { if (!t) return ""; var d = new Date(t); return (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); };
+  var box = null;
+  function render() {
+    if (!box) return;
+    var c = cfg(), h = "";
+    var st = isAndroid ? dStatus() : {};
+    if (c.type && c.id) {
+      var L = c.last || {};
+      h += '<div class="nm" style="font-size:17px">☁ ' + esc(c.name || SHARE) + "<\/div>";
+      h += '<div class="info">' + (c.type === "drive" ? "Google ドライブ" + (st.email ? "(" + esc(st.email) + ")" : "") + (c.path ? "・" + esc(c.path) : "") : "パソコンのフォルダ(Google ドライブで同期)") + "<br>";
+      h += L.at ? "最後の同期 " + when(L.at) + (L.err ? ' <b style="color:var(--ng)">⚠ ' + esc(L.perm ? "「☁ いますぐ同期」を押してフォルダの使用を許可してください" : L.err) + "<\/b>" : "(受け取り " + (L.pulled || 0) + "・送り " + (L.pushed || 0) + (L.merged ? "・まとめ " + L.merged : "") + ")") : "まだ同期していません";
+      h += '<\/div><div class="btns"><button type="button" class="pri" data-c="sync">☁ いますぐ同期<\/button><button type="button" data-c="change">フォルダを変える<\/button>' + (c.type === "drive" ? '<button type="button" data-c="logout">ログアウト<\/button>' : '<button type="button" data-c="stop">やめる<\/button>') + "<\/div>";
+      h += '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:14px"><input type="checkbox" data-c="auto" ' + (c.auto !== false ? "checked" : "") + ' style="width:22px;height:22px" /> 一発バーンを開いたとき自動で同期する<\/label>';
+      h += '<div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
+    } else if (isAndroid) {
+      h += '<div class="info">Google ドライブの共有フォルダ「' + SHARE + '」を通して、ほかの携帯・パソコンと現場(座標・図面・工事写真・写真帳・3D)を自動で受け渡します。どの端末でも、同じ Google のアカウント(またはフォルダを共有した人)でログインすれば、同じフォルダを自動で見つけます。<\/div>';
+      if (!st.client) h += '<div class="info"><b>⚠ Google の登録ファイルがまだアプリに入っていません。<\/b>手順書のとおりに作った <code>google_client.json<\/code>(client_secret_〜.json)を「🔑 登録ファイルを読む」で選んでください。<\/div>';
+      h += '<div class="btns">' + (st.client ? '<button type="button" class="pri" data-c="login">' + (st.login ? "☁ 共有フォルダを選ぶ" : "G Google でログイン") + "<\/button>" : "") + '<button type="button" data-c="client">🔑 登録ファイルを読む<\/button><\/div><input type="file" id="ipxCloudCli" accept=".json,application/json,*/*" hidden />';
+      h += '<div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
+    } else if (hasFolderApi) {
+      h += '<div class="info">パソコンでは、Google ドライブ(パソコン版)で見えている共有フォルダ「' + SHARE + '」を選ぶだけです(ログイン不要)。携帯は同じフォルダを Google ドライブとして使います。<\/div>';
+      h += '<div class="btns"><button type="button" class="pri" data-c="dir">📁 共有フォルダを選ぶ<\/button><\/div><div id="ipxCloudMsg" class="info" style="margin-bottom:0"><\/div>';
+    } else {
+      h += '<div class="info">このブラウザではフォルダを選べません。Chrome か Edge で開くか、「⬇ 保存」「⬆ 読み込む」の ZIP で受け渡してください。<\/div>';
+    }
+    box.innerHTML = h;
+  }
+  function msg(t) { var m = document.getElementById("ipxCloudMsg"); if (m) m.innerHTML = t; }
+  function report(r) {
+    var a = [];
+    if (r.pulled.length) a.push("受け取り:" + r.pulled.map(esc).join("、"));
+    if (r.pushed.length) a.push("送り:" + r.pushed.map(esc).join("、"));
+    if (r.merged.length) a.push("まとめ:" + r.merged.map(esc).join("、"));
+    if (r.waiting.length) a.push("届いている途中(あとでもう一度):" + r.waiting.map(esc).join("、"));
+    if (r.gone.length) a.push('この端末で消した現場(クラウドにはあります):' + r.gone.map(function (n) { return esc(n) + ' <button type="button" data-c="restore" data-n="' + esc(n) + '">戻す<\/button>'; }).join(" "));
+    if (r.errors.length) a.push('<b style="color:var(--ng)">⚠ ' + r.errors.map(esc).join("<br>") + "<\/b>");
+    return a.length ? a.join("<br>") : "変わったところはありません。";
+  }
+  function runSync(ask) {
+    msg("☁ 同期しています…");
+    return sync({ ask: ask, progress: function (t) { msg(esc(t)); } }).then(function (r) { render(); msg(report(r)); return r; }, function (e) { render(); if (!e.perm) msg('<b style="color:var(--ng)">⚠ ' + esc(e.message) + "<\/b>"); });
+  }
+  // ---- Google ドライブのフォルダを選ぶ
+  function driveSetup() {
+    msg("☁ 共有フォルダ「" + SHARE + "」をさがしています…");
+    if (A.netInternet) try { A.netInternet(true); } catch (e) { /* */ }
+    return dList("name=" + qs(SHARE) + " and mimeType='" + FOLDER + "' and trashed=false").then(function (fs) {
+      if (fs.length === 1) return useDrive(fs[0]);
+      return browse(fs);
+    }).catch(function (e) { msg('<b style="color:var(--ng)">⚠ ' + esc(e.message) + "<\/b>"); });
+  }
+  function driveNames() { return api("drives?pageSize=100").then(function (r) { var m = {}; (r.drives || []).forEach(function (d) { m[d.id] = d.name; }); return m; }).catch(function () { return {}; }); }
+  function useDrive(f, path) {
+    return (path ? Promise.resolve(path) : driveNames().then(function (m) { return f.driveId ? "共有ドライブ「" + (m[f.driveId] || "?") + "」" : "マイドライブ / 共有アイテム"; })).then(function (pth) {
+      setCfg({ type: "drive", id: f.id, name: f.name, path: pth, auto: true });
+      render(); return runSync(false);
+    });
+  }
+  // 見つからない・いくつもあるとき:フォルダをたどって選ぶ
+  function browse(found) {
+    var stack = [], d = null;
+    var show = function (title, items, here) {
+      var body = '<div style="max-height:50vh;overflow:auto">' + (items.length ? items.map(function (f, i) { return '<button type="button" data-i="' + i + '" style="display:block;width:100%;text-align:left;margin:4px 0;padding:10px;border-radius:8px;border:1px solid var(--line,#ccd);background:transparent;color:inherit;font:inherit">📁 ' + esc(f.name) + (f.note ? '<br><small style="opacity:.7">' + esc(f.note) + "<\/small>" : "") + "<\/button>"; }).join("") : '<div class="ipx-sub">フォルダがありません<\/div>') + "<\/div>";
+      var btns = [];
+      if (here) btns.push({ label: "ここを共有フォルダにする", ok: true, run: function () { useDrive(here, stack.map(function (s) { return s.name; }).join(" / ")); } });
+      if (here) btns.push({ label: "＋ここに「" + SHARE + "」を作る", run: function () {
+        api("files?supportsAllDrives=true", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: SHARE, mimeType: FOLDER, parents: [here.id] }) }).then(function (f) { stack.push(here); useDrive({ id: f.id, name: SHARE }, stack.map(function (s) { return s.name; }).join(" / ")); }).catch(function (e) { msg(esc(e.message)); });
+      } });
+      if (stack.length) btns.push({ label: "← もどる", run: function () { var p = stack.pop(); p.open(); } });
+      btns.push({ label: "やめる" });
+      if (d) d.close();
+      d = G.dialog(title, body, btns, here ? "いまの場所:" + esc(stack.map(function (s) { return s.name; }).concat(here.name).join(" / ")) : "");
+      d.el.querySelectorAll("[data-i]").forEach(function (b) { b.onclick = function () { var f = items[+b.dataset.i]; if (here) stack.push(here); f.open(); }; });
+    };
+    var folder = function (f) {
+      f.open = function () {
+        dList(qs(f.id) + " in parents and mimeType='" + FOLDER + "' and trashed=false").then(function (fs) {
+          fs.sort(function (a, b) { return a.name.localeCompare(b.name, "ja"); });
+          show(f.name, fs.map(folder), f);
+        }).catch(function (e) { msg(esc(e.message)); });
+      };
+      return f;
+    };
+    var top = { name: "Google ドライブ", open: function () {
+      stack = [];
+      driveNames().then(function (m) {
+        var items = (found || []).map(function (f) { f.note = "見つかった「" + SHARE + "」" + (f.driveId ? "(共有ドライブ「" + (m[f.driveId] || "?") + "」)" : ""); f.open = function () { useDrive(f); if (d) d.close(); }; return f; });
+        items.push(folder({ id: "root", name: "マイドライブ" }));
+        Object.keys(m).forEach(function (id) { items.push(folder({ id: id, name: m[id], note: "共有ドライブ" })); });
+        show(found && found.length ? "「" + SHARE + "」がいくつかあります。どれを使いますか" : "共有フォルダの場所を選んでください", items, null);
+        msg(found && found.length ? "" : "「" + SHARE + "」が見つかりませんでした。共有フォルダを置く場所を選んで「作る」か、使うフォルダを選んでください。");
+      });
+    } };
+    top.open();
+  }
+  function onClick(ev) {
+    var b = ev.target.closest("[data-c]"); if (!b || !box.contains(b)) return;
+    var a = b.dataset.c, c = cfg();
+    if (a === "auto") { c.auto = b.checked; setCfg(c); return; }
+    if (a === "sync") return runSync(true);
+    if (a === "restore") { msg("☁ 戻しています…"); return restore(b.dataset.n).then(function () { msg("「" + esc(b.dataset.n) + "」を戻しました。"); try { window.dispatchEvent(new CustomEvent("genba", { detail: { type: "import", names: [b.dataset.n], from: "cloud" } })); } catch (e) { /* */ } }, function (e) { msg(esc(e.message)); }); }
+    if (a === "client") { var fi = document.getElementById("ipxCloudCli"); fi.onchange = function () { var f = fi.files[0]; fi.value = ""; if (!f) return; f.text().then(function (t) { var r = A.driveSetClient(t); if (r !== "ok") msg(esc(r)); else { render(); msg("登録ファイルを読みました。「Google でログイン」を押してください。"); } }); }; fi.click(); return; }
+    if (a === "login") {
+      if (dStatus().login) return driveSetup();
+      msg("ブラウザで Google にログインして、「許可」を押してください。終わるとここに戻ります。");
+      return login().then(function () { render(); return driveSetup(); }, function (e) { msg('<b style="color:var(--ng)">⚠ ' + esc(e.message === "noclient" ? "Google の登録ファイルがありません" : e.message) + "<\/b>"); });
+    }
+    if (a === "dir") {
+      return window.showDirectoryPicker({ id: "ippatsu-cloud", mode: "readwrite" }).then(function (h) {
+        return kv("readwrite", function (s) { return s.put(h, "dir"); }).then(function () {
+          setCfg({ type: "folder", id: "dir:" + h.name, name: h.name, auto: true });
+          if (h.name !== SHARE) G.dialog("フォルダを選びました", "", null, "「" + esc(h.name) + "」を共有フォルダにします。携帯からも同じフォルダ(Google ドライブ上の同じ場所)を選んでください。名前を「" + SHARE + "」にしておくと、携帯は自動で見つけます。");
+          render(); return runSync(true);
+        });
+      }).catch(function (e) { if (e && e.name !== "AbortError") msg(esc(e.message)); });
+    }
+    if (a === "change") { if (c.type === "drive") { setCfg({}); render(); return driveSetup(); } setCfg({}); render(); return; }
+    if (a === "logout") { if (!confirm("Google からログアウトしますか?(この端末の現場はそのまま残ります)")) return; A.driveLogout(); setCfg({}); render(); return; }
+    if (a === "stop") { setCfg({}); kv("readwrite", function (s) { return s.delete("dir"); }).catch(function () {}); render(); return; }
+  }
+  G.cloud = {
+    sync: sync, config: cfg, setConfig: setCfg, restore: restore, transports: TS,
+    mount: function (el) {
+      box = el; el.addEventListener("click", onClick); el.addEventListener("change", function (ev) { if (ev.target.dataset && ev.target.dataset.c === "auto") onClick(ev); });
+      render();
+      var c = cfg();
+      if (c.type && c.id && c.auto !== false && navigator.onLine !== false) setTimeout(function () { runSync(false); }, 600);   // 開いたとき自動で
+    }
+  };
+})();
+
     </script>
     <script>
 // 一発バーン 3D 断面(make_apps.py が4本のアプリの <head> に入れる。ippatsu_common.js のあと)
