@@ -120,8 +120,8 @@
         <div style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:12px;color:#9aa1ad"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${h(kf.dir || '')}">工事フォルダ：${kf.dir ? h(kf.dir) : '見つかりません'}</span><button type="button" id="dkKDir" style="font-size:12px;padding:3px 8px">場所を変える</button></div>
         <div style="display:flex;gap:6px;margin-top:10px"><input type="text" id="dkNewSite" data-noipx placeholder="工事名（現場の名前）を入れる" style="flex:1;font:inherit;padding:8px;border-radius:8px;border:1px solid #444;background:#111;color:#fff"><button type="button" id="dkMkSite">＋ 作る</button></div>
         ${dirName ? `<div style="margin-top:8px"><button type="button" id="dkDirSite" style="width:100%;text-align:left">📁 右で開いているフォルダ名で作る：「${h(dirName)}」</button></div>` : ''}
-        <div style="margin-top:8px"><button type="button" id="dkImpSite" style="width:100%;text-align:left">📂 一発バーンで保存した現場のファイル（.json）を読み込む</button></div>
-        <p style="color:#9aa1ad;font-size:12px;margin:6px 0 0;line-height:1.6">一発バーン（ブラウザ）で登録した現場は、このアプリからは直接見えません。一発バーンの「現場」→「⬇ 全部の現場を保存」でファイルにして、ここで読み込むと同じ現場が並びます。</p>`;
+        <div style="margin-top:8px"><button type="button" id="dkImpSite" style="width:100%;text-align:left">📂 一発バーンで保存した現場のファイル（.zip / .json）を読み込む</button></div>
+        <p style="color:#9aa1ad;font-size:12px;margin:6px 0 0;line-height:1.6">一発バーン（ブラウザ）で登録した現場は、このアプリからは直接見えません。一発バーンの「⬇ 現場を保存」（または「☁ クラウド共有」の Google ドライブの genba_〜.zip）を、ここで読み込むと同じ現場が並びます。</p>`;
       const d = GB.dialog('現場（工事名）を選ぶ', body, [{ label: '閉じる' }], '現場ごとに、写真と初期設定（工事名・黒板の項目など）を分けて持ちます。切り替えると、今の写真はその現場に残ります。');
       const jump = (n) => { GB.setCurrent(n); location.reload(); };
       const go = async (n) => {
@@ -143,11 +143,11 @@
       d.el.querySelector('#dkNewSite').addEventListener('keydown', (e) => { if (e.key === 'Enter') mk(); });
       const ds = d.el.querySelector('#dkDirSite'); if (ds) ds.onclick = () => mkName(dirName);
       d.el.querySelector('#dkImpSite').onclick = () => {
-        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json'; inp.multiple = true;
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.zip,.json,application/zip,application/json'; inp.multiple = true;
         inp.onchange = async () => {
           let got = [];
           for (const f of inp.files) {
-            try { const r = await GB.importSites(JSON.parse(await f.text()), { overwrite: true }); got = got.concat(Array.isArray(r) ? r : []); }
+            try { const r = GB.importFile ? await GB.importFile(f, { mode: 'merge' }) : await GB.importSites(JSON.parse(await f.text()), { overwrite: true }); got = got.concat(Array.isArray(r) ? r : (r && Array.isArray(r.names) ? r.names : [])); }
             catch (e) { alert(`${f.name}：${e.message}`); }
           }
           d.close(); toast(got.length ? `現場を${got.length}件読み込みました` : '読み込みました', 2500); pickSite();
