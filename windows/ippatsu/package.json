@@ -1,0 +1,19 @@
+{
+  "name": "ippatsu-burn-windows",
+  "productName": "一発バーン",
+  "version": "0.5.0",
+  "description": "一発バーン forWindows（脳みそバーン・逃墨太郎・かまし太郎・くるくる・写し太郎・写真ペン太郎をまとめたもの）",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node build.js --prepare && electron .",
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "39.8.9",
+    "electron-builder": "26.18.1",
+    "resedit": "3.1.1"
+  },
+  "author": "一発バーン"
+}

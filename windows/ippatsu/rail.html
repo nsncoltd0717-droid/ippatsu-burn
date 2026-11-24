@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>アプリの切替</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111318; color: #e9ecef; font: 12px/1.3 "Yu Gothic UI", "Meiryo UI", system-ui, sans-serif; user-select: none; overflow: hidden; }
+  body { display: flex; flex-direction: column; border-right: 1px solid #262a33; }
+  .logo { padding: 10px 4px 8px; text-align: center; font-weight: 700; font-size: 11px; letter-spacing: .05em; color: #ffd43b; border-bottom: 1px solid #262a33; }
+  .logo b { display: block; font-size: 15px; letter-spacing: 0; color: #fff; }
+  nav { flex: 1; overflow-y: auto; padding: 6px 0; }
+  button { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; padding: 8px 2px 7px; cursor: pointer; color: #adb5bd; position: relative; }
+  button:hover { background: #1c2028; color: #fff; }
+  button:focus-visible { outline: 2px solid #4dabf7; outline-offset: -2px; }
+  button .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 18px; font-weight: 700; color: #fff; background: var(--c); opacity: .78; }
+  button:hover .ic { opacity: 1; }
+  button .nm { font-size: 11px; white-space: nowrap; }
+  button.on { color: #fff; background: #1f2430; }
+  button.on::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c); }
+  button.on .ic { opacity: 1; box-shadow: 0 0 0 2px #fff3; }
+  .foot { border-top: 1px solid #262a33; padding: 4px 0 6px; }
+  .foot button .ic { background: #343a40; font-size: 17px; width: 30px; height: 30px; }
+  .foot button.busy { opacity: .5; pointer-events: none; }
+  .ver { text-align: center; font-size: 10px; color: #868e96; padding: 2px 2px 0; line-height: 1.35; cursor: default; }
+  .ver b { color: #7fd1a0; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="logo">一発<b>バーン</b>Windows</div>
+  <nav id="apps"></nav>
+  <div class="foot">
+    <button id="upd" type="button" title="公開ページから全アプリの新しい版を取ってきて入れ替えます（写真・現場・設定は残ります）"><span class="ic">⟳</span><span class="nm">更新</span></button>
+    <div class="ver" id="ver" title="">…</div>
+  </div>
+<script>
+(function () {
+  'use strict';
+  var A = window.ippatsuApp;
+  var APPS = [
+    ['home', '⌂', 'ホーム', '一発バーン ホーム（現場の一覧・クラウド共有）', '#495057'],
+    ['nomiso', '①', '脳みそ', '脳みそバーン無敵CAD', '#d9480f'],
+    ['sumi', '②', '逃墨', 'ECP一撃逃墨太郎', '#2b8a3e'],
+    ['kamashi', '③', 'かまし', '一発かまし太郎', '#0b6bcb'],
+    ['kurukuru', '④', 'くるくる', 'くるくる回し太郎', '#7048e8'],
+    ['utsushi', '⑤', '写し', 'こっそり写し太郎', '#c2255c'],
+    ['pen', '⑥', 'ペン', '写真ペン太郎', '#e8590c'],
+  ];
+  var nav = document.getElementById('apps');
+  APPS.forEach(function (a, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.dataset.k = a[0]; b.style.setProperty('--c', a[4]);
+    b.title = a[3] + '（Ctrl+' + i + '）';
+    b.innerHTML = '<span class="ic"></span><span class="nm"></span>';
+    b.firstChild.textContent = a[1]; b.lastChild.textContent = a[2];
+    b.onclick = function () { A && A.open(a[0]); };
+    nav.appendChild(b);
+  });
+  function mark(k) { Array.prototype.forEach.call(nav.children, function (b) { b.classList.toggle('on', b.dataset.k === k); }); }
+  if (A) A.onState(mark);
+
+  var verEl = document.getElementById('ver');
+  function showVer() {
+    if (!A) return;
+    A.versions().then(function (v) {
+      verEl.innerHTML = '本体 <b></b><br>中身 <span class="i"></span><br><span class="s"></span>';
+      verEl.querySelector('b').textContent = v.shell;
+      verEl.querySelector('.i').textContent = v.ippatsu;
+      verEl.querySelector('.s').textContent = v.screen.replace(/^画面 20\d\d-/, '画面 ');
+      verEl.title = '一発バーン forWindows ' + v.shell + '\n中身（一発バーン） ' + v.ippatsu + '\n' + v.screen +
+        (v.updated ? '\n最後に更新：' + new Date(v.updated).toLocaleString('ja-JP') : '\n（入れたときのまま）');
+    });
+  }
+  showVer();
+
+  var up = document.getElementById('upd');
+  up.onclick = function () {
+    if (!A) return;
+    up.classList.add('busy'); up.lastChild.textContent = '確認中…';
+    A.update().then(function (r) {
+      if (!r || !r.ok) { alert('更新できませんでした。\n' + ((r && r.error) || '')); return; }
+      var msg = r.changed
+        ? '新しい版を入れました。\n中身 ' + r.before.ippatsu + ' → ' + r.after.ippatsu + '\n' + r.before.screen + ' → ' + r.after.screen + '\n\n写真・現場・設定はそのまま残ります。'
+        : 'いまの版が最新です。\n中身 ' + r.after.ippatsu + ' / ' + r.after.screen;
+      if (r.shellNew) msg += '\n\n本体にも新しい版（' + r.shellNew + '、いまは ' + r.shell + '）があります。\n共有ドライブ「Claude(一撃墨太郎)\\一発バーン」のインストーラーで入れ直してください。';
+      alert(msg);
+      if (r.changed) location.reload();
+    }).catch(function (e) { alert('更新できませんでした。\n' + e.message); })
+      .then(function () { up.classList.remove('busy'); up.lastChild.textContent = '更新'; showVer(); });
+  };
+})();
+</script>
+</body>
+</html>

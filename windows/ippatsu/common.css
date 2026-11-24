@@ -1,0 +1,42 @@
+/* 一発バーン forWindows：全アプリ共通のパソコン向けの手当て(たたき台)
+   main.js が各アプリの <head> に差し込む。<html> に ipw と ipw-<アプリ> のしるしが付く。元の HTML はさわらない。
+   「⟳ 更新」で公開ページから届くので、直したら common.js の SCREEN_VER も上げる。 */
+
+/* ---- 図面系の4本(脳みそバーン・逃墨太郎・かまし太郎・くるくる)：図面を左、操作を右の2列に ----
+   携帯では「上が図面・下が操作」。パソコンの横長の画面では、図面を縦いっぱいに使い、操作は右の欄で縦に送る。
+   右の欄の幅は境目をドラッグで変えられる(common.js が覚える)。 */
+html.ipw-cad { --ipw-side: 460px; }
+html.ipw-cad body {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--ipw-side);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh !important;
+}
+html.ipw-cad body > header, html.ipw-cad body > #ipxChips { grid-column: 1 / -1; }
+html.ipw-cad body > main { grid-column: 1; grid-row: 3; min-height: 0 !important; max-height: none !important; height: auto !important; }
+html.ipw-cad body > .sheet {
+  grid-column: 2; grid-row: 3; min-height: 0; height: auto !important; max-height: none !important;
+  overflow-y: auto; border-top: 0 !important; border-left: 1px solid var(--line, #333);
+}
+html.ipw-cad body > :not(header):not(#ipxChips):not(main):not(.sheet) { grid-column: 1 / -1; }
+/* 3D・断面のまるいボタンは図面の右端へ(右の欄に重ねない) */
+html.ipw-cad .ipx-xsbtn { right: calc(var(--ipw-side) + 10px) !important; }
+/* 右の欄の境目 */
+.ipw-split { position: fixed; top: 0; bottom: 0; width: 8px; margin-left: -4px; cursor: col-resize; z-index: 50; }
+.ipw-split:hover, .ipw-split.drag { background: rgba(77, 171, 247, .35); }
+html.ipw-dragging, html.ipw-dragging * { cursor: col-resize !important; user-select: none !important; }
+
+/* ---- 写真ペン太郎：「アプリの更新」は左の帯にあるので隠す。写し太郎は同じアプリの中なので読み込める ---- */
+html.ipw-pen #bUpd { display: none !important; }
+html.ipw-pen #bUts { display: revert !important; }
+
+/* ---- パソコンらしく：マウスを載せたときの手がかり、細めのスクロールバー ---- */
+html.ipw button:not(:disabled), html.ipw summary, html.ipw .app { cursor: pointer; }
+html.ipw ::-webkit-scrollbar { width: 11px; height: 11px; }
+html.ipw ::-webkit-scrollbar-thumb { background: rgba(134, 142, 150, .45); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+html.ipw ::-webkit-scrollbar-thumb:hover { background-color: rgba(134, 142, 150, .7); }
+html.ipw ::-webkit-scrollbar-track { background: transparent; }
+
+
+/* ---- ホーム：クラウド共有はまだ Windows 版で確かめ中(Electron で共有フォルダを選ぶと本体が落ちることがある)。それまで隠す ---- */
+html.ipw-home h2:has(+ #cloud), html.ipw-home #cloud { display: none !important; }
