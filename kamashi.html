@@ -1096,7 +1096,7 @@
   "use strict";
   if (window.IpxFeedback) return;
   var APP = window.IPPATSU_APP || "", A = window.KurukuruAndroid || null;
-  var NAMES = { menu: "一発バーン", nomiso: "脳みそバーン無敵CAD", sumi: "ECP一撃逃墨太郎", kamashi: "一発かまし太郎", kurukuru: "くるくる回し太郎", utsushi: "こっそり写し太郎", pen: "写真ペン太郎" };
+  var NAMES = { menu: "一発バーン", nomiso: "脳みそバーン無敵CAD", sumi: "ECP一撃逃墨太郎", kamashi: "一発かまし太郎", kurukuru: "くるくる回し太郎", utsushi: "こっそり写し太郎", pen: "写真ペン太郎", hisoka: "ひそかに調べ太郎" };
   var BANNED = ["中谷行寿", "松本光市", "今村正人"];
   var ERR = "ipx.err", QUE = "ipx.fbq", DEV = "ipx.dev", MQ = "ipx.mailq", MLAST = "ipx.mailErrAt";
   var ls = {
@@ -2877,6 +2877,13 @@ canvas.xs-3d { background: #0b0c0e !important; }
 [data-ipx=utsushi] .tn.sel { background: #2a1520 !important; }
 [data-ipx=utsushi] .tile.main small { color: #ffd1e1; }
 [data-ipx=utsushi] nav, [data-ipx=utsushi] .tabbar, [data-ipx=utsushi] footer { background: rgba(15,16,19,.96) !important; border-color: var(--line) !important; }
+
+/* ⑦ ひそかに調べ太郎(2026-11-25。色はシアン。--me は今の位置の青) */
+:root[data-ipx=hisoka] { --accent: #15aabf; --accent2: #ff922b; --ok: #2fbf71; --ng: #ff6161; --warn: #ffa94d; --me: #4dabf7; }
+[data-ipx=hisoka] .card, [data-ipx=hisoka] details.box, [data-ipx=hisoka] details.adv { background: var(--card) !important; }
+[data-ipx=hisoka] .nums > div, [data-ipx=hisoka] .chip, [data-ipx=hisoka] .big, [data-ipx=hisoka] .list button, [data-ipx=hisoka] .tname button { background: var(--surface2); }
+[data-ipx=hisoka] .big.pri { background: #0c8599; }
+[data-ipx=hisoka] .caution { background: rgba(255,169,77,.08); }
 
     </style>
   </head>
