@@ -499,7 +499,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.13.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.14.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -558,6 +558,15 @@ canvas.xs-3d { background: #0b0c0e !important; }
         </div>
         <input type="file" id="cFile" accept=".csv,.txt,.sim,.sima,text/csv,text/plain" hidden />
         <p class="step-note" id="cImpNote" style="margin:4px 0 6px">CSV は「点名,X,Y,H」(m)。X・Y の向きは ⚙ の「座標の向き」に合わせて読みます(SIMA はいつも X=北・Y=東)。読んだ点は橙色で、どの画面でも図面の上に出て、吸い付きます。</p>
+        <!-- 2026-11-26 v0.14.0 公共座標を 2 点で設定 -->
+        <div id="gBox" style="margin:8px 0;padding:8px 10px;border:1px dashed var(--accent,#2563eb);border-radius:10px">
+          <b>🌐 公共座標</b> <span class="step-note" id="gState" style="display:block;margin:2px 0 0">まだ設定していません(図面の座標のまま)。</span>
+          <div class="field2" style="margin-top:6px">
+            <button class="ghost" id="gStart" type="button">🌐 公共座標を設定(2点)</button>
+            <button class="ghost" id="gClear" type="button" disabled>解除</button>
+          </div>
+          <label class="big-label"><input id="gScale" type="checkbox" /> 縮尺も合わせる(ふつうは切。図面の縮尺が合っていないときだけ)</label>
+        </div>
         <div class="tblwrap"><table class="pts" id="cTable"></table></div>
         <button class="ghost" id="cCopy" hidden type="button" disabled>一覧を写す(コピー)</button>
         <div class="field2" style="margin-top:8px">
@@ -731,7 +740,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <h3>寸法</h3>
         <ul><li><b>点をつないで測る</b>：点を順にタップ。距離・合計・面積・角度。</li><li><b>線をタップ</b>：その線の長さ(辺ごと)・半径・面積。</li></ul>
         <h3>座標</h3>
-        <ul><li>点をタップすると座標が一覧に入る。図面に公共座標(座標の原点)が設定されていれば X=北・Y=東。</li><li>一覧はコピー・CSV で書き出せる。</li></ul>
+        <ul><li>点をタップすると座標が一覧に入る。図面に公共座標(座標の原点)が設定されていれば X=北・Y=東。</li><li><b>🌐 公共座標を設定(2点)</b>:公共座標のわかっている図面の点を 2 つタップし、それぞれの X(北)・Y(東)(m)を入れる(手で、または読んだ CSV・SIMA・現場の座標から選ぶ)→ 回転・移動・2 点のずれを見て「登録」。図面が公共座標に動き、座標・寸法・座標拾いが X=北・Y=東 になる。図面ごとに覚え、💾 上書き保存すると、ほかのアプリでも公共座標で開ける。縮尺はふつう 1(「縮尺も合わせる」で 2 点の距離にも合わせる)。「解除」で元にもどす。</li><li>一覧はコピー・CSV で書き出せる。</li></ul>
         <h3>直す</h3>
         <ul><li><b>えらぶ</b> → 消す・数字で動かす・2 点で動かす・文字を直す(コピーもできる)。</li><li><b>線</b>：点を順にタップ →「ここで終わる」。</li><li><b>補助線</b>：水平・垂直・角度は、通る点をタップ。平行は、元の線をタップ → 距離を入れてその側をタップ(距離 0 なら通る点をタップ。円・円弧なら同じ中心の補助円)。<b>垂線</b>は、もとにする線(または円・円弧)をタップ → 通る点をタップ(その線に直角。円・円弧は中心へ向かう線)。<b>中心線</b>は、2 点をタップ(2 点のまん中を通り、2 点を結ぶ線に直角)。補助円は、中心をタップ → 半径を入れておくか、2 回目のタップで半径。補助線は点線で出て、交点・線の上に吸い付く。<b>消す</b>で補助線を 1 本タップして消す、「補助線を全部消す」でまとめて消す(えらぶ でも消せる)。DXF には、チェックしたときだけ入る。</li>
           <li><b>変更の保存・読み込み</b>：「💾 変更を保存」で直した内容をファイル(.json)にして、別のスマホ・PC で<b>同じ図面を開いてから</b>「📂 変更を読み込む」で続きができます(図面そのものは入りません)。</li><li><b>× 記号</b>：大きさを入れて、置く所をタップ。図面の × も えらぶ で消す・動かす・写すができる。</li><li><b>文字入れ</b>：文字と高さを入れて、置く所をタップ。</li><li><b>🧽 消しゴム</b>：消したい線・文字・記号・補助線をタップするとすぐ消える(↶ 戻す で戻る)。</li><li>まちがえたら左上の「↶ 戻す」。</li><li>直した図面は <b>💾 上書き保存</b>で現場へ(文字・消したところ・補助線も入る)。<b>DXF</b> でも書き出せる(元の図脳ファイルは書き換えない)。</li></ul>
@@ -1275,6 +1284,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             if (auxSt && auxSt.c2) { const s = toScreen([auxSt.c2.x, auxSt.c2.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 5.5, class: "auxpt" }); }
             if (move2 && move2.from) { const s = toScreen([move2.from.x, move2.from.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 6, class: "mp" }); label(s[0] + 8, s[1] - 8, "元", "ms"); }
           }
+          if (geoSt) geoSt.pts.forEach((p, i) => { const s = toScreen([p.x, p.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 7, class: "mp" }); label(s[0] + 9, s[1] - 9, (i ? "②" : "①") + " " + (p.name || ""), "ms"); });
           if (hover) { const s = toScreen([hover.x, hover.y]); el("circle", { cx: s[0].toFixed(1), cy: s[1].toFixed(1), r: 13, class: "hov" }); }
         }
         function drawEdgeLabels(e) {
@@ -1535,6 +1545,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         // ---------------------------------------------------------------- タップしたとき
         function pickAt(sx, sy) {
           if (!view) return;
+          if (geoSt) { geoTap(sx, sy); draw(); return; }   // 🌐 公共座標を 2 点で設定している途中
           if (mode === "view") {
             viewPick = entAt(sx, sy);
             $("viewInfo").innerHTML = viewPick ? entInfo(findEnt(viewPick)) : "";
@@ -2124,7 +2135,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           return Uint8Array.from(out);
         }
         function toDxf(withAux) {
-          const L = ["999", "IPPATSU_AXIS=" + (zunouInfo && zunouInfo.origin ? "northEast" : $("axis").value)];   // ほかのアプリが座標の向きを合わせるための印
+          const L = ["999", "IPPATSU_AXIS=" + ((zunouInfo && zunouInfo.origin) || geo ? "northEast" : $("axis").value)];   // 🌐 2 点で公共座標にした図面も northEast   // ほかのアプリが座標の向きを合わせるための印
           const g = (c, v) => { L.push(String(c), typeof v === "number" ? (Number.isInteger(v) && c >= 60 && c < 80 ? String(v) : v.toFixed(6)) : String(v)); };
           g(0, "SECTION"); g(2, "HEADER"); g(9, "$ACADVER"); g(1, "AC1009"); g(9, "$DWGCODEPAGE"); g(3, "ANSI_932"); g(9, "$INSUNITS"); g(70, 4); g(0, "ENDSEC");
           g(0, "SECTION"); g(2, "ENTITIES");
@@ -2310,6 +2321,175 @@ canvas.xs-3d { background: #0b0c0e !important; }
           draw();
         });
 
+
+        // ---------------------------------------------------------------- 公共座標を 2 点で設定(2026-11-26 v0.14.0 ゆきちゃん「脳みそバーンで読みこんだ図面に公共座標設定できるように。2点選択して登録」)
+        // 図面の 2 点をタップ(吸い付く)→ それぞれ公共座標 X(北)・Y(東)(m)を入れる → 回転・平行移動(縮尺は 1。「縮尺も合わせる」で縮尺も)を出し、2 点のずれを見て「登録」。
+        // 登録すると、元の図面(orig・記号)・直したこと(ops)・タップした座標の点をその変換で公共座標(mm。横=Y 東・縦=X 北)へ動かし、座標の向きを「公共座標」にする。
+        // 図面ごと(fileKey)に localStorage「nb.geo:…」へ残し、同じ図面をまた開くと自動でかける(直したことは公共座標のまま残る)。
+        // 💾 上書き保存・⬇ DXF は公共座標で書き、IPPATSU_AXIS=northEast の印を付ける → 逃墨・かまし・くるくる・ひそかでも公共座標で開ける。
+        // 変換 T = {c, s, tx, ty}:x' = c x − s y + tx、y' = s x + c y + ty(c = 縮尺 cosθ、s = 縮尺 sinθ)
+        var geo = null;     // 登録した変換 { T, prevAxis, pts, scale, at }(元の図面から今まで全部)
+        var geoSt = null;   // 2 点の途中 { pts: [{ x, y, kind, X, Y, name }] }
+        const GEO_K = () => "nb.geo:" + fileKey;
+        const tP = (T, x, y) => [T.c * x - T.s * y + T.tx, T.s * x + T.c * y + T.ty];
+        const tScale = (T) => Math.hypot(T.c, T.s), tRot = (T) => Math.atan2(T.s, T.c) * 180 / Math.PI;
+        const tComp = (T2, T1) => ({ c: T2.c * T1.c - T2.s * T1.s, s: T2.s * T1.c + T2.c * T1.s, tx: T2.c * T1.tx - T2.s * T1.ty + T2.tx, ty: T2.s * T1.tx + T2.c * T1.ty + T2.ty });
+        const tInv = (T) => { const k = T.c * T.c + T.s * T.s, c = T.c / k, s = -T.s / k; return { c, s, tx: -(c * T.tx - s * T.ty), ty: -(s * T.tx + c * T.ty) }; };
+        function tEnt(T, e) {
+          const k = tScale(T), r = tRot(T), P = (p) => tP(T, p[0], p[1]);
+          if (e.text !== undefined || e.mark) { const q = P([e.x, e.y]); return { ...e, x: q[0], y: q[1], ang: (e.ang || 0) + r, ...(e.height ? { height: e.height * k } : {}), ...(e.size ? { size: e.size * k } : {}) }; }
+          if (!e.points) return e;
+          const o = { ...e, points: e.points.map(P) };
+          o.draw = e.draw === e.points ? o.points : (e.draw || e.points).map(P);
+          if (e.arc) o.arc = { ...e.arc, center: P(e.arc.center), radius: e.arc.radius * k, startAngle: e.arc.startAngle + r, endAngle: e.arc.endAngle + r };
+          if (e.base) o.base = P(e.base);
+          return o;
+        }
+        function tOp(T, op) {
+          const k = tScale(T), r = tRot(T), P = (x, y) => tP(T, x, y), V = (dx, dy) => [T.c * dx - T.s * dy, T.s * dx + T.c * dy];
+          const at = (o) => { const q = P(op.x, op.y); return { ...o, x: q[0], y: q[1] }; };
+          switch (op.t) {
+            case "move": { const v = V(op.dx, op.dy); return { ...op, dx: v[0], dy: v[1] }; }
+            case "line": return { ...op, pts: op.pts.map((p) => P(p[0], p[1])) };
+            case "text": return at({ ...op, height: (op.height || 0) * k });
+            case "edtext": return op.height > 0 ? { ...op, height: op.height * k } : op;
+            case "arc": return at({ ...op, r: op.r * k, ...(op.a0 != null ? { a0: op.a0 + r, a1: op.a1 + r } : {}) });
+            case "mark": return at({ ...op, size: (op.size || 400) * k });
+            case "vtx": case "cut": return at(op);
+            case "aux": {
+              const o = at(op);
+              if (op.a === "seg") { const q = P(op.x2, op.y2); o.x2 = q[0]; o.y2 = q[1]; }
+              else if (op.a === "circ" || op.a === "arc3") { o.r = op.r * k; if (op.a === "arc3") { o.a0 = op.a0 + r; o.a1 = op.a1 + r; } }
+              else if (op.dx != null) { const v = V(op.dx, op.dy), L = Math.hypot(v[0], v[1]) || 1; o.dx = v[0] / L; o.dy = v[1] / L; }
+              return o;
+            }
+            default: return op;
+          }
+        }
+        function geoBase(T) {   // 元の図面と記号に T をかける
+          orig = { lines: orig.lines.map((e) => tEnt(T, e)), texts: orig.texts.map((e) => tEnt(T, e)) };
+          origMarks = origMarks.map((m) => tEnt(T, m));
+        }
+        function geoAll(T) {   // 元の図面・直したこと・タップした点に T をかけて、描き直す
+          geoBase(T);
+          ops = ops.map((o) => tOp(T, o)); saveOps();
+          cPts = cPts.map((p) => { if (p.imp) return p; const q = tP(T, p.x, p.y); return { ...p, x: q[0], y: q[1] }; });
+          mPts = []; mEnt = null; newLine = []; auxSt = null; vtxSt = null; mvSt = null; move2 = null; hover = null; viewPick = null; sel = new Set();
+          rebuild();
+          view = fitBoxOf([...orig.lines.map((l) => l.draw), orig.texts.map((t) => [t.x, t.y]), origMarks.map((m) => [m.x, m.y])]);
+          if (ops.some((o) => o.t === "aux")) rebuild();
+          resetZoom(); baseStamp = ""; coordTable(); afterEdit();
+        }
+        // 図面を開いたとき(元の図面を読んだあと・直したことを戻す前)
+        function geoOnOpen() {
+          geo = null; geoSt = null;
+          try { geo = JSON.parse(load(GEO_K()) || "null"); } catch (e) { geo = null; }
+          if (geo && geo.T) { geoBase(geo.T); $("axis").value = "northEast"; } else geo = null;
+          geoShow();
+          return geo ? " 🌐 2 点で登録した公共座標をかけました(" + new Date(geo.at).toLocaleDateString() + "・回転 " + tRot(geo.T).toFixed(4) + "°)。" : "";
+        }
+        const fm = (v) => (Math.round(v * 1000) / 1000).toFixed(3);
+        function geoShow() {
+          const b = $("gStart"); if (!b) return;
+          if (geoSt) { b.textContent = "やめる(" + (geoSt.pts.length + 1) + " 点目を待っています)"; $("gState").textContent = (geoSt.pts.length + 1) + " 点目:公共座標のわかっている点を図面でタップしてください(吸い付きます。拡大すると正確)。"; $("gClear").disabled = true; return; }
+          b.textContent = geo ? "🌐 2 点で合わせ直す" : "🌐 公共座標を設定(2点)";
+          $("gClear").disabled = !geo;
+          const zo = zunouInfo && zunouInfo.origin;
+          $("gState").textContent = geo ? "登録済み:回転 " + tRot(geo.T).toFixed(4) + "°・縮尺 " + tScale(geo.T).toFixed(6) + "(" + (geo.pts || []).map((p) => p.name || "点").join("・") + "、" + new Date(geo.at).toLocaleString() + ")。座標は X=北・Y=東。"
+            : zo ? "図脳の座標設定(原点" + (zunouInfo.rot ? "・回転 " + (zunouInfo.rot * 180 / Math.PI).toFixed(4) + "°" : "") + ")で公共座標になっています。ずれていれば 2 点で合わせ直せます。"
+            : "まだ設定していません(図面の座標のまま)。";
+        }
+        // 公共座標の候補:読んだ CSV・SIMA の点(X=北・Y=東)と、一発バーンの現場の座標
+        let geoSite = [];
+        async function geoLoadSite() {
+          geoSite = [];
+          try { const G = window.Genba, n = G && G.current && G.current(); if (n) { const r = await G.points(n); geoSite = (r.points || []).filter((p) => p && p.name && isFinite(p.X) && isFinite(p.Y)).map((p) => ({ name: p.name, X: p.X, Y: p.Y, src: "現場" })); } } catch (e) { /* 現場なし */ }
+        }
+        const geoCands = () => cPts.filter((p) => p.imp).map((p) => ({ name: p.name || cName(p), X: p.y / 1000, Y: p.x / 1000, src: "読んだ点" })).concat(geoSite);
+        $("gStart").addEventListener("click", async () => {
+          if (geoSt) { geoSt = null; geoShow(); hover = null; draw(); setStatus("公共座標の設定をやめました。"); return; }
+          if (!view) { setStatus("先に図面を開いてください。", true); return; }
+          if (!geo && zunouInfo && zunouInfo.origin && !confirm("この図面は図脳の座標設定(原点" + (zunouInfo.rot ? "・回転 " + (zunouInfo.rot * 180 / Math.PI).toFixed(4) + "°" : "") + ")で、すでに公共座標になっています。\n2 点で合わせ直しますか?(今の公共座標から、さらに動かします)")) return;
+          if (mode !== "coord") setMode("coord");
+          geoSt = { pts: [] }; await geoLoadSite(); geoShow(); draw();
+          setStatus("🌐 1 点目:公共座標のわかっている点を図面でタップしてください(端・角・交点・円の中心・記号に吸い付きます。拡大すると正確)。");
+        });
+        $("gClear").addEventListener("click", () => {
+          if (!geo || !confirm("2 点で登録した公共座標を解除して、図面の座標にもどしますか?")) return;
+          const back = geo.prevAxis || "asDrawn";
+          geoAll(tInv(geo.T)); geo = null; try { localStorage.removeItem(GEO_K()); } catch (e) { /* */ }
+          $("axis").value = back; geoShow(); draw();
+          setStatus("🌐 公共座標を解除しました(図面の座標にもどしました)。");
+        });
+        function geoTap(sx, sy) {
+          const s = snapAt(sx, sy); hover = s;
+          const no = geoSt.pts.length + 1, C = geoCands();
+          const [cx, cy] = fmtXY(s.x, s.y), [nx, ny] = axisNames();
+          const put = (X, Y, name) => {
+            geoSt.pts.push({ x: s.x, y: s.y, kind: s.kind, X, Y, name: name || "" });
+            if (geoSt.pts.length < 2) { geoShow(); draw(); setStatus("✓ 1 点目 X " + fm(X) + "・Y " + fm(Y) + "。🌐 2 点目をタップしてください(1 点目からなるべく遠い点)。"); return; }
+            geoCheck();
+          };
+          const G = window.Genba;
+          if (!(G && G.dialog)) {   // 一発バーンの外:簡単な入力
+            const X = parseFloat(prompt(no + " 点目の公共座標 X(北)m", "")), Y = parseFloat(prompt(no + " 点目の公共座標 Y(東)m", ""));
+            if (isFinite(X) && isFinite(Y)) put(X, Y); else setStatus("数が入っていないので、この点は使いません。もう一度タップしてください。", true);
+            return;
+          }
+          const inp = (id, ph) => '<input type="text" inputmode="decimal" data-noipx id="' + id + '" autocomplete="off" placeholder="' + ph + '" style="width:100%;box-sizing:border-box;font-size:18px;padding:8px;border-radius:10px">';
+          const d = G.dialog("🌐 " + no + " 点目の公共座標",
+            (C.length ? '<label class="f">点から選ぶ(読んだ CSV・SIMA/現場の座標)</label><select id="gSel" style="width:100%;font-size:16px;padding:8px;border-radius:10px"><option value="">(手で入れる)</option>' + C.map((p, i) => '<option value="' + i + '">' + esc(p.name) + "  X " + fm(p.X) + "・Y " + fm(p.Y) + "(" + p.src + ")</option>").join("") + "</select>" : "") +
+            '<label class="f">X(北)m</label>' + inp("gX", "例 -157278.594") + '<label class="f">Y(東)m</label>' + inp("gY", "例 -27391.703") + '<label class="f">点名(なくてもよい)</label>' + inp("gN", "例 KS9"),
+            [{ label: "やめる", run: () => { hover = null; draw(); setStatus("この点は使いません。" + no + " 点目をもう一度タップしてください。"); } },
+              { label: "この座標にする", ok: true, run: (c) => {
+                const num = (v) => parseFloat(String(v).replace(/[−ー－]/g, "-").replace(/[０-９．]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0)));
+                const X = num(c.querySelector("#gX").value), Y = num(c.querySelector("#gY").value);
+                if (!isFinite(X) || !isFinite(Y)) { setStatus("X・Y を入れてください(m)。", true); return false; }
+                put(X, Y, c.querySelector("#gN").value.trim());
+              } }],
+            "タップした所(" + KIND[s.kind] + "):図面の " + nx + " " + cx + "・" + ny + " " + cy + " " + unitName() + "。この点の公共座標(m)を入れてください。");
+          const sl = d.el.querySelector("#gSel");
+          if (sl) sl.addEventListener("change", () => { const p = C[Number(sl.value)]; if (!p) return; d.el.querySelector("#gX").value = fm(p.X); d.el.querySelector("#gY").value = fm(p.Y); d.el.querySelector("#gN").value = p.name; });
+        }
+        function geoSolve(P, scaleOn) {
+          const d1 = [P[0].x, P[0].y], d2 = [P[1].x, P[1].y], q1 = [P[0].Y * 1000, P[0].X * 1000], q2 = [P[1].Y * 1000, P[1].X * 1000];
+          const vd = [d2[0] - d1[0], d2[1] - d1[1]], vq = [q2[0] - q1[0], q2[1] - q1[1]], Ld = Math.hypot(vd[0], vd[1]), Lq = Math.hypot(vq[0], vq[1]);
+          if (Ld < 1 || Lq < 1) throw new Error("2 点が近すぎます(同じ点です)。はなれた 2 点を選んでください");
+          const th = Math.atan2(vq[1], vq[0]) - Math.atan2(vd[1], vd[0]), k = scaleOn ? Lq / Ld : 1, c = k * Math.cos(th), s = k * Math.sin(th);
+          const md = [(d1[0] + d2[0]) / 2, (d1[1] + d2[1]) / 2], mq = [(q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2];
+          const T = { c, s, tx: mq[0] - (c * md[0] - s * md[1]), ty: mq[1] - (s * md[0] + c * md[1]) };
+          const res = [[d1, q1], [d2, q2]].map(([d, q]) => { const p = tP(T, d[0], d[1]); return Math.hypot(p[0] - q[0], p[1] - q[1]) / 1000; });
+          return { T, Ld: Ld / 1000, Lq: Lq / 1000, ratio: Lq / Ld, res };
+        }
+        window.IPPATSU_NOMISO_GEO = { solve: geoSolve, state: () => ({ geo, geoSt }), dxf: () => toDxf(false), axis: () => axis(),   // 試験用
+          look: (x, y, z) => { const w = svg.clientWidth || 360, h = svg.clientHeight || 360, b = fit()([x, y]); zk = z; panX = w / 2 - b[0] * z; panY = h / 2 - b[1] * z; draw(); return toScreen([x, y]); } };
+        function geoCheck() {
+          let r; const P = geoSt.pts, sc = $("gScale").checked;
+          try { r = geoSolve(P, sc); } catch (e) { setStatus("⚠ " + e.message, true); geoSt.pts.pop(); geoShow(); draw(); return; }
+          const dif = r.Lq - r.Ld, big = Math.abs(dif) > Math.max(0.05, r.Lq * 0.001), unit = r.ratio > 500 || r.ratio < 0.002;
+          const p1 = tP(r.T, P[0].x, P[0].y), mv = [p1[0] - P[0].x, p1[1] - P[0].y];
+          const html = '<div class="kv">' + [["回転(左回り)", tRot(r.T).toFixed(4) + "°"], ["縮尺", sc ? r.ratio.toFixed(6) + "(合わせる)" : "1(そのまま)"],
+            ["1 点目の動き", "X(北)" + fm(mv[1] / 1000) + "・Y(東)" + fm(mv[0] / 1000) + " m"],
+            ["2 点の距離 図面", fm(r.Ld) + " m"], ["2 点の距離 公共座標", fm(r.Lq) + " m"], ["距離の差・比", (dif >= 0 ? "+" : "") + fm(dif) + " m・" + r.ratio.toFixed(6)],
+            ["1 点目のずれ", fm(r.res[0]) + " m" + (P[0].name ? "(" + esc(P[0].name) + ")" : "")], ["2 点目のずれ", fm(r.res[1]) + " m" + (P[1].name ? "(" + esc(P[1].name) + ")" : "")]]
+            .map(([k, v]) => "<b>" + esc(k) + "</b><span>" + v + "</span>").join("") + "</div>" +
+            (unit ? '<p style="color:var(--ng,#e03131);font-weight:700">⚠ 図面と公共座標の距離が ' + r.ratio.toPrecision(4) + ' 倍ちがいます。図面の単位(m と mm)がちがうかもしれません。「縮尺も合わせる」を入れるか、⚙ の単位を確かめてください。</p>'
+              : big && !sc ? '<p style="color:var(--ng,#e03131);font-weight:700">⚠ 図面の 2 点の距離と公共座標の 2 点の距離が ' + fm(Math.abs(dif)) + ' m ちがいます。点の取りちがい・座標の打ちまちがいがないか確かめてください(縮尺 1 のまま、ずれは 2 点に半分ずつ)。</p>' : "");
+          const G = window.Genba;
+          const ok = () => { geoRegister(r, P, sc); };
+          if (G && G.dialog) G.dialog("🌐 公共座標を登録しますか?", html, [{ label: "やり直す", run: () => { geoSt = { pts: [] }; geoShow(); draw(); setStatus("🌐 1 点目からやり直します。図面でタップしてください。"); } }, { label: "やめる", run: () => { geoSt = null; geoShow(); draw(); setStatus("公共座標の設定をやめました。"); } }, { label: "登録する", ok: true, run: ok }],
+            "2 点から回転・移動を出しました。ずれが大きいときは「やり直す」。");
+          else if (confirm("回転 " + tRot(r.T).toFixed(4) + "°・2 点のずれ " + fm(r.res[0]) + "/" + fm(r.res[1]) + " m。登録しますか?")) ok(); else { geoSt = null; geoShow(); draw(); }
+        }
+        function geoRegister(r, P, sc) {
+          const prevAxis = geo ? geo.prevAxis : axis(), T = geo ? tComp(r.T, geo.T) : r.T;
+          geoAll(r.T);
+          geo = { T, prevAxis, pts: P.map((p) => ({ name: p.name, X: p.X, Y: p.Y })), scale: sc, at: Date.now(), res: r.res };
+          store(GEO_K(), JSON.stringify(geo));
+          $("axis").value = "northEast"; geoSt = null; geoShow(); draw();
+          setStatus("✓ 🌐 公共座標を登録しました(回転 " + tRot(r.T).toFixed(4) + "°・2 点のずれ " + fm(r.res[0]) + "・" + fm(r.res[1]) + " m)。座標・寸法は X=北・Y=東 で出ます。💾 上書き保存で現場の図面に入れると、ほかのアプリでも公共座標で開けます。");
+        }
+
         // ---------------------------------------------------------------- 画面の切り替え
         const NOTE = {
           view: "図形をタップすると、種類・長さ・面積などが出ます。",
@@ -2318,7 +2498,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           edit: "直したい図形をタップしてえらんでください。",
         };
         function setMode(m) {
-          mode = m; hover = null; move2 = null;
+          mode = m; hover = null; move2 = null; if (m !== "coord" && geoSt) { geoSt = null; geoShow(); }
           for (const b of $("modes").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.mode === m));
           for (const p of document.querySelectorAll(".panel")) p.hidden = p.dataset.panel !== m;
           $("zSel").disabled = m === "view" ? !viewPick : m === "edit" ? sel.size === 0 : true;
@@ -2443,6 +2623,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             orig = { lines: L.map((l, i) => ({ ...l, key: "L" + i })), texts: parseTexts(src).map((t, i) => ({ ...t, key: "T" + i })) };
             if (!orig.texts.length) orig.texts = TL.textsFromDxf(buf, 1).map((t, i) => ({ ...t, ang: 0, layer: t.layer || "0", key: "T" + i }));
             origMarks = rawMarks.map((m, i) => ({ ...m, key: "M" + i, mark: true }));
+            const geoNote = geoOnOpen();   // 🌐 2 点で登録した公共座標(この図面に残っていれば)
             zMarks = origMarks;
             hiddenLayers = new Set(); sel = new Set(); viewPick = null; mPts = []; mEnt = null; cPts = []; cNo = 0; newLine = []; move2 = null; hover = null; auxSt = null; auxPickAng = false; vtxSt = null; mvSt = null; etKey = null;
             $("viewInfo").innerHTML = ""; $("mInfo").innerHTML = ""; coordTable();
@@ -2455,7 +2636,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             resetZoom(); layerList();
             const dt = new Date(f.lastModified || Date.now()), p2 = (v) => String(v).padStart(2, "0");
             const finfo = `(${dt.getFullYear()}/${p2(dt.getMonth() + 1)}/${p2(dt.getDate())} ${p2(dt.getHours())}:${p2(dt.getMinutes())}・${(f.size / 1048576).toFixed(1)} MB)`;
-            $("fileNote").textContent = `${f.name} ${finfo}：${note}` + (ops.length ? ` 前に直したところ ${ops.length} を戻しました(「直す」で書き出し・もどし)。` : "");
+            $("fileNote").textContent = `${f.name} ${finfo}：${note}` + (ops.length ? ` 前に直したところ ${ops.length} を戻しました(「直す」で書き出し・もどし)。` : "") + geoNote;
             $("fileNote").hidden = false;
             afterEdit();
             setMode(mode);

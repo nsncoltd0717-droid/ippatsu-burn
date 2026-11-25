@@ -1,5 +1,5 @@
-// 一発バーン(ホーム画面アプリ) v2.16.0。電波があるときは新しい版を取りに行き、無いとき・遅いときは覚えている版で開く
-const CACHE = "ippatsu-37cc5d8977";
+// 一発バーン(ホーム画面アプリ) v2.17.0。電波があるときは新しい版を取りに行き、無いとき・遅いときは覚えている版で開く
+const CACHE = "ippatsu-68203e19a6";
 const PARTS = "ippatsu-parts-1";   // DWG・PDF の部品・オープニングの絵(vendor/)。版を上げても消さない
 const FIRST = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "vendor/ipx/common_9faa4e06ef.js"];   // はじめに覚える(最初の画面)
 const LATER = ["nomiso.html", "sumi.html", "kamashi.html", "kurukuru.html", "utsushi.html", "pen.html", "hisoka.html", "vendor/ipx/dxfraw_60f7bbbfe1.js", "vendor/ipx/xs_9774e1a72b.js", "vendor/ipx/zunou_app_0fd7dd4608.js", "icon-180.png", "icon-512.png", "vendor/opening/hisoka_opening_cfd53982.jpg", "vendor/opening/opening_girl_479cca19.webp", "vendor/opening/opening_logo_efcc8fdb.webp", "vendor/opening/opening_movie_28987426.mp4", "vendor/opening/opening_movie_c1e8b858.webp"];   // 落ち着いてから 1 本ずつ覚える(電波なしの現場でも開けるように)
