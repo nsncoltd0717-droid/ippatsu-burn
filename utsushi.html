@@ -256,9 +256,18 @@
     },
     // 図面(1つの現場に何枚でも。いちばん新しく入れたものが「現場の図面」)
     files: function (n) {
-      return tx("files", "readonly", function (st) { return st.getAll(range(n)); }).then(function (a) {
-        return (a || []).map(function (f) { return { name: f.name, size: f.bytes ? f.bytes.byteLength : 0, at: f.at, from: f.from, type: f.type }; })
-          .sort(function (x, y) { return (y.at || 0) - (x.at || 0); });
+      // v2.12.0:図面の中身(何十 MB にもなる)を全部いっしょに読まない。1 枚ずつ見て、名前・大きさだけ残す(メモリが足りず落ちるのを防ぐ)
+      return new Promise(function (ok, ng) {
+        open().then(function (d) {
+          var out = [], t = d.transaction("files", "readonly"), rq = t.objectStore("files").openCursor(range(n));
+          rq.onsuccess = function () {
+            var c = rq.result; if (!c) return;
+            var f = c.value; out.push({ name: f.name, size: f.bytes ? f.bytes.byteLength : 0, at: f.at, from: f.from, type: f.type }); f = null;
+            c.continue();
+          };
+          t.oncomplete = function () { d.close(); ok(out.sort(function (x, y) { return (y.at || 0) - (x.at || 0); })); };
+          t.onerror = t.onabort = function () { d.close(); ng(t.error || rq.error); };
+        }, ng);
       });
     },
     fileGet: function (n, name) {
@@ -267,7 +276,15 @@
         var main = r && r.mainFile;
         return (main ? G.fileGet(n, main) : Promise.resolve(null)).then(function (f) {
           if (f) return f;
-          return tx("files", "readonly", function (st) { return st.getAll(range(n)); }).then(function (a) { return (a || []).sort(function (x, y) { return (y.at || 0) - (x.at || 0); })[0] || null; });
+          // v2.12.0:いちばん新しい 1 枚だけを残す(全部を一度に読まない)
+          return open().then(function (d) {
+            return new Promise(function (ok, ng) {
+              var best = null, t = d.transaction("files", "readonly"), rq = t.objectStore("files").openCursor(range(n));
+              rq.onsuccess = function () { var c = rq.result; if (!c) return; if (!best || (c.value.at || 0) > (best.at || 0)) best = c.value; c.continue(); };
+              t.oncomplete = function () { d.close(); ok(best); };
+              t.onerror = t.onabort = function () { d.close(); ng(t.error || rq.error); };
+            });
+          });
         });
       });
     },
@@ -983,13 +1000,18 @@
   }, true);
   document.addEventListener("DOMContentLoaded", function () { siteBadge(); modeChip(); hookFile(); offerSiteFile(); var fi = fileInput(); if (fi && APP !== "menu") fi.setAttribute("multiple", ""); docStrip(); });
   // DWG の部品は、電波のあるときに先に取っておく(現場の電波なしでも開けるように。sw.js が覚える)
-  setTimeout(function () {
+  // v2.12.0:Android のアプリは部品が中に入っているので取らない(前は開くたびに 11MB を読んでいた)。
+  //   ホーム画面アプリは、画面が落ち着いてから(30 秒・さわっていないとき)、まず sw.js にアプリ 7 本を覚えさせ("warm")、そのあと DWG の部品。電波が弱い・節約モードでは取らない
+  setTimeout(function idle() {
     try {
-      if (!/^https?:/.test(location.protocol) || !navigator.onLine || !("caches" in window)) return;
+      if (window.KurukuruAndroid || !/^https?:/.test(location.protocol) || !navigator.onLine || !("caches" in window)) return;
+      var c = navigator.connection; if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ""))) return;
+      if (document.hidden) { setTimeout(idle, 30000); return; }
+      var sw = navigator.serviceWorker && navigator.serviceWorker.controller; if (sw) sw.postMessage("warm");
       var base = new URL("vendor/libredwg/", location.href).href;
-      ["libredwg-web.js", "libredwg-web.wasm"].forEach(function (f) { caches.match(base + f).then(function (r) { if (!r) fetch(base + f).catch(function () {}); }); });
+      setTimeout(function () { ["libredwg-web.js", "libredwg-web.wasm"].forEach(function (f) { caches.match(base + f).then(function (r) { if (!r) fetch(base + f).catch(function () {}); }); }); }, 20000);
     } catch (e) { /* 次に開いたときにまた試す */ }
-  }, 8000);
+  }, 30000);
 })();
 
 // ---------------------------------------------------------------- 改善要望ボックス・エラー記録(2026-11-16)
@@ -1017,9 +1039,13 @@
     return { app: APP, name: NAMES[APP] || document.title, ver: ver(), apk: call("version"), device: call("device") || navigator.userAgent, site: site, dev: dev, at: new Date().toISOString() };
   }
   // ---- エラーを集める(同じものが続いたら回数だけ増やす)
-  var busy = false;
+  var busy = false, burst = { t: 0, n: 0, skip: 0 };
   function rec(kind, msg, where, stack) {
-    if (busy) return; busy = true;
+    if (busy) return;
+    // v2.12.0:エラーが続けて出るとき(描くたびに出るなど)、毎回 localStorage を読み書きすると重くなって固まるので、1 分に 20 件まで
+    var now0 = Date.now(); if (now0 - burst.t > 60000) { if (burst.skip) { var s = burst.skip; burst.skip = 0; burst = { t: now0, n: 0, skip: 0 }; rec("note", "同じころのエラー " + s + " 件は記録を省きました", ""); } burst.t = now0; burst.n = 0; }
+    if (++burst.n > 20) { burst.skip++; return; }
+    busy = true;
     try {
       msg = String(msg || "").slice(0, 500); var list = jget(ERR), now = Date.now(), last = list[list.length - 1];
       if (last && last.msg === msg && last.where === where && now - last.t < 60000) { last.n = (last.n || 1) + 1; last.t = now; }
@@ -1843,7 +1869,8 @@
       box = el; el.addEventListener("click", onClick); el.addEventListener("change", function (ev) { if (ev.target.dataset && ev.target.dataset.c === "auto") onClick(ev); });
       render();
       var c = cfg();
-      if (c.type && c.id && c.auto !== false && navigator.onLine !== false) setTimeout(function () { runSync(false); }, 600);   // 開いたとき自動で
+      // 開いたとき自動で。v2.12.0:開いてすぐは画面を出すのを先にして、8 秒後(見えているとき)に始める
+      if (c.type && c.id && c.auto !== false && navigator.onLine !== false) setTimeout(function go() { if (document.hidden) { setTimeout(go, 8000); return; } runSync(false); }, 8000);
     }
   };
 })();
