@@ -22,6 +22,8 @@ function prepare() {
   fs.writeFileSync(path.join(APP, 'pen.html'), html);
   for (const f of ['desktop.js', 'desktop.css']) fs.copyFileSync(path.join(HERE, f), path.join(APP, f));
   fs.cpSync(path.join(REPO, 'vendor', 'libredwg'), path.join(APP, 'vendor', 'libredwg'), { recursive: true });
+  // v2.13.0 から pen.html は共通部品(vendor/ipx/)を別ファイルで読む
+  for (const d of ['ipx', 'opening']) if (fs.existsSync(path.join(REPO, 'vendor', d))) fs.cpSync(path.join(REPO, 'vendor', d), path.join(APP, 'vendor', d), { recursive: true });
   fs.copyFileSync(path.join(REPO, 'icon-512.png'), path.join(HERE, 'icon.png'));
   console.log('app/ を用意しました');
 }
