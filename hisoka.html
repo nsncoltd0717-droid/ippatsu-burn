@@ -15,6 +15,21 @@
         DWG・SFC・A納図は一発バーン共通(ippatsu_common.js)、図脳RAPID は共通の部品 ippatsu_zunou.js(make_apps.py が入れる)で DXF に変える。
         図脳の座標の設定(原点・回転)で公共座標に。DXF のブロック(INSERT)・点・文字・だ円・スプラインも読む。図面の座標の文字・座標表を点として拾う。
         図面を押すと、その所(点・線の端に吸い付く)の X・Y を出して目的の点にする。
+      2026-11-25 v0.3.0 ゆきちゃん「ひそかに調べ太郎で(CHCNAV i76 GNSS 受信機に)接続できるようにして」:
+        位置の入力元を「📱 端末の GPS」「📡 i76(Bluetooth)」から選ぶ。i76 のときは GPS の代わりに i76 の位置を、図面・🎯確認・📷AR・📋座標リスト・点の保存・
+        ローカライゼーションのすべてに使う。Android アプリ(1.29.0・Gnss.java)がペアリング済みの GNSS-xxxxxxx に Bluetooth SPP でつなぎ、
+        NMEA(GGA・RMC・GST・GSA・GSV)をこのページへ渡す(window.__gnss.feed)。解くのはこのページ(nmeaLine)。
+        NTRIP(v1/v2・Basic 認証・VRS なので GGA を 10 秒ごとに送る)で受けた RTCM は、アプリがそのまま i76 へ書く(LandStar の「PDA ネットワーク」と同じ)。
+        パスワードは端末のアプリの中(SharedPreferences)だけ。このページ・記録・ファイルには置かない。
+        GGA の緯度経度は JGD2011 とみなして平面直角座標へ(補正局が JGD2011 準拠)。標高は GGA の海抜(受信機のジオイド)を参考に出す。
+        JPGEO2024 などで直すときは heightOf()/GEOID に入れる(いまは入れていない)。iPhone(Safari)は Bluetooth SPP が使えないので「Android アプリでのみ」。
+      2026-11-25 v0.4.0 ゆきちゃん「ひそかに調べ太郎だけ OPPO A73 でも使用できるように最適化して」(Android 10・ColorOS 7.2・Snapdragon 662・メモリ 4GB・古い WebView):
+        ・古い WebView(Chrome 80 台):CSS の inset を top/right/bottom/left に、100dvh に 100vh の控え。flex の gap が効かない(84 より前)ときは
+          下の「古い WebView の手当て」が gap の代わりに子のすきま(margin)を足す(?oldwv=1 で今の Chrome でも無理に動かせる)。
+        ・軽くする(LITE。メモリ 4GB 以下・WebView 90 より前・?lite=1。?lite=0 で切る):canvas の倍率 1.5 まで、図面は 1 画素より短い線をまとめて描く・点の記号は
+          同じ画素に重ねない、方位センサー・GPS での描き直しは 1 秒に 5 回まで、AR は 1 秒に 5 回・カメラ 1280x720 以下 15 コマ、座標リストは見えているときだけ書き直す(200 行まで)。
+          AR を開いている間は下の図面を描かない(LITE でなくても)。DXF は行に分けた大きな配列を作らずに読む(図面の読み込みのメモリを減らす)。
+        ・ColorOS(OPPO・realme・OnePlus):裏に回って戻ったとき i76 が切れていたらつなぎ直す。電池の設定(バックグラウンドで実行を許可)などの案内を出す。
     -->
     <style>
       :root {
@@ -27,7 +42,7 @@
       html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif; -webkit-text-size-adjust: 100%; }
       html, body { overflow-x: hidden; max-width: 100%; }
       @supports (overflow: clip) { html, body { overflow-x: clip; } }   /* hidden だと見出し・目的の点の帯が貼り付かない(sticky が効かない) */
-      body { min-height: 100dvh; padding-bottom: 20px; }
+      body { min-height: 100vh; min-height: 100dvh; padding-bottom: 20px; }   /* 100vh:古い WebView の控え */
       header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
       header h1 { font-size: 16px; margin: 0; font-weight: 800; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .hbtn { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface2); color: inherit; font-size: 16px; font-weight: 800; }
@@ -58,7 +73,7 @@
       .nums b { font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
       .nums .wide { grid-column: 1 / -1; }
       .mapbox { position: relative; height: min(58vh, 560px); min-height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0d1114; touch-action: none; }
-      .mapbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+      .mapbox canvas { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; display: block; touch-action: none; }
       .mapbtns { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
       .mapbtns button { width: 44px; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.55); color: #fff; font-size: 15px; font-weight: 800; }
       .mapbtns button[aria-pressed="true"] { background: var(--me); border-color: transparent; }
@@ -93,9 +108,9 @@
       .prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s linear; }
       .step-note { font-size: 12.5px; color: var(--sub); margin: 6px 0 0; line-height: 1.55; }
       /* AR 誘導(くるくる回し太郎の AR 誘導をもとに。カメラ + GPS + 方位センサー) */
-      .ar { position: fixed; inset: 0; z-index: 5000; background: #000; color: #fff; overflow: hidden; touch-action: none; }
+      .ar { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 5000; background: #000; color: #fff; overflow: hidden; touch-action: none; }
       .ar[hidden] { display: none; }
-      .ar video, .ar canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      .ar video, .ar canvas { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
       .ar-top { position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + env(safe-area-inset-top)) 10px 18px; display: flex; align-items: flex-start; gap: 8px; background: linear-gradient(rgba(0,0,0,.7), rgba(0,0,0,0)); }
       .ar-tt { flex: 1; display: flex; flex-direction: column; min-width: 0; } .ar-tt b { font-size: 18px; } .ar-tt small { font-size: 12px; opacity: .9; }
       .ar-x { width: auto; padding: 8px 14px; background: rgba(0,0,0,.5); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 10px; font-size: 15px; }
@@ -133,6 +148,16 @@
       @media (max-width: 420px) { #chkTbl th:nth-child(6), #chkTbl td:nth-child(6) { display: none; } }
       @media (max-width: 420px) { .ptab .pr { grid-template-columns: 1fr 1fr 0.8fr; row-gap: 2px; } .ptab .pr > b { grid-column: 1 / -1; } .ptab .pr .z { display: none; } .ptab .pr.h > span:first-child { grid-column: 1 / -1; } }
       @media (min-width: 700px) { .tgt { grid-template-columns: 120px 1fr; } .tgt svg { width: 120px; height: 120px; } }
+      /* v0.3.0 位置の入力元・i76 */
+      .seg { display: flex; gap: 0; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .seg button { flex: 1 1 0; min-width: 0; min-height: 44px; border: 0; background: var(--surface2); font-weight: 700; font-size: 14.5px; padding: 6px 4px; }
+      .seg button + button { border-left: 1px solid var(--line); }
+      .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+      .chip.rtd { color: #fff; background: #1c7ed6; border-color: transparent; }
+      .caution.rtk { border-color: var(--ok); background: rgba(43,138,62,.10); } .caution.rtk b { color: var(--ok); }
+      .caution.nofix { border-color: var(--ng); background: rgba(224,49,49,.08); } .caution.nofix b { color: var(--ng); }
+      #gnCard .alarm.info { background: #1864ab; }
+      #ntBox { margin: 10px 0 0; }
     </style>
 
     <script>
@@ -148,6 +173,17 @@
   "use strict";
   if (window.IPPATSU_GUARD) return;
   var W = window, now = Date.now();
+  // ---- 2026-11-25 古い WebView(OPPO A73 の Android 10 など Chrome 80 台)に無い小さな関数を足す(ある端末では何もしない)
+  try {
+    var def = function (o, k, f) { if (o && !o[k]) Object.defineProperty(o, k, { value: f, writable: true, configurable: true }); };
+    var at = function (n) { n = Math.trunc(n) || 0; if (n < 0) n += this.length; return n < 0 || n >= this.length ? undefined : this[n]; };
+    def(Array.prototype, "at", at); def(String.prototype, "at", at);
+    [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array].forEach(function (T) { def(T.prototype, "at", at); });
+    def(Object, "hasOwn", function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); });
+    def(String.prototype, "replaceAll", function (a, b) { return a instanceof RegExp ? this.replace(a, b) : this.split(a).join(typeof b === "function" ? b(a) : b); });
+    def(Array.prototype, "findLast", function (f, t) { for (var i = this.length - 1; i >= 0; i--) if (f.call(t, this[i], i, this)) return this[i]; return undefined; });
+    def(Array.prototype, "findLastIndex", function (f, t) { for (var i = this.length - 1; i >= 0; i--) if (f.call(t, this[i], i, this)) return i; return -1; });
+  } catch (e) { /* */ }
   var ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* */ } } };
   var ls = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* */ } } };
   var q = location.search, page = (location.pathname.split("/").pop() || "index.html");
@@ -246,8 +282,8 @@
 
     </script>
     <script>window.IPPATSU_APP = "hisoka";</script>
-    <script src="vendor/ipx/common_f218787556.js"></script>
-    <script>window.IPPATSU_OPENING = { name: "ひそかに調べ太郎", ver: "v0.2.0", girl: "vendor/opening/hisoka_opening_cfd53982.jpg", nologo: true, key: "ipx.op.hisoka" };
+    <script src="vendor/ipx/common_9faa4e06ef.js"></script>
+    <script>window.IPPATSU_OPENING = { name: "ひそかに調べ太郎", ver: "v0.4.0", girl: "vendor/opening/hisoka_opening_cfd53982.jpg", nologo: true, key: "ipx.op.hisoka" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -268,27 +304,27 @@
   var MOV = !!(C.movie && !quick);
   var T2 = quick ? 1600 : MOV ? 10500 : 3400;  // 女の子(動画)を見せる時間。動画は終わったら閉じる(これは止まったとき用)
   var css = [
-    '#ipxOp{position:fixed;inset:0;z-index:2147483000;background:#fff;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:none;transition:opacity .55s ease}',
+    '#ipxOp{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;background:#fff;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:none;transition:opacity .55s ease}',
     '#ipxOp.out{opacity:0;pointer-events:none}',
-    '#ipxOp .sc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease}',
+    '#ipxOp .sc{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease}',
     '#ipxOp .s1{background:#fff}',
-    '#ipxOp .s1 .lg{position:relative;width:min(64vw,52vh,360px);aspect-ratio:1283/1226;opacity:0;transform:scale(.86) translateY(8px);animation:ipxLogo 1.1s cubic-bezier(.2,.8,.2,1) .15s forwards}',
+    '#ipxOp .s1 .lg{position:relative;width:min(64vw,52vh,360px);height:calc(min(64vw,52vh,360px) * 1226 / 1283);aspect-ratio:1283/1226;opacity:0;transform:scale(.86) translateY(8px);animation:ipxLogo 1.1s cubic-bezier(.2,.8,.2,1) .15s forwards}',
     '#ipxOp .s1 .lg img{width:100%;height:100%;display:block;-webkit-user-drag:none}',
-    '#ipxOp .s1 .lg::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.85) 50%,transparent 65%);background-size:250% 100%;background-position:150% 0;mix-blend-mode:screen;animation:ipxShine 1.1s ease 1.05s forwards}',
+    '#ipxOp .s1 .lg::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.85) 50%,transparent 65%);background-size:250% 100%;background-position:150% 0;mix-blend-mode:screen;animation:ipxShine 1.1s ease 1.05s forwards}',
     '#ipxOp .s1 .tag{position:absolute;left:0;right:0;bottom:calc(9vh + env(safe-area-inset-bottom));text-align:center;font:600 12px/1.4 system-ui,sans-serif;letter-spacing:.35em;color:#0d3f8f;opacity:0;animation:ipxFade .8s ease .9s forwards}',
     '#ipxOp .s2{opacity:0;background:#0b1830}',
     '#ipxOp.two .s1{opacity:0}#ipxOp.two .s2{opacity:1}',
-    '#ipxOp .s2 .pic{position:absolute;inset:-2%;background:center 30%/cover no-repeat;transform:scale(1.02)}',
-    '#ipxOp .s2 video.pic{inset:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;transform:none}',
+    '#ipxOp .s2 .pic{position:absolute;top:-2%;right:-2%;bottom:-2%;left:-2%;background:center 30%/cover no-repeat;transform:scale(1.02)}',
+    '#ipxOp .s2 video.pic{top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;transform:none}',
     '#ipxOp.two .s2 div.pic{animation:ipxZoom ' + (T2 + 900) + 'ms ease-out forwards}',
-    '#ipxOp .s2 .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,20,45,.0) 45%,rgba(8,20,45,.55) 72%,rgba(8,20,45,.92) 100%)}',
+    '#ipxOp .s2 .shade{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(180deg,rgba(8,20,45,.0) 45%,rgba(8,20,45,.55) 72%,rgba(8,20,45,.92) 100%)}',
     '#ipxOp .s2 .ttl{position:absolute;left:0;right:0;bottom:calc(7vh + env(safe-area-inset-bottom));text-align:center;color:#fff;opacity:0;transform:translateY(14px)}',
     '#ipxOp.two .s2 .ttl{animation:ipxUp .8s cubic-bezier(.2,.8,.2,1) .45s forwards}',
     '#ipxOp .ttl b{display:block;font:900 clamp(30px,9vw,52px)/1.1 "Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;letter-spacing:.06em;text-shadow:0 2px 12px rgba(0,0,0,.45)}',
     '#ipxOp .ttl i{display:block;margin-top:8px;font:700 clamp(15px,4.4vw,22px)/1 system-ui,sans-serif;font-style:normal;color:#ffd43b;letter-spacing:.04em}',
     '#ipxOp .ttl small{display:block;margin-top:10px;font:600 11px/1 system-ui,sans-serif;letter-spacing:.3em;color:rgba(255,255,255,.75)}',
     '#ipxOp .bar{position:absolute;left:30%;right:30%;bottom:calc(3.5vh + env(safe-area-inset-bottom));height:3px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden}',
-    '#ipxOp .bar::before{content:"";position:absolute;inset:0;background:#ffd43b;transform-origin:left;transform:scaleX(0)}',
+    '#ipxOp .bar::before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:#ffd43b;transform-origin:left;transform:scaleX(0)}',
     '#ipxOp.two .bar::before{animation:ipxBar ' + (MOV ? 10000 : T2) + 'ms linear forwards}',
     '#ipxOp .skip{position:absolute;right:14px;top:calc(12px + env(safe-area-inset-top));font:500 11px/1 system-ui,sans-serif;color:rgba(13,63,143,.55);padding:6px 10px;border-radius:12px;background:rgba(255,255,255,.5)}',
     '#ipxOp.two .skip{color:rgba(255,255,255,.75);background:rgba(0,0,0,.25)}',
@@ -305,7 +341,7 @@
     '@keyframes ipxGone{to{opacity:0;visibility:hidden;pointer-events:none}}'
   ].concat(LITE ? [
     '#ipxOp,#ipxOp .sc{transition:none!important}',
-    '#ipxOp.two .s2 div.pic,#ipxOp .s2 .pic{animation:none!important;transform:none!important;inset:0}',
+    '#ipxOp.two .s2 div.pic,#ipxOp .s2 .pic{animation:none!important;transform:none!important;top:0;right:0;bottom:0;left:0}',
     '#ipxOp .s1 .lg::after{display:none}'
   ] : []).join('\n');
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -951,7 +987,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>ひそかに調べ太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.2.0</small></h1>
+      <h1>ひそかに調べ太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.4.0</small></h1>
       <button type="button" class="hbtn" id="helpBtn" aria-label="使い方">？</button>
     </header>
     <!-- 今の目的の点と距離(どこまで下へ動かしても見える) -->
@@ -963,11 +999,15 @@ canvas.xs-3d { background: #0b0c0e !important; }
       <button type="button" class="tb-b" id="tbAr" aria-label="AR で探す">📷</button>
     </div>
     <main>
-      <div class="caution">⚠ <b>GPS は数 m の誤差がある簡易確認用です。</b>杭打ち・丁張り・出来形などの<b>本測量には使えません</b>。だいたいの場所をさがす・確かめるために使ってください。標高は参考値です。</div>
+      <div class="caution" id="caution">⚠ <b>GPS は数 m の誤差がある簡易確認用です。</b>杭打ち・丁張り・出来形などの<b>本測量には使えません</b>。だいたいの場所をさがす・確かめるために使ってください。標高は参考値です。</div>
 
       <!-- ① 今の位置 -->
       <section class="card" id="posCard">
         <h2>📡 ① 今の位置<span class="r" id="zoneLbl">系:--</span></h2>
+        <div class="seg" id="srcSel" role="group" aria-label="位置の入力元">
+          <button type="button" data-src="phone" aria-pressed="true">📱 端末の GPS</button>
+          <button type="button" data-src="i76" aria-pressed="false">📡 i76(Bluetooth)</button>
+        </div>
         <div class="row">
           <button type="button" class="big pri" id="gpsBtn">📡 GPS で今の位置を取る</button>
         </div>
@@ -982,10 +1022,82 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <div><small>Y(東)m</small><b id="nY">---</b></div>
           <div><small>緯度</small><b id="nLat">---</b></div>
           <div><small>経度</small><b id="nLon">---</b></div>
-          <div><small>標高(参考・GPS)</small><b id="nH">---</b></div>
+          <div><small id="nHl">標高(参考・GPS)</small><b id="nH">---</b></div>
           <div><small>取れた時刻</small><b id="nT">---</b></div>
         </div>
         <p class="step-note" id="zoneNote" hidden></p>
+        <!-- v0.4.0 OPPO(ColorOS)の手当て。Android アプリで OPPO・realme・OnePlus のときだけ出す -->
+        <div class="caution" id="hkOppo" hidden>
+          📱 <b>OPPO(ColorOS)でお使いのとき</b>:裏に回ると電池の節約で GPS・i76 が止められることがあります。はじめに一度、次を設定してください。<br>
+          ① <b>設定 › バッテリー ›(アプリのバッテリー管理 ›)一発バーン › 「バックグラウンドで実行を許可」</b>(機種により「バックグラウンドアクティビティを許可」)と「自動起動を許可」を ON<br>
+          ② 最近使ったアプリの画面で一発バーンを下へ引いて <b>🔒 ロック</b>(片付けで閉じられないように)<br>
+          ③ <b>設定 › アプリ管理 › 一発バーン › 権限</b>で、位置情報「アプリの使用中のみ許可」・カメラ「許可」<br>
+          ④ i76 を使うときは、Bluetooth と位置情報(GPS)を ON。i76 は先に端末の Bluetooth の設定でペアリング<br>
+          <small>戻ったときに i76 が切れていたら、このアプリが自動でつなぎ直します。</small>
+          <div class="row" style="margin-top:6px"><button type="button" class="big" id="hkOppoOk" style="min-height:40px;font-size:14px">わかった(しまう)</button></div>
+        </div>
+      </section>
+
+      <!-- i76(GNSS 受信機。Android アプリの Bluetooth・NTRIP)v0.3.0 -->
+      <section class="card" id="gnCard" hidden>
+        <h2>📡 i76(GNSS 受信機)<span class="r" id="gnVer"></span></h2>
+        <div class="alarm" id="gnNo" hidden></div>
+        <div id="gnBody">
+          <label class="f" for="gnDev">受信機(ペアリング済みの Bluetooth 機器。i76 は「GNSS-機械番号7桁」)</label>
+          <div class="row">
+            <select id="gnDev"><option value="">(一覧を読んでいます)</option></select>
+            <button type="button" class="big" id="gnRe" style="flex:0 0 52px;min-height:44px" title="一覧を読み直す" aria-label="一覧を読み直す">🔄</button>
+            <button type="button" class="big" id="gnBtSet" style="flex:0 0 52px;min-height:44px" title="Bluetooth の設定(ペアリング)" aria-label="Bluetooth の設定">⚙</button>
+          </div>
+          <div class="row" style="margin-top:8px"><button type="button" class="big pri" id="gnConn">🔗 i76 につなぐ</button></div>
+          <div class="row wrap" style="margin-top:8px;gap:6px">
+            <span class="chip" id="gnBt">Bluetooth 切</span>
+            <span class="chip" id="gnFix">解 --</span>
+            <span class="chip" id="gnSat">衛星 --</span>
+            <span class="chip" id="gnDop">HDOP --</span>
+          </div>
+          <div class="nums">
+            <div><small>水平の精度(GST・1σ)</small><b id="gnH">---</b></div>
+            <div><small>垂直の精度(GST・1σ)</small><b id="gnV">---</b></div>
+            <div><small>補正の遅れ(age)</small><b id="gnAge">---</b></div>
+            <div><small>NTRIP 受信</small><b id="gnNt">---</b></div>
+          </div>
+          <div class="alarm" id="gnWarn" hidden></div>
+          <p class="step-note" id="gnMsg"></p>
+          <label class="f">補正の受け方</label>
+          <div class="seg" id="corrSel" role="group" aria-label="補正の受け方">
+            <button type="button" data-c="app" aria-pressed="true">① アプリから送る<br><small style="font-weight:400">PDAネットワーク相当</small></button>
+            <button type="button" data-c="rx" aria-pressed="false">② i76 が自分で受ける<br><small style="font-weight:400">受信機ネットワーク</small></button>
+          </div>
+          <p class="step-note" id="corrRx" hidden>② i76 の SIM で補正を受けます(<b>LandStar で「移動局 › ネットワーク:受信機ネットワーク」と NTRIP のログインを設定済み</b>のとき)。このアプリは NTRIP を動かさず、i76 の NMEA(解 FIX/FLOAT など)を見るだけです。FIX にならないときは LandStar で受信機のログインの状態(ユーザー名・パスワード誤り・SIM 無し・ダイヤル中など)を確かめてください。</p>
+          <details class="box" id="ntBox">
+            <summary>🛰 NTRIP の補正(端末のネット経由)<span class="sm" id="ntSum" style="font-weight:400;margin-left:6px"></span></summary>
+            <div>
+              <label class="f" for="ntPre">補正の会社</label>
+              <select id="ntPre"></select>
+              <div class="row">
+                <div style="flex:2 1 0"><label class="f" for="ntHost">サーバー</label><input type="text" id="ntHost" data-noipx autocomplete="off" autocapitalize="off" spellcheck="false" /></div>
+                <div><label class="f" for="ntPort">ポート</label><input type="number" id="ntPort" data-noipx min="1" max="65535" /></div>
+              </div>
+              <label class="f" for="ntMount">マウントポイント</label>
+              <div class="row">
+                <input type="text" id="ntMount" list="ntMl" data-noipx autocomplete="off" autocapitalize="off" spellcheck="false" />
+                <button type="button" class="big" id="ntList" style="flex:0 0 auto;width:auto;min-height:44px;font-size:14px">📜 一覧</button>
+              </div>
+              <datalist id="ntMl"></datalist>
+              <p class="step-note" id="ntMHint" style="margin-top:4px"></p>
+              <label class="f" for="ntUser">ユーザー名(会社の契約)</label>
+              <input type="text" id="ntUser" data-noipx autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <label class="f" for="ntPass" id="ntPassL">パスワード</label>
+              <input type="password" id="ntPass" data-noipx autocomplete="new-password" />
+              <label class="f" for="ntVer">NTRIP の版</label>
+              <select id="ntVer"><option value="1">NTRIP 1.0(ふつう)</option><option value="2">NTRIP 2.0</option></select>
+              <div class="row" style="margin-top:10px"><button type="button" class="big pri" id="ntGo">▶ 補正を受ける</button></div>
+              <p class="step-note">補正(RTCM)はこの端末のインターネットで受けて、Bluetooth で i76 へ渡します(LandStar の「移動局 › NTRIP › PDA ネットワーク」と同じ)。VRS のため i76 の位置(GGA)を 10 秒ごとにサーバーへ送ります。<b>パスワードはこの端末のアプリの中だけ</b>に置きます(画面・記録・ファイルには出しません。変えるときだけ入れてください)。</p>
+            </div>
+          </details>
+          <p class="step-note" id="gnNote">座標:i76 の緯度経度を JGD2011 とみなして平面直角座標にします(NTRIP の補正局が JGD2011 準拠のとき)。<b>標高:i76 が出す海抜(受信機に入っているジオイド)をそのまま参考に出します。JPGEO2024(測地成果2024)と違うことがあります</b>(どのジオイドかは受信機しだい。高さを使うときは既知点の標高で確かめてください)。</p>
+        </div>
       </section>
 
       <!-- 図面の上に今の位置 -->
@@ -1144,10 +1256,84 @@ canvas.xs-3d { background: #0b0c0e !important; }
     </div>
 
     <script>
+      // v0.4.0 軽くする(LITE)の判定と、古い WebView の手当て(OPPO A73 など。Android 10 の WebView が Chrome 80 台のまま)
+      //   LITE:?lite=1/0 → localStorage hisoka.lite("1"/"0")→ メモリ 4GB 以下(navigator.deviceMemory)か WebView 90 より前なら入れる
+      //   flex の gap(Chrome 84 から):効かない WebView では、gap を書いたきまり・style の要素に、子のすきま(margin)を足す。?oldwv=1 で無理に動かす(試験用)
+      (function () {
+        var q = location.search, ua = navigator.userAgent || "", cm = /Chrome\/(\d+)/.exec(ua), chrome = cm ? +cm[1] : 0;
+        var lite = /[?&]lite=1\b/.test(q) ? true : /[?&]lite=0\b/.test(q) ? false : null;
+        if (lite === null) { try { var v = localStorage.getItem("hisoka.lite"); if (v === "1") lite = true; else if (v === "0") lite = false; } catch (e) { /* */ } }
+        if (lite === null) lite = !!((navigator.deviceMemory && navigator.deviceMemory <= 4) || (chrome && chrome < 90));
+        window.HISOKA_LITE = lite; window.HISOKA_CHROME = chrome;
+        var force = /[?&]oldwv=1\b/.test(q);
+        function gapOk() {
+          try {
+            var d = document.createElement("div"); d.style.cssText = "display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden;left:-99px;top:0";
+            d.appendChild(document.createElement("div")); d.appendChild(document.createElement("div")); document.body.appendChild(d);
+            var ok = d.scrollHeight === 1; d.parentNode.removeChild(d); return ok;
+          } catch (e) { return true; }
+        }
+        var isGap = function (v) { return v && v !== "normal" && v !== "0px" && v !== "0"; };
+        function ruleCss(r) {   // 1 つのきまり → 足すきまり(なければ "")
+          var st = r.style; if (!st || !/flex/.test(st.display || "")) return "";
+          var rg = st.rowGap || st.getPropertyValue("row-gap"), cg = st.columnGap || st.getPropertyValue("column-gap");
+          if (!isGap(rg) && !isGap(cg)) return "";
+          var col = /^column/.test(st.flexDirection || ""), wrap = /^wrap/.test(st.flexWrap || "");
+          var sels = String(r.selectorText || "").split(","), body;
+          if (col) { if (!isGap(rg)) return ""; body = " > * + *{margin-top:" + rg + "}"; }
+          else if (wrap) body = " > *{margin-right:" + (isGap(cg) ? cg : "0") + ";margin-bottom:" + (isGap(rg) ? rg : "0") + "}";
+          else { if (!isGap(cg)) return ""; body = " > * + *{margin-left:" + cg + "}"; }
+          return sels.map(function (s) { return s.trim(); }).filter(Boolean).join(body.split("{")[0] + ",") + body;
+        }
+        function walk(rules) {
+          var out = "";
+          for (var i = 0; i < rules.length; i++) {
+            var r = rules[i];
+            if (r.type === 1) out += ruleCss(r);
+            else if (r.type === 4 && r.cssRules) { var inner = walk(r.cssRules); if (inner) out += "@media " + r.media.mediaText + "{" + inner + "}"; }
+          }
+          return out;
+        }
+        var el = null, n0 = -1;
+        function sheets() {
+          var n = document.styleSheets.length; if (n === n0) return; n0 = n;
+          var css = "";
+          for (var i = 0; i < n; i++) { var s = document.styleSheets[i]; if (s.ownerNode === el) continue; try { css += walk(s.cssRules || []); } catch (e) { /* よその CSS は読めない */ } }
+          if (!el) { el = document.createElement("style"); el.id = "ipxGapShim"; }
+          el.textContent = css; if (!el.parentNode) document.head.appendChild(el); n0 = document.styleSheets.length;
+        }
+        function inline() {   // style="…gap…" の要素(小窓・その場で作る行)
+          var a = document.querySelectorAll('[style*="gap"]');
+          for (var i = 0; i < a.length; i++) {
+            var e = a[i], st = e.style, rg = st.rowGap, cg = st.columnGap; if (!isGap(rg) && !isGap(cg)) continue;
+            var cs = getComputedStyle(e); if (!/flex/.test(cs.display)) continue;
+            var col = /^column/.test(cs.flexDirection), wrap = /^wrap/.test(cs.flexWrap), first = true;
+            for (var c = e.firstElementChild; c; c = c.nextElementSibling) {
+              if (c.getAttribute("data-gs") !== "1") {
+                if (wrap) { if (!c.style.marginRight && isGap(cg)) c.style.marginRight = cg; if (!c.style.marginBottom && isGap(rg)) c.style.marginBottom = rg; }
+                else if (!first) { if (col) { if (!c.style.marginTop && isGap(rg)) c.style.marginTop = rg; } else if (!c.style.marginLeft && isGap(cg)) c.style.marginLeft = cg; }
+                c.setAttribute("data-gs", "1");
+              }
+              first = false;
+            }
+          }
+        }
+        document.addEventListener("DOMContentLoaded", function () {
+          if (!force && gapOk()) return;
+          window.HISOKA_GAPSHIM = true;
+          var t = 0, run = function () { t = 0; try { sheets(); inline(); } catch (e) { /* */ } };
+          run();
+          new MutationObserver(function () { if (!t) t = setTimeout(run, 150); }).observe(document.documentElement, { childList: true, subtree: true });
+        });
+      })();
+    </script>
+    <script>
       (() => {
         "use strict";
         const $ = (id) => document.getElementById(id);
         const G = window.Genba || null;
+        const LITE = !!window.HISOKA_LITE;   // v0.4.0 軽くする(OPPO A73 など。上の判定)
+        const DPR = () => Math.min(window.devicePixelRatio || 1, LITE ? 1.5 : 2);   // canvas の倍率(LITE は 1.5 まで)
         const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
         const dlg = (title, body, buttons, sub) => {
           if (G && G.dialog) return G.dialog(title, body, buttons, sub);
@@ -1158,6 +1344,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         const D = Math.PI / 180;
         const f2 = (v) => (v == null || !isFinite(v) ? "---" : Number(v).toFixed(2));
         const f3 = (v) => (v == null || !isFinite(v) ? "---" : Number(v).toFixed(3));
+        const fa = (v) => (v == null || !isFinite(v) ? "---" : Number(v) < 1 ? Number(v).toFixed(3) : Number(v).toFixed(1));   // 精度(i76 は cm まで)
         const pad = (n) => String(n).padStart(2, "0");
         const hms = (t) => { const d = new Date(t); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()); };
         const stampOf = (t) => { const d = new Date(t); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + hms(t); };
@@ -1166,7 +1353,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* */ } } };
 
         // ---------------------------------------------------------------- 設定(端末ごと)
-        const CFG_DEF = { warn: 5, near: 3, avg: 10, saveH: "0", unit: "auto", declMode: "auto", decl: 7.5, eye: 1.4, zone: "" };
+        const CFG_DEF = { warn: 5, near: 3, avg: 10, saveH: "0", unit: "auto", declMode: "auto", decl: 7.5, eye: 1.4, zone: "", src: "phone", btAddr: "", btName: "", gnOn: false, corr: "app" };   // corr:補正の受け方(app=アプリの NTRIP / rx=i76 が自分で)   // v0.3.0 src:位置の入力元(phone/i76)
         let cfg = { ...CFG_DEF }; try { cfg = { ...CFG_DEF, ...JSON.parse(ls.get("hisoka.cfg") || "{}") }; } catch (e) { /* */ }
         const saveCfg = () => ls.set("hisoka.cfg", JSON.stringify(cfg));
 
@@ -1251,40 +1438,55 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let gps = null, gpsWatch = null, gpsErr = "";
         const samples = [];   // 平均を取っている間の生の値
         let sampling = null;
+        // 端末の GPS(watchPosition)
         function onPos(g) {
-          const c = g.coords, z = zone();
-          const q = z ? llToXY(c.latitude, c.longitude, z) : null;
-          gps = { lat: c.latitude, lon: c.longitude, acc: c.accuracy, alt: c.altitude, altAcc: c.altitudeAccuracy, t: g.timestamp || Date.now(),
-            rX: q ? q.X : null, rY: q ? q.Y : null, gam: q ? q.gam : 0, spd: c.speed, hdg: c.heading };
+          const c = g.coords;
+          onPosData({ lat: c.latitude, lon: c.longitude, acc: c.accuracy, alt: c.altitude, altAcc: c.altitudeAccuracy, t: g.timestamp || Date.now(), spd: c.speed, hdg: c.heading, src: "phone" });
+        }
+        // v0.3.0:端末の GPS と i76 のどちらの位置もここを通す(図面・🎯・AR・座標リスト・保存・ローカライゼーションは gps を見る)
+        function onPosData(d) {
+          if ((cfg.src === "i76") !== (d.src === "i76")) return;   // 選んでいない方の位置は使わない
+          const z = zone(), q = z ? llToXY(d.lat, d.lon, z) : null;
+          gps = { ...d, rX: q ? q.X : null, rY: q ? q.Y : null, gam: q ? q.gam : 0 };
           if (q) { const r = locOn() ? applyT(locT, q.X, q.Y) : { X: q.X, Y: q.Y }; gps.X = r.X; gps.Y = r.Y; }
           gpsErr = "";
           if (sampling) sampling.push({ ...gps });
-          showPos(); dirty();
+          showPos(); dirtySoft();
         }
+        const isI76 = () => cfg.src === "i76";
+        const srcName = () => (isI76() ? "i76" : "GPS");
+        const running = () => (isI76() ? gn.want : gpsWatch != null);
+        const rtkFix = (g) => !!(g && g.src === "i76" && g.q === 4);
         function onPosErr(er) {
           gpsErr = er && er.code === 1 ? "位置情報の許可がありません(端末の設定 › アプリ › 位置情報 を「許可」に)" : er && er.code === 3 ? "GPS がまだ取れません(空の見える所で少し待ってください)" : "GPS が取れません(" + ((er && er.message) || "不明") + ")";
           showPos();
         }
         function gpsStart() {
+          if (isI76()) { gnStart(); return; }
           if (!navigator.geolocation) { gpsErr = "この端末・画面では位置情報が使えません"; showPos(); return; }
           if (gpsWatch != null) return;
           gpsWatch = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
-          $("gpsBtn").textContent = "■ GPS を止める"; $("gpsBtn").classList.add("on"); $("gpsBtn").classList.remove("pri");
-          showPos();
+          showBtn(); showPos();
         }
         function gpsStop() {
+          if (isI76()) { gnStop(); return; }
           if (gpsWatch != null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatch);
-          gpsWatch = null; $("gpsBtn").textContent = "📡 GPS で今の位置を取る"; $("gpsBtn").classList.remove("on"); $("gpsBtn").classList.add("pri");
-          showPos();
+          gpsWatch = null; showBtn(); showPos();
         }
-        $("gpsBtn").addEventListener("click", () => (gpsWatch == null ? gpsStart() : gpsStop()));
+        function showBtn() {   // 上の大きなボタン(入力元ごと)
+          const on = running(), b = $("gpsBtn");
+          b.textContent = isI76() ? (on ? "■ i76 を切る" : "📡 i76 につないで今の位置を取る") : on ? "■ GPS を止める" : "📡 GPS で今の位置を取る";
+          b.classList.toggle("on", on); b.classList.toggle("pri", !on);
+          const c = $("gnConn"); if (c) { c.textContent = gn.want ? "■ i76 を切る" : "🔗 i76 につなぐ"; c.classList.toggle("on", gn.want); c.classList.toggle("pri", !gn.want); }
+        }
+        $("gpsBtn").addEventListener("click", () => (running() ? gpsStop() : gpsStart()));
         const fresh = () => gps && Date.now() - gps.t < 15000;
         const here = () => (gps && gps.X != null && fresh() ? gps : null);
         // 何秒か平均する(生の平面座標で平均してから、ローカライゼーションをかける)
         function average(sec, bar) {
           return new Promise((ok, ng) => {
             if (!zone()) { ng(new Error("平面直角座標の系が決まっていません(⚙ 設定で選んでください)")); return; }
-            if (gpsWatch == null) gpsStart();
+            if (!running()) gpsStart();
             if (!sec) { const g = here(); if (g) ok({ ...pack([g]) }); else ng(new Error("まだ今の位置が取れていません。少し待ってください")); return; }
             sampling = []; const t0 = Date.now(), pb = bar ? bar.querySelector("i") : null;
             if (bar) bar.hidden = false;
@@ -1292,17 +1494,270 @@ canvas.xs-3d { background: #0b0c0e !important; }
               const k = Math.min(1, (Date.now() - t0) / (sec * 1000)); if (pb) pb.style.width = (k * 100).toFixed(0) + "%";
               if (k < 1) return;
               clearInterval(tick); const a = sampling.filter((s) => s.rX != null); sampling = null; if (bar) { bar.hidden = true; if (pb) pb.style.width = "0"; }
-              if (!a.length) { ng(new Error("この間に GPS が取れませんでした")); return; }
+              if (!a.length) { ng(new Error("この間に " + srcName() + " の位置が取れませんでした")); return; }
               ok(pack(a));
             }, 200);
           });
         }
-        function pack(a) {
+        function pack(a0) {
+          const fx = a0.filter((x) => x.src === "i76" && x.q === 4), a = fx.length ? fx : a0;   // i76:FIX があれば FIX だけで平均(FLOAT・単独はまぜない)
           const n = a.length, m = (k) => a.reduce((s, x) => s + (x[k] || 0), 0) / n;
           const rX = m("rX"), rY = m("rY"), sd = n > 1 ? Math.sqrt(a.reduce((s, x) => s + (x.rX - rX) ** 2 + (x.rY - rY) ** 2, 0) / (n - 1)) : 0;
           const acc = m("acc") / Math.sqrt(Math.max(1, Math.min(n, 4)));   // 平均で少し良くなるが、GPS の誤差は続くので √4 まで
           const alts = a.filter((x) => x.alt != null);
-          return { rX, rY, sd, acc: Math.max(acc, sd), n, lat: m("lat"), lon: m("lon"), alt: alts.length ? alts.reduce((s, x) => s + x.alt, 0) / alts.length : null, t: Date.now() };
+          const qs = a.map((x) => x.q).filter((q) => q != null), q = qs.length ? Math.min(...qs.map((v) => (v === 4 ? 0 : v === 5 ? 1 : v === 2 ? 2 : 3))) : null;
+          return { rX, rY, sd, acc: Math.max(acc, sd), n, lat: m("lat"), lon: m("lon"), alt: alts.length ? alts.reduce((s, x) => s + x.alt, 0) / alts.length : null, t: Date.now(),
+            src: a[0].src || "phone", fix: a[0].src === "i76" ? (fx.length ? "FIX" : q == null ? "" : ["FIX", "FLOAT", "RTD", "単独"][q]) : "", all: a0.length };
+        }
+
+        // ---------------------------------------------------------------- i76(GNSS 受信機)v0.3.0
+        // Android アプリ(1.29.0 Gnss.java)が Bluetooth SPP でつなぎ、NMEA を 0.25 秒ごとに window.__gnss.feed({nmea, st}) で渡す。
+        // NTRIP の補正はアプリが受けて i76 へ書く(このページは設定と状態の表示だけ)。CHC 独自のコマンドは送らない。
+        const AND = window.KurukuruAndroid || null;
+        const IOS = !!(window.IPPATSU_IOS && window.IPPATSU_IOS.on && !AND);
+        const gnAble = () => !!(AND && AND.gnssOpen);
+        const gnWhyNot = () => (IOS ? "iPhone(Safari)からは Bluetooth の受信機(SPP)につなげません。<b>i76 は Android アプリ(一発バーン)でのみ</b>使えます。iPhone では「📱 端末の GPS」を使ってください。"
+          : AND ? "この Android アプリは古い版です(i76 の部品が入っていません)。メニューの「⟳ アップデート」で <b>1.29.0 以上</b>にしてください。"
+          : "i76(Bluetooth)は <b>Android アプリ(一発バーン)でのみ</b>使えます。ブラウザ(Chrome・Safari・パソコン)からはつなげません。");
+        const QL = { 0: ["位置なし", "ng"], 1: ["単独", "ng"], 2: ["RTD", "rtd"], 3: ["PPS", "ng"], 4: ["FIX", "ok"], 5: ["FLOAT", "warn"], 6: ["推測", "ng"], 7: ["手入力", "ng"], 8: ["試験", "ng"] };
+        const qLabel = (q) => (QL[q] || ["?", "ng"])[0];
+        const gn = { want: false, st: null, gga: null, ggaAt: 0, gst: null, gstAt: 0, gsa: {}, gsv: {}, rmc: null, n: 0, bad: 0, since: 0 };
+        // GEOID:あとで JPGEO2024・GSIGEO2011 を入れるところ。N(lat, lon) → ジオイド高(m)を返す関数を入れると、標高 = 楕円体高 − N にする
+        const GEOID = { name: "", N: null };
+        function heightOf(lat, lon, hEll, altRx) {
+          if (GEOID.N && hEll != null) { const N = GEOID.N(lat, lon); if (N != null && isFinite(N)) return { H: hEll - N, model: GEOID.name || "ジオイド" }; }
+          return { H: altRx, model: "受信機のジオイド" };
+        }
+        const dm = (v, h) => { if (!v) return null; const x = parseFloat(v); if (!isFinite(x)) return null; const d = Math.floor(x / 100), r = d + (x - d * 100) / 60; return h === "S" || h === "W" ? -r : r; };
+        const num = (v) => (v === "" || v == null ? null : isFinite(parseFloat(v)) ? parseFloat(v) : null);
+        // NMEA 1 行。チェックサムが合わない行は捨てる。戻り値は文の種類(GGA など)
+        function nmeaLine(l) {
+          l = String(l).trim(); if (l[0] !== "$") return null;
+          const st = l.lastIndexOf("*"), body = st >= 0 ? l.slice(1, st) : l.slice(1);
+          if (st >= 0) { let cs = 0; for (let i = 0; i < body.length; i++) cs ^= body.charCodeAt(i); if (cs !== parseInt(l.slice(st + 1, st + 3), 16)) { gn.bad++; return null; } }
+          const f = body.split(","), id = f[0] || "", typ = id.slice(-3), tk = id.slice(0, -3), now = Date.now();
+          gn.n++;
+          if (typ === "GGA") {
+            gn.gga = { lat: dm(f[2], f[3]), lon: dm(f[4], f[5]), q: Number(f[6]) || 0, sats: num(f[7]), hdop: num(f[8]), alt: num(f[9]), sep: num(f[11]), age: num(f[13]), ref: f[14] || "", utc: f[1] || "" };
+            gn.ggaAt = now;
+          } else if (typ === "GST") {
+            gn.gst = { rms: num(f[2]), sdLat: num(f[6]), sdLon: num(f[7]), sdAlt: num(f[8]) }; gn.gstAt = now;
+          } else if (typ === "GSA") {
+            const sys = f[18] ? "s" + f[18] : tk;   // NMEA 4.1 はシステム番号で分ける
+            gn.gsa[sys] = { mode: Number(f[2]) || 0, used: f.slice(3, 15).filter((x) => x).length, pdop: num(f[15]), hdop: num(f[16]), vdop: num(f[17]), at: now };
+          } else if (typ === "GSV") {
+            const k = tk + (f.length % 4 === 1 ? ":" + (f[f.length - 1] || "") : "");   // 4.1 は最後に信号番号(L1・L2…ごとに同じ衛星が出る)
+            const n = num(f[3]); if (n != null) gn.gsv[k] = { tk, n, at: now };
+          } else if (typ === "RMC") {
+            gn.rmc = { ok: f[2] === "A", kn: num(f[7]), cog: num(f[8]), at: now };
+          }
+          return typ;
+        }
+        function gnSats() {   // 使っている衛星(GGA)・見えている衛星(GSV。いろいろな衛星系の合計。信号ごとに重なるので最大を取る)
+          const now = Date.now(), byTk = {};
+          for (const k in gn.gsv) { const v = gn.gsv[k]; if (now - v.at < 5000) byTk[v.tk] = Math.max(byTk[v.tk] || 0, v.n); }
+          const view = Object.values(byTk).reduce((s, v) => s + v, 0);
+          let dop = null; for (const k in gn.gsa) { const v = gn.gsa[k]; if (now - v.at < 5000 && v.pdop != null) dop = { pdop: v.pdop, hdop: v.hdop, vdop: v.vdop }; }
+          return { used: gn.gga ? gn.gga.sats : null, view: view || null, dop };
+        }
+        // GGA が来たら位置にする(精度は GST の緯度・経度の標準偏差。GST が無いときは解の種類からの目安)
+        function gnFix() {
+          const g = gn.gga; if (!g || !g.q || g.lat == null || g.lon == null) return;
+          const s = gn.gst && Date.now() - gn.gstAt < 5000 ? gn.gst : null;
+          const hz = s && s.sdLat != null && s.sdLon != null ? Math.hypot(s.sdLat, s.sdLon) : null;
+          const est = { 4: 0.03, 5: 0.5, 2: 1.0, 1: Math.max(2, (g.hdop || 2) * 2.5) }[g.q] || 10;
+          const hEll = g.alt != null && g.sep != null ? g.alt + g.sep : null, H = heightOf(g.lat, g.lon, hEll, g.alt);
+          const r = gn.rmc && Date.now() - gn.rmc.at < 3000 ? gn.rmc : null;
+          onPosData({ lat: g.lat, lon: g.lon, acc: hz != null ? Math.max(hz, 0.001) : est, accEst: hz == null, alt: H.H, altAcc: s ? s.sdAlt : null, hEll, sep: g.sep, geoid: H.model,
+            t: Date.now(), spd: r && r.kn != null ? r.kn * 0.514444 : null, hdg: r ? r.cog : null, src: "i76", q: g.q, fix: qLabel(g.q), sats: g.sats, hdop: g.hdop, age: g.age });
+        }
+        window.__gnss = {
+          feed(o) {
+            if (!o) return;
+            if (o.st) { gn.st = o.st; const ln = (o.st.bt && o.st.bt.lines) || 0; if (ln !== gn.lastLines) { gn.lastLines = ln; gn.linesAt = Date.now(); } }
+            let got = false;
+            if (o.nmea) for (const l of String(o.nmea).split("\n")) if (l && nmeaLine(l) === "GGA") got = true;
+            if (got) { if (gn.gga && gn.gga.q) gnFix(); else showPos(); }
+            gnShowSoon();
+          },
+          table(o) { gnTable(o); },
+        };
+        // 画面
+        let gnT = 0; const gnShowSoon = () => { if (gnT) return; gnT = setTimeout(() => { gnT = 0; gnShow(); }, 120); };
+        const kb = (b) => (b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(1) + " KB" : (b / 1048576).toFixed(2) + " MB");
+        function gnProblems() {   // 画面に出す注意(上から大事な順)
+          const st = gn.st || {}, bt = st.bt || {}, nt = st.nt || {}, g = gn.gga, a = [];
+          if (bt.s === "perm") a.push("Bluetooth の許可がありません。🔄 を押して「付近のデバイス」を許可してください");
+          if (bt.s === "on" && bt.onFor > 8000 && (bt.gga < 0 || bt.gga > 8000)) {
+            const nmeaNow = bt.lines > 0 && Date.now() - (gn.linesAt || 0) < 5000;   // NMEA の行がこの 5 秒に増えたか
+            const what = bt.rxAgo < 0 || bt.rxAgo > 5000 ? "i76 からデータが来ません" : !nmeaNow ? "データは来ていますが NMEA ではありません" : "NMEA は来ていますが位置(GGA)がありません";
+            a.push("⚠ " + what + "。i76 が Bluetooth に NMEA を出す設定になっていないかもしれません。<br>" +
+              "① <b>LandStar → 設置 → 上級設定 → Output NMEA</b>(画面では「Output NEMA」と出ることがあります)で、出力先 <b>Bluetooth</b> に <b>GGA(1Hz)・RMC・GST・GSA・GSV を ON</b> にして「<b>Set</b>」(受信機へ送る)。<br>" +
+              "② そのあと LandStar で <b>GNSS を切断</b>(設置 › 接続 › 切断。Bluetooth を空ける)してから、ここで「🔗 i76 につなぐ」。LandStar で NTRIP にログインしていたら先に切断(設置 › 機器情報 › 右上 › PDAネットワークを切断する)。<br>" +
+              "<small>※ 設定は受信機に残る前提です(実機で要確認)。LandStar が i76 とつながったままだと、ここにはデータが来ません。</small>");
+          }
+          if (gn.want && g && g.q === 0) a.push("i76 はつながっていますが、まだ位置が出ていません(空の見える所で待ってください)");
+          else if (gn.want && g && g.q && g.q !== 4 && Date.now() - gn.ggaAt < 15000) a.push("⚠ RTK FIX ではありません(" + qLabel(g.q) + ")。<b>本測量には使えません</b>(簡易確認用)。" +
+            (cfg.corr === "rx" ? (g.age == null ? "i76 に補正が届いていません。LandStar で受信機ネットワークのログイン(ユーザー名・パスワード・SIM・ダイヤル中)を確かめてください。" : "FIX まで空の見える所で待ってください。")
+              : nt.s !== "on" ? "🛰 NTRIP の補正を受けると FIX になります。" : g.q === 5 ? "FIX まで空の見える所で待ってください。" : ""));
+          if (g && g.age != null && g.age > 10 && Date.now() - gn.ggaAt < 15000) a.push("補正が " + g.age.toFixed(0) + " 秒 遅れています(電波・NTRIP を確かめてください)");
+          if (nt.s === "on" && nt.drop > 0 && bt.s !== "on") a.push("i76 につながっていないので、受けた補正を渡せていません");
+          if (nt.s === "auth" || nt.s === "error") a.push("NTRIP:" + esc(nt.msg || ""));
+          return a;
+        }
+        function gnShow() {
+          const card = $("gnCard"); card.hidden = !isI76(); if (!isI76()) return;
+          const able = gnAble(); $("gnNo").hidden = able; $("gnNo").innerHTML = able ? "" : gnWhyNot(); $("gnBody").hidden = !able;
+          if (!able) return;
+          const st = gn.st || {}, bt = st.bt || {}, nt = st.nt || {}, g = gn.gga && Date.now() - gn.ggaAt < 15000 ? gn.gga : null;
+          const set = (id, t, c) => { const e = $(id); e.textContent = t; if (c != null) e.className = "chip " + c; };
+          const BTS = { off: ["Bluetooth 切", ""], connecting: ["Bluetooth つないでいます…", "warn"], on: ["Bluetooth ✓ " + (bt.name || ""), "ok"], retry: ["Bluetooth つなぎ直し中", "warn"], perm: ["Bluetooth 許可なし", "ng"] };
+          const b = BTS[bt.s] || BTS.off; set("gnBt", b[0], b[1]);
+          if (g) { const q = QL[g.q] || ["?", "ng"]; set("gnFix", "解 " + q[0], q[1]); } else set("gnFix", "解 --", "");
+          const sv = gnSats(); set("gnSat", "衛星 " + (sv.used != null ? sv.used : "--") + (sv.view ? " / " + sv.view : ""), "");
+          const hd = sv.dop && sv.dop.hdop != null ? sv.dop.hdop : g && g.hdop; set("gnDop", "HDOP " + (hd != null ? Number(hd).toFixed(1) : "--") + (sv.dop && sv.dop.pdop != null ? "・PDOP " + sv.dop.pdop.toFixed(1) : ""), "");
+          const s = gn.gst && Date.now() - gn.gstAt < 5000 ? gn.gst : null;
+          $("gnH").textContent = s && s.sdLat != null ? "±" + Math.hypot(s.sdLat, s.sdLon).toFixed(3) + " m" : g ? "(GST なし)" : "---";
+          $("gnV").textContent = s && s.sdAlt != null ? "±" + s.sdAlt.toFixed(3) + " m" : g ? "(GST なし)" : "---";
+          $("gnAge").textContent = g && g.age != null ? g.age.toFixed(1) + " 秒" : g ? "補正なし" : "---";
+          const NTS = { off: "止まっています", connecting: "つないでいます…", on: "受信中", retry: "つなぎ直し中", auth: "ID・パスワード ✕", error: "エラー" };
+          $("gnNt").textContent = (NTS[nt.s] || "---") + (nt.bytes ? "・" + kb(nt.bytes) : "") + (nt.s === "on" && nt.ago > 5000 ? "(" + Math.round(nt.ago / 1000) + " 秒前)" : "");
+          $("ntSum").textContent = nt.s && nt.s !== "off" ? "(" + (NTS[nt.s] || nt.s) + (nt.mount ? "・" + nt.mount : "") + ")" : "";
+          $("ntGo").textContent = ["on", "connecting", "retry"].includes(nt.s) ? "■ 補正を止める" : "▶ 補正を受ける";
+          $("ntGo").classList.toggle("on", ["on", "connecting", "retry"].includes(nt.s)); $("ntGo").classList.toggle("pri", !["on", "connecting", "retry"].includes(nt.s));
+          const pr = gnProblems(), w = $("gnWarn"); w.hidden = !pr.length; w.innerHTML = pr.join("<br>");
+          $("gnMsg").textContent = (bt.msg ? "Bluetooth:" + bt.msg : "") + (nt.msg && nt.s !== "off" ? " / NTRIP:" + nt.msg + (nt.gga ? "(GGA 送信 " + nt.gga + " 回)" : "") : "") + (gn.bad ? " / チェックサム ✕ " + gn.bad + " 行" : "");
+          showBtn(); showCaution();
+        }
+        // 受信機を選ぶ(ペアリング済みの Bluetooth 機器。GNSS- で始まるものを上に)
+        function gnDevices(ask) {
+          const sel = $("gnDev"); if (!gnAble()) return;
+          let r; try { r = AND.btDevices(); } catch (e) { r = "[]"; }
+          if (r === "PERM") {
+            sel.innerHTML = '<option value="">(Bluetooth の許可が要ります。🔄 を押して許可)</option>';
+            if (ask) { window.kurukuruBtPerm = (ok) => { if (ok) gnDevices(false); else toast("Bluetooth の許可がありません(端末の設定 › アプリ › 一発バーン › 権限 › 付近のデバイス)"); }; try { AND.btPermission(); } catch (e) { /* */ } }
+            return;
+          }
+          if (r === "NOBT" || r === "OFF") { sel.innerHTML = '<option value="">' + (r === "OFF" ? "(Bluetooth が切れています。⚙ で入れてください)" : "(この端末には Bluetooth がありません)") + "</option>"; return; }
+          let a = []; try { a = JSON.parse(r) || []; } catch (e) { /* */ }
+          a.sort((x, y) => (/^GNSS-/i.test(y.name) ? 1 : 0) - (/^GNSS-/i.test(x.name) ? 1 : 0) || String(x.name).localeCompare(String(y.name)));
+          if (cfg.btAddr && !a.some((d) => d.addr === cfg.btAddr)) a.unshift({ name: (cfg.btName || "前に選んだ機器") + "(ペアリング一覧にありません)", addr: cfg.btAddr });
+          sel.innerHTML = a.length ? a.map((d) => '<option value="' + esc(d.addr) + '">' + esc(d.name || "(名前なし)") + "  " + esc(d.addr) + (/^GNSS-/i.test(d.name) ? "  ← GNSS 受信機" : "") + "</option>").join("")
+            : '<option value="">(ペアリング済みの機器がありません。⚙ で i76「GNSS-…」をペアリング)</option>';
+          const pick = cfg.btAddr && a.some((d) => d.addr === cfg.btAddr) ? cfg.btAddr : (a.find((d) => /^GNSS-/i.test(d.name)) || {}).addr || "";
+          sel.value = pick; if (pick && pick !== cfg.btAddr) { cfg.btAddr = pick; cfg.btName = (a.find((d) => d.addr === pick) || {}).name || ""; saveCfg(); }
+        }
+        $("gnDev").addEventListener("change", () => {
+          const o = $("gnDev").selectedOptions[0]; cfg.btAddr = $("gnDev").value; cfg.btName = o ? o.textContent.split("  ")[0] : ""; saveCfg();
+          if (gn.want && cfg.btAddr) { AND.gnssOpen(cfg.btAddr, cfg.btName); toast("📡 「" + cfg.btName + "」につなぎ直します"); }
+        });
+        $("gnRe").addEventListener("click", () => { gnDevices(true); toast("Bluetooth の一覧を読み直しました"); });
+        $("gnBtSet").addEventListener("click", () => { try { AND.btSettings(); } catch (e) { /* */ } });
+        function gnStart() {
+          if (!gnAble()) { gnShow(); dlg("i76 につなげません", "", [{ label: "閉じる" }], gnWhyNot()); return; }
+          if (!cfg.btAddr) gnDevices(true);
+          if (!cfg.btAddr) { dlg("i76 を選んでください", "", [{ label: "閉じる" }], "ペアリング済みの機器に i76(「GNSS-機械番号7桁」)がありません。⚙ で Bluetooth の設定を開き、i76 の電源を入れてペアリングしてから 🔄 を押してください。"); return; }
+          gn.want = true; gn.since = Date.now(); cfg.gnOn = true; saveCfg();
+          try { AND.gnssOpen(cfg.btAddr, cfg.btName || ""); } catch (e) { toast("⚠ " + e.message); }
+          showBtn(); gnShow(); showPos();
+        }
+        function gnStop() {
+          gn.want = false; cfg.gnOn = false; saveCfg();
+          try { AND.ntripStop(); AND.gnssClose(); } catch (e) { /* */ }
+          showBtn(); gnShow(); showPos();
+        }
+        $("gnConn").addEventListener("click", () => (gn.want ? gnStop() : gnStart()));
+        // ---- NTRIP の設定(パスワードはアプリの中だけ。このページには入れた時に渡すだけで、覚えない)
+        const NT_PRE = [
+          { k: "jenoba", n: "ジェノバ", host: "ntrip.jenoba.jp", port: 2101, m: ["JVR30G", "JVR32M", "JVR32L", "JVR32E"],
+            md: { JVR30G: "GPS+GLONASS", JVR32M: "GPS+GLONASS+QZSS", JVR32L: "GPS+GLONASS+Galileo", JVR32E: "GPS+GLONASS+QZSS+Galileo" } },   // i76 簡易取扱説明書 7-3
+          { k: "terasat", n: "テラサット", host: "ntrip.terasat.co.jp", port: 5001, m: [] },
+          { k: "gpsdata", n: "日本GPSデータサービス", host: "ntrip.gpsdata.co.jp", port: 80, m: [] },
+          { k: "ales", n: "ソフトバンク(ALES)", host: "ntrip.ales-corp.co.jp", port: 2101, m: [] },
+          { k: "", n: "手入力(ほかの会社)", host: "", port: 2101, m: [] },
+        ];
+        let ntTbl = [];
+        function ntMounts() {
+          const p = NT_PRE.find((x) => x.k === $("ntPre").value) || {}, ms = [...new Set([...(p.m || []), ...ntTbl.map((t) => t.m)])];
+          const lab = (m) => (p.md && p.md[m]) || ((ntTbl.find((t) => t.m === m) || {}).nav || "");
+          $("ntMl").innerHTML = ms.map((m) => '<option value="' + esc(m) + '" label="' + esc(lab(m)) + '">' + esc(lab(m)) + "</option>").join("");
+          const h = $("ntMHint"); if (h) h.textContent = p.md ? Object.keys(p.md).map((m) => m + "=" + p.md[m]).join("・") : "";
+        }
+        function ntLoad() {
+          $("ntPre").innerHTML = NT_PRE.map((p) => '<option value="' + p.k + '">' + esc(p.n) + (p.host ? "(" + p.host + ":" + p.port + ")" : "") + "</option>").join("");
+          let c = {}; try { c = JSON.parse(AND.ntripConfigGet() || "{}"); } catch (e) { /* */ }
+          const p = NT_PRE.find((x) => x.k === c.preset) || (c.host ? NT_PRE.find((x) => x.host === c.host) || NT_PRE[NT_PRE.length - 1] : NT_PRE[0]);
+          $("ntPre").value = p.k; $("ntHost").value = c.host || p.host; $("ntPort").value = c.port || p.port; $("ntMount").value = c.mount || ""; $("ntUser").value = c.user || ""; $("ntVer").value = c.ver === "2" ? "2" : "1";
+          $("ntPass").value = ""; $("ntPass").placeholder = c.hasPass ? "入れてあります(変えるときだけ入れる)" : "会社の契約のパスワード";
+          $("ntPassL").textContent = "パスワード" + (c.hasPass ? "(この端末に入れてあります)" : "");
+          ntMounts();
+        }
+        function ntSave() {
+          const o = { preset: $("ntPre").value, host: $("ntHost").value.trim(), port: Number($("ntPort").value) || 2101, mount: $("ntMount").value.trim(), user: $("ntUser").value.trim(), ver: $("ntVer").value, gga: 10 };
+          const pw = $("ntPass").value; if (pw) o.pass = pw;
+          AND.ntripConfigSet(JSON.stringify(o)); $("ntPass").value = "";
+          if (pw) { $("ntPass").placeholder = "入れてあります(変えるときだけ入れる)"; $("ntPassL").textContent = "パスワード(この端末に入れてあります)"; }
+          return o;
+        }
+        $("ntPre").addEventListener("change", () => { const p = NT_PRE.find((x) => x.k === $("ntPre").value); if (p && p.host) { $("ntHost").value = p.host; $("ntPort").value = p.port; } ntTbl = []; ntMounts(); });
+        $("ntGo").addEventListener("click", () => {
+          if (!gnAble()) return;
+          const nt = (gn.st && gn.st.nt) || {};
+          if (["on", "connecting", "retry"].includes(nt.s)) { AND.ntripStop(); toast("補正を止めました"); return; }
+          if (cfg.corr === "rx") { toast("「② i76 が自分で受ける」のときはアプリの NTRIP は使いません"); return; }
+          const o = ntSave();
+          if (!o.host || !o.mount) { toast("サーバーとマウントポイントを入れてください"); return; }
+          if (!gn.want) toast("先に i76 につないでください(補正は i76 へ渡します)");
+          AND.ntripStart(); toast("🛰 " + o.host + ":" + o.port + "/" + o.mount + " につないでいます");
+        });
+        $("ntList").addEventListener("click", () => {
+          if (!gnAble()) return;
+          const o = ntSave(); if (!o.host) { toast("サーバーを入れてください"); return; }
+          AND.ntripTable(); toast("📜 " + o.host + " のマウントの一覧を取っています…");
+        });
+        function gnTable(o) {
+          if (!o || !o.ok) { dlg("マウントの一覧を取れません", "", [{ label: "閉じる" }], esc((o && o.msg) || "不明") + "<br>サーバー・ポート・インターネットを確かめてください。"); return; }
+          ntTbl = o.list || []; ntMounts();
+          if (!ntTbl.length) { dlg("マウントの一覧", "", [{ label: "閉じる" }], "一覧にマウントがありませんでした。"); return; }
+          const d = dlg("📜 マウントの一覧(" + ntTbl.length + ")", '<div class="ptab" id="ntT" style="max-height:56vh">' + ntTbl.map((t, i) =>
+            '<button type="button" class="pr" data-i="' + i + '" style="grid-template-columns:1fr"><b>' + esc(t.m) + (t.nmea === "1" ? "  📍VRS(位置を送る)" : "") + "</b><span>" + esc([t.id, t.fmt, t.nav, t.net].filter((x) => x).join("・")) + "</span></button>").join("") + "</div>", [{ label: "閉じる" }], "押すとマウントポイントに入ります");
+          d.el.querySelector("#ntT").addEventListener("click", (e) => { const b = e.target.closest("[data-i]"); if (!b) return; $("ntMount").value = ntTbl[Number(b.dataset.i)].m; ntSave(); d.close(); toast("マウント:" + $("ntMount").value); });
+        }
+        // 補正の受け方:① アプリの NTRIP ② i76 が自分で(受信機ネットワーク。アプリの NTRIP は動かさない)
+        function setCorr(c, quiet) {
+          cfg.corr = c === "rx" ? "rx" : "app"; saveCfg();
+          $("corrSel").querySelectorAll("[data-c]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === cfg.corr)));
+          $("ntBox").hidden = cfg.corr === "rx"; $("corrRx").hidden = cfg.corr !== "rx";
+          if (cfg.corr === "rx" && gnAble()) { const nt = (gn.st && gn.st.nt) || {}; if (["on", "connecting", "retry"].includes(nt.s)) { AND.ntripStop(); if (!quiet) toast("アプリの NTRIP を止めました(i76 が自分で受けます)"); } }
+          gnShow();
+        }
+        $("corrSel").addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (b) setCorr(b.dataset.c); });
+        // 入力元の切り替え
+        function setSrc(s) {
+          const was = running();
+          if (s === cfg.src) { gnShow(); return; }
+          if (was) gpsStop();
+          cfg.src = s; saveCfg(); gps = null; sampling = null;
+          $("srcSel").querySelectorAll("[data-src]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === cfg.src)));
+          if (isI76() && gnAble()) { gnDevices(false); ntLoad(); }
+          gnShow(); showBtn(); showPos(); dirty();
+          if (was) gpsStart();
+          if (isI76() && !gnAble()) toast("i76 は Android アプリでのみ使えます");
+        }
+        $("srcSel").addEventListener("click", (e) => { const b = e.target.closest("[data-src]"); if (b) setSrc(b.dataset.src); });
+        // 上の注意書き:i76 で RTK FIX のときは「RTK FIX(±数cm)」に。本測量に使うかは現場の判断
+        function showCaution() {
+          const c = $("caution"), g = here();
+          if (isI76() && rtkFix(g)) {
+            c.className = "caution rtk";
+            c.innerHTML = "✅ <b>RTK FIX(±数 cm)</b>:i76 の補正つきの位置です(水平 ±" + fa(g.acc) + " m" + (g.altAcc != null ? "・垂直 ±" + fa(g.altAcc) : "") + ")。<b>杭打ちなどの本測量に使うかは現場で判断してください</b>(既知点で点検してから。ローカライゼーションの残りも確かめる)。標高は受信機のジオイドによる参考値です。";
+          } else if (isI76()) {
+            c.className = "caution nofix";
+            c.innerHTML = "⚠ <b>i76:いまは RTK FIX ではありません" + (g && g.fix ? "(" + esc(g.fix) + ")" : "") + "。本測量には使えません</b>(簡易確認用)。NTRIP の補正を受けて「解 FIX」になるのを待ってください。";
+          } else {
+            c.className = "caution";
+            c.innerHTML = "⚠ <b>GPS は数 m の誤差がある簡易確認用です。</b>杭打ち・丁張り・出来形などの<b>本測量には使えません</b>。だいたいの場所をさがす・確かめるために使ってください。標高は参考値です。";
+          }
         }
 
         // ---------------------------------------------------------------- 方位センサー(くるくる回し太郎の AR 誘導と同じ式)
@@ -1320,7 +1775,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           else if (Math.hypot(vx, vy) > 0.3) h = Math.atan2(vx, vy) / D;
           else h = Math.atan2(-cB * sA, cA * cB) / D;   // 平らに持っているときは画面の上の向き
           headRaw = norm(h);
-          dirty();
+          dirtySoft();
         }
         async function headStart() {
           if (headOn) return true;
@@ -1365,20 +1820,23 @@ canvas.xs-3d { background: #0b0c0e !important; }
             zn.innerHTML = "⚠ <b>平面直角座標の系が決まっていません。</b>現場の設定(一発バーンのメニュー)か、下の ⚙ 設定で選んでください。" + (sug ? "<br>いまの場所からの目安:<b>" + esc(ZONES[sug - 1]) + "</b> <button type=\"button\" class=\"chip\" id=\"zoneUse\">この系にする</button>" : "");
             const b = $("zoneUse"); if (b) b.onclick = () => { cfg.zone = String(sug); saveCfg(); $("cZone").value = cfg.zone; reproject(); };
           } else zn.hidden = true;
-          const g = gps, acc = $("accChip"), al = $("accAlarm");
+          const g = gps, acc = $("accChip"), al = $("accAlarm"), sn = srcName();
+          $("nHl").textContent = isI76() ? "標高(参考・受信機のジオイド)" : "標高(参考・GPS)";
           if (!g) {
-            acc.textContent = gpsWatch != null ? (gpsErr || "GPS を待っています…") : "GPS 止まっています"; acc.className = "chip" + (gpsErr ? " ng" : "");
+            acc.textContent = running() ? (gpsErr || sn + " を待っています…") : sn + (isI76() ? " つないでいません" : " 止まっています"); acc.className = "chip" + (gpsErr ? " ng" : "");
             ["nX", "nY", "nLat", "nLon", "nH", "nT"].forEach((k) => ($(k).textContent = "---")); al.hidden = !gpsErr; al.textContent = gpsErr ? "⚠ " + gpsErr : "";
           } else {
-            const bad = g.acc > cfg.warn, old = !fresh();
-            acc.textContent = "精度 ±" + g.acc.toFixed(1) + " m" + (old ? "(古い)" : ""); acc.className = "chip " + (old ? "warn" : bad ? "ng" : g.acc <= 3 ? "ok" : "");
+            const bad = g.acc > cfg.warn, old = !fresh(), cm = g.acc < 1;
+            acc.textContent = (g.src === "i76" ? "i76 " + (g.fix || "") + " " : "") + "精度 ±" + fa(g.acc) + " m" + (g.accEst ? "(目安)" : "") + (old ? "(古い)" : "");
+            acc.className = "chip " + (old ? "warn" : g.src === "i76" ? (QL[g.q] || ["", "ng"])[1] : bad ? "ng" : g.acc <= 3 ? "ok" : "");
             al.hidden = !(bad || old || gpsErr);
-            al.textContent = gpsErr ? "⚠ " + gpsErr : old ? "⚠ GPS が " + Math.round((Date.now() - g.t) / 1000) + " 秒 来ていません。表示は古い位置です" : "⚠ 精度が悪い(±" + g.acc.toFixed(1) + " m)。空の見える所で少し待ってください。距離・方向は当てになりません";
-            $("nX").textContent = f2(g.X); $("nY").textContent = f2(g.Y);
-            $("nLat").textContent = g.lat.toFixed(7); $("nLon").textContent = g.lon.toFixed(7);
-            $("nH").textContent = g.alt != null ? f2(g.alt) + (g.altAcc ? " ±" + g.altAcc.toFixed(0) : "") : "なし";
+            al.textContent = gpsErr ? "⚠ " + gpsErr : old ? "⚠ " + sn + " の位置が " + Math.round((Date.now() - g.t) / 1000) + " 秒 来ていません。表示は古い位置です" : "⚠ 精度が悪い(±" + fa(g.acc) + " m)。空の見える所で少し待ってください。距離・方向は当てになりません";
+            $("nX").textContent = cm ? f3(g.X) : f2(g.X); $("nY").textContent = cm ? f3(g.Y) : f2(g.Y);
+            $("nLat").textContent = g.lat.toFixed(cm ? 9 : 7); $("nLon").textContent = g.lon.toFixed(cm ? 9 : 7);
+            $("nH").textContent = g.alt != null ? (cm ? f3(g.alt) : f2(g.alt)) + (g.altAcc ? " ±" + (g.altAcc < 1 ? g.altAcc.toFixed(2) : g.altAcc.toFixed(0)) : "") : "なし";
             $("nT").textContent = hms(g.t);
           }
+          showCaution();
           const lc = $("locChip"); lc.textContent = locOn() ? "ローカライゼーション " + locT.n + " 点で補正中" : (work.loc.pairs || []).length ? "ローカライゼーション 切" : "ローカライゼーション なし"; lc.className = "chip" + (locOn() ? " ok" : "");
           showHead(); showTarget();
         }
@@ -1401,15 +1859,16 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("tName").textContent = p ? "🎯 " + p.name + (p.src === "hisoka" ? "(GPS で保存)" : p.src === "text" ? "(図面の座標の文字)" : p.src === "file" ? "(点のファイル)" : p.src === "tap" ? "(X " + f3(p.X) + "・Y " + f3(p.Y) + ")" : "") : target ? "「" + target + "」は現場の座標にありません" : "目的の点を選んでください";
           const o = rel(), al = $("tAlarm");
           if (!o) {
-            $("tDist").textContent = "--- m"; $("tDist").className = "dist"; $("tDir").textContent = p ? "今の位置を待っています" : "北から ---°"; $("tFR").textContent = p ? "📡 GPS を始めてください" : "";
+            $("tDist").textContent = "--- m"; $("tDist").className = "dist"; $("tDir").textContent = p ? "今の位置を待っています" : "北から ---°"; $("tFR").textContent = p ? "📡 " + srcName() + " を始めてください" : "";
             $("tArrow").setAttribute("transform", ""); $("tArrow").style.display = ""; $("tOk").style.display = "none"; $("tN").setAttribute("transform", ""); al.hidden = true; $("tDH").textContent = p && p.H ? "点の標高 " + f3(p.H) + " m" : ""; showBar(); return;
           }
-          $("tDH").textContent = o.p.H && o.g.alt != null ? "標高差(参考・GPS):今の位置が " + (o.g.alt - o.p.H >= 0 ? "高い " : "低い ") + Math.abs(o.g.alt - o.p.H).toFixed(1) + " m(GPS の標高は ±数 m〜10 m)" : o.p.H ? "点の標高 " + f3(o.p.H) + " m" : "";
+          const cm = o.g.acc < 0.1, dd = cm ? 3 : 2;   // i76 の FIX は mm まで出す
+          $("tDH").textContent = o.p.H && o.g.alt != null ? (o.g.src === "i76" ? "標高差(参考・受信機のジオイド):今の位置が " : "標高差(参考・GPS):今の位置が ") + (o.g.alt - o.p.H >= 0 ? "高い " : "低い ") + Math.abs(o.g.alt - o.p.H).toFixed(cm ? 3 : 1) + " m" + (o.g.src === "i76" ? "(JPGEO2024 と違うことがあります)" : "(GPS の標高は ±数 m〜10 m)") : o.p.H ? "点の標高 " + f3(o.p.H) + " m" : "";
           const near = o.r <= cfg.near;
-          $("tDist").textContent = o.r.toFixed(o.r < 100 ? 2 : 1) + " m"; $("tDist").className = "dist" + (near ? " near" : "");
+          $("tDist").textContent = o.r.toFixed(cm && o.r < 100 ? 3 : o.r < 100 ? 2 : 1) + " m"; $("tDist").className = "dist" + (near ? " near" : "");
           $("tDir").textContent = "北から " + o.az.toFixed(1) + "°(" + dir8(o.az) + ")";
-          let fr = (o.dX >= 0 ? "北へ " : "南へ ") + Math.abs(o.dX).toFixed(2) + " m・" + (o.dY >= 0 ? "東へ " : "西へ ") + Math.abs(o.dY).toFixed(2) + " m";
-          if (o.rel != null) fr = (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(2) + " m・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(2) + " m<br>" + fr;
+          let fr = (o.dX >= 0 ? "北へ " : "南へ ") + Math.abs(o.dX).toFixed(dd) + " m・" + (o.dY >= 0 ? "東へ " : "西へ ") + Math.abs(o.dY).toFixed(dd) + " m";
+          if (o.rel != null) fr = (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(dd) + " m・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(dd) + " m<br>" + fr;
           $("tFR").innerHTML = fr;
           // 矢印:向きがあればスマホの上を基準、無ければ北を上に
           const rot = o.rel != null ? o.rel : o.az;
@@ -1417,8 +1876,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("tN").setAttribute("transform", o.rel != null ? "rotate(" + (-o.hd).toFixed(1) + ") " : ""); $("tN").textContent = o.rel != null ? "北" : "北↑";
           $("tArrow").style.display = near ? "none" : ""; $("tOk").style.display = near ? "" : "none";
           const msgs = [];
-          if (o.g.acc > cfg.warn) msgs.push("⚠ 精度が悪い(±" + o.g.acc.toFixed(1) + " m)。距離・方向は当てになりません");
-          if (o.r <= o.g.acc) msgs.push("目的の点は GPS の誤差の円(±" + o.g.acc.toFixed(1) + " m)の中です。これ以上の位置合わせは GPS ではできません(杭ナビ・TS で)");
+          if (o.g.acc > cfg.warn) msgs.push("⚠ 精度が悪い(±" + fa(o.g.acc) + " m)。距離・方向は当てになりません");
+          if (o.r <= o.g.acc) msgs.push("目的の点は " + srcName() + " の誤差の円(±" + fa(o.g.acc) + " m)の中です。これ以上の位置合わせは " + srcName() + " ではできません(杭ナビ・TS で)");
           al.hidden = !msgs.length; al.textContent = msgs.join("\n");
           al.style.background = o.g.acc > cfg.warn ? "" : "var(--ok)";
           showBar();
@@ -1429,8 +1888,9 @@ canvas.xs-3d { background: #0b0c0e !important; }
           $("tbName").textContent = p ? "🎯 " + p.name + (checkedOf(p.name) ? " ✓" : "") : target ? "🎯 「" + target + "」が見つかりません" : "🎯 目的の点なし(📋 か図面を押す)";
           const s = $("tbDist");
           if (!p) { s.textContent = ""; s.className = ""; return; }
-          if (!o) { s.textContent = here() ? "" : (gpsWatch != null ? "GPS を待っています…" : "📡 GPS を始めると距離が出ます"); s.className = ""; return; }
-          s.textContent = o.r.toFixed(o.r < 100 ? 2 : 1) + " m " + (o.rel != null ? (o.fw >= 0 ? "前" : "後") + Math.abs(o.fw).toFixed(1) + "・" + (o.rt >= 0 ? "右" : "左") + Math.abs(o.rt).toFixed(1) : dir8(o.az) + " " + o.az.toFixed(0) + "°") + "(±" + o.g.acc.toFixed(1) + ")";
+          if (!o) { s.textContent = here() ? "" : (running() ? srcName() + " を待っています…" : "📡 " + srcName() + " を始めると距離が出ます"); s.className = ""; return; }
+          const cm = o.g.acc < 0.1;
+          s.textContent = o.r.toFixed(cm && o.r < 100 ? 3 : o.r < 100 ? 2 : 1) + " m " + (o.rel != null ? (o.fw >= 0 ? "前" : "後") + Math.abs(o.fw).toFixed(cm ? 2 : 1) + "・" + (o.rt >= 0 ? "右" : "左") + Math.abs(o.rt).toFixed(cm ? 2 : 1) : dir8(o.az) + " " + o.az.toFixed(0) + "°") + "(" + (o.g.src === "i76" ? (o.g.fix || "") + " " : "") + "±" + fa(o.g.acc) + ")";
           s.className = o.r <= cfg.near ? "near" : "";
         }
         function setTarget(n) { target = n || ""; work.target = target; saveWork(); showTarget(); dirty(); markList(); }
@@ -1454,8 +1914,13 @@ canvas.xs-3d { background: #0b0c0e !important; }
         const PR_HEAD = '<div class="pr h"><span>点名</span><span>X(北)</span><span>Y(東)</span><span class="z">Z</span><span class="d">距離</span></div>';
         const prRow = (x) => '<button type="button" class="pr" data-n="' + esc(x.p.name) + '" aria-pressed="' + (x.p.name === target) + '"><b>' + (checkedOf(x.p.name) ? '<span class="ok">✓</span> ' : "") + esc(x.p.name) +
           (x.p.src === "text" ? " 📝" : x.p.src === "file" ? " 📄" : x.p.role === "known" ? " ◆" : "") + "</b><span>" + f3(x.p.X) + "</span><span>" + f3(x.p.Y) + '</span><span class="z">' + (x.p.H ? f2(x.p.H) : "-") + '</span><span class="d">' + (x.d != null ? x.d.toFixed(x.d < 100 ? 1 : 0) + " m" : "--") + "</span></button>";
+        // v0.4.0 LITE:3 秒ごとの書き直しは座標リストが画面に見えているときだけ(見えたら書き直す)。行は 200 まで
+        let listStale = false;
+        const listSeen = () => { const r = $("listCard").getBoundingClientRect(); return r.bottom > 0 && r.top < (window.innerHeight || 800) && !arOn; };
+        function listTick() { if (!LITE || listSeen()) { listStale = false; renderList(); } else listStale = true; }
+        window.addEventListener("scroll", () => { if (listStale && listSeen()) { listStale = false; renderList(); } }, { passive: true });
         function renderList() {
-          const a = listPts(pl), MAX = 500;
+          const a = listPts(pl), MAX = LITE ? 200 : 500;
           $("plCount").textContent = a.length + " 点" + (site ? "(現場「" + site + "」)" : "");
           $("plTab").innerHTML = a.length ? PR_HEAD + a.slice(0, MAX).map(prRow).join("") + (a.length > MAX ? '<div class="more">ほか ' + (a.length - MAX) + " 点(さがすで絞ってください)</div>" : "")
             : '<div class="more">' + (allPts().length ? "当てはまる点がありません" : site ? "現場「" + esc(site) + "」に座標がありません。図面を開くと座標の文字を点にします。点の CSV・SIMA も 📂 で開けます。" : "現場が選ばれていません(見出しの「🏗 現場」)。図面・点のファイルを 📂 で開くと点が出ます。") + "</div>";
@@ -1494,22 +1959,22 @@ canvas.xs-3d { background: #0b0c0e !important; }
         $("tbAr").addEventListener("click", () => $("arBtn").click());
         // 「✓ ここで確認した」:点名・時刻・ずれ・GPS の精度を残す
         $("tCheck").addEventListener("click", () => {
-          const o = rel(); if (!o) { toast(byName(target) ? "まだ今の位置がありません(📡 GPS を始めてください)" : "目的の点を選んでください"); return; }
+          const o = rel(); if (!o) { toast(byName(target) ? "まだ今の位置がありません(📡 " + srcName() + " を始めてください)" : "目的の点を選んでください"); return; }
           const dH = o.p.H && o.g.alt != null ? o.g.alt - o.p.H : null;
-          const rec = { name: o.p.name, X: o.p.X, Y: o.p.Y, gX: o.g.X, gY: o.g.Y, dX: o.dX, dY: o.dY, r: o.r, acc: o.g.acc, dH, t: Date.now(), loc: locOn() ? locT.n : 0, src: o.p.src || "site" };
+          const rec = { name: o.p.name, X: o.p.X, Y: o.p.Y, gX: o.g.X, gY: o.g.Y, dX: o.dX, dY: o.dY, r: o.r, acc: o.g.acc, dH, t: Date.now(), loc: locOn() ? locT.n : 0, src: o.p.src || "site", by: o.g.src || "phone", fix: o.g.fix || "" };
           work.checks = (work.checks || []).concat([rec]); saveWork(); showChecks(); renderList(); showBar();
-          toast("✓ 「" + rec.name + "」で確認しました(ずれ " + rec.r.toFixed(2) + " m・±" + rec.acc.toFixed(1) + ")");
+          toast("✓ 「" + rec.name + "」で確認しました(ずれ " + rec.r.toFixed(2) + " m・±" + fa(rec.acc) + ")");
         });
         function showChecks() {
           const a = work.checks || [], tb = $("chkTbl");
           tb.hidden = !a.length; $("chkExp").hidden = !a.length;
-          tb.querySelector("tbody").innerHTML = a.slice().reverse().slice(0, 100).map((c, i) => "<tr><td>" + esc(c.name) + "</td><td><b>" + c.r.toFixed(2) + "</b></td><td>" + c.dX.toFixed(2) + "</td><td>" + c.dY.toFixed(2) + "</td><td>±" + Number(c.acc).toFixed(1) + "</td><td>" + hms(c.t) + '</td><td><button type="button" class="x" data-ci="' + (a.length - 1 - i) + '" aria-label="記録から消す">✕</button></td></tr>').join("");
+          tb.querySelector("tbody").innerHTML = a.slice().reverse().slice(0, 100).map((c, i) => "<tr><td>" + esc(c.name) + "</td><td><b>" + c.r.toFixed(2) + "</b></td><td>" + c.dX.toFixed(2) + "</td><td>" + c.dY.toFixed(2) + "</td><td>±" + fa(c.acc) + "</td><td>" + hms(c.t) + '</td><td><button type="button" class="x" data-ci="' + (a.length - 1 - i) + '" aria-label="記録から消す">✕</button></td></tr>').join("");
         }
         $("chkTbl").addEventListener("click", (e) => { const b = e.target.closest("[data-ci]"); if (!b) return; work.checks.splice(Number(b.getAttribute("data-ci")), 1); saveWork(); showChecks(); renderList(); showBar(); });
         $("chkCsv").addEventListener("click", () => {
           const a = work.checks || []; if (!a.length) return;
-          const head = "点名,点のX(北),点のY(東),今の位置X,今の位置Y,ずれ(m),北へ(m),東へ(m),標高差(参考),GPS精度(m),時刻,ローカライゼーション点数";
-          const rows = a.map((c) => [c.name, f3(c.X), f3(c.Y), f3(c.gX), f3(c.gY), c.r.toFixed(3), c.dX.toFixed(3), c.dY.toFixed(3), c.dH != null ? c.dH.toFixed(2) : "", Number(c.acc).toFixed(2), stampOf(c.t), c.loc || 0].join(","));
+          const head = "点名,点のX(北),点のY(東),今の位置X,今の位置Y,ずれ(m),北へ(m),東へ(m),標高差(参考),精度(m),時刻,ローカライゼーション点数,位置の入力元,解";
+          const rows = a.map((c) => [c.name, f3(c.X), f3(c.Y), f3(c.gX), f3(c.gY), c.r.toFixed(3), c.dX.toFixed(3), c.dY.toFixed(3), c.dH != null ? c.dH.toFixed(3) : "", Number(c.acc).toFixed(3), stampOf(c.t), c.loc || 0, c.by === "i76" ? "i76" : "端末GPS", c.fix || ""].join(","));
           download("\uFEFF" + [head].concat(rows).join("\r\n") + "\r\n", fname("csv").replace("hisoka_", "hisoka_確認_"), "text/csv");
         });
         // ---------------------------------------------------------------- 点の保存
@@ -1522,7 +1987,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
               if (byName(nm) && !confirm("「" + nm + "」はもう現場にあります。置き換えますか?")) return false;
               doSave(nm, Number(c.querySelector("#hkA").value));
             } }],
-            (site ? "現場「" + esc(site) + "」の座標に入ります。" : "<b>現場が選ばれていません。</b>このアプリの記録にだけ残ります(CSV・SIMA で出せます)。") + (gps && gps.acc > cfg.warn ? "<br><b style=\"color:var(--ng)\">⚠ 今の精度は ±" + gps.acc.toFixed(1) + " m です。</b>" : ""));
+            (site ? "現場「" + esc(site) + "」の座標に入ります。" : "<b>現場が選ばれていません。</b>このアプリの記録にだけ残ります(CSV・SIMA で出せます)。") + (gps && gps.acc > cfg.warn ? "<br><b style=\"color:var(--ng)\">⚠ 今の精度は ±" + fa(gps.acc) + " m です。</b>" : ""));
           setTimeout(() => { const i = d.el.querySelector("#hkN"); if (i) { i.focus(); i.select(); } }, 50);
         });
         async function doSave(name, sec) {
@@ -1530,13 +1995,13 @@ canvas.xs-3d { background: #0b0c0e !important; }
           try {
             const a = await average(sec, $("saveProg"));
             const q = locOn() ? applyT(locT, a.rX, a.rY) : { X: a.rX, Y: a.rY };
-            const H = cfg.saveH === "1" && a.alt != null ? a.alt : 0;
-            const rec = { name, X: q.X, Y: q.Y, H, acc: a.acc, sd: a.sd, n: a.n, sec, t: a.t, lat: a.lat, lon: a.lon, alt: a.alt, zone: zone(), loc: locOn() ? locT.n : 0 };
+            const H = cfg.saveH === "1" && a.alt != null ? a.alt : 0;   // i76 は受信機のジオイドの標高(参考)
+            const rec = { name, X: q.X, Y: q.Y, H, acc: a.acc, sd: a.sd, n: a.n, sec, t: a.t, lat: a.lat, lon: a.lon, alt: a.alt, zone: zone(), loc: locOn() ? locT.n : 0, by: a.src, fix: a.fix, all: a.all };
             work.saved = (work.saved || []).filter((s) => s.name !== name).concat([rec]); saveWork();
             if (G && site) {
               const r = await G.pointsAdd(site, [{ name, X: q.X, Y: q.Y, H, role: "" }], "hisoka");
               await loadPoints();
-              toast("📍 「" + name + "」を保存しました(±" + a.acc.toFixed(1) + " m・" + a.n + " 回の平均)" + (r.rep ? "・置き換え" : ""));
+              toast("📍 「" + name + "」を保存しました(" + (a.fix ? a.fix + " " : "") + "±" + fa(a.acc) + " m・" + a.n + " 回の平均" + (a.all > a.n ? "。FIX でない " + (a.all - a.n) + " 回は入れていません" : "") + ")" + (r.rep ? "・置き換え" : ""));
             } else toast("📍 「" + name + "」をこのアプリの記録に残しました(現場なし)");
             showSaved(); dirty();
           } catch (e) { dlg("保存できません", "", [{ label: "閉じる" }], esc(e.message)); }
@@ -1545,7 +2010,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         function showSaved() {
           const a = work.saved || [], tb = $("savedTbl");
           tb.hidden = !a.length;
-          tb.querySelector("tbody").innerHTML = a.slice().reverse().map((s) => "<tr><td>" + esc(s.name) + "</td><td>" + f2(s.X) + "</td><td>" + f2(s.Y) + "</td><td>±" + Number(s.acc).toFixed(1) + "</td><td>" + hms(s.t) + '</td><td><button type="button" class="x" data-del="' + esc(s.name) + '" aria-label="記録から消す">✕</button></td></tr>').join("");
+          tb.querySelector("tbody").innerHTML = a.slice().reverse().map((s) => "<tr><td>" + esc(s.name) + (s.fix ? " <small>" + esc(s.fix) + "</small>" : "") + "</td><td>" + (s.acc < 1 ? f3(s.X) : f2(s.X)) + "</td><td>" + (s.acc < 1 ? f3(s.Y) : f2(s.Y)) + "</td><td>±" + fa(s.acc) + "</td><td>" + hms(s.t) + '</td><td><button type="button" class="x" data-del="' + esc(s.name) + '" aria-label="記録から消す">✕</button></td></tr>').join("");
         }
         $("savedTbl").addEventListener("click", (e) => {
           const b = e.target.closest("[data-del]"); if (!b) return; const n = b.getAttribute("data-del");
@@ -1584,8 +2049,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
         function exportRows() { const a = work.saved || []; if (!a.length) { toast("まだ保存した点がありません"); return null; } return a; }
         $("expCsv").addEventListener("click", () => {
           const a = exportRows(); if (!a) return;
-          const head = "点名,X(北),Y(東),H,精度(m),平均回数,時刻,緯度,経度,GPS標高(参考),系,ローカライゼーション点数";
-          const rows = a.map((s) => [s.name, f3(s.X), f3(s.Y), f3(s.H), Number(s.acc).toFixed(2), s.n, stampOf(s.t), Number(s.lat).toFixed(8), Number(s.lon).toFixed(8), s.alt != null ? f3(s.alt) : "", s.zone || "", s.loc || 0].join(","));
+          const head = "点名,X(北),Y(東),H,精度(m),平均回数,時刻,緯度,経度,GPS標高(参考),系,ローカライゼーション点数,位置の入力元,解";
+          const rows = a.map((s) => [s.name, f3(s.X), f3(s.Y), f3(s.H), Number(s.acc).toFixed(3), s.n, stampOf(s.t), Number(s.lat).toFixed(9), Number(s.lon).toFixed(9), s.alt != null ? f3(s.alt) : "", s.zone || "", s.loc || 0, s.by === "i76" ? "i76" : "端末GPS", s.fix || ""].join(","));
           download("﻿" + [head].concat(rows).join("\r\n") + "\r\n", fname("csv"), "text/csv");
         });
         $("expSima").addEventListener("click", () => {
@@ -1600,7 +2065,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         // ---------------------------------------------------------------- ② ローカライゼーションの画面
         function showLoc() {
           const p = (work.loc && work.loc.pairs) || [], T = locT;
-          $("locPairs").innerHTML = p.map((x, i) => "<div><span>📌 <b>" + esc(x.name) + "</b> ずれ 北 " + (x.kX - x.gX).toFixed(2) + "・東 " + (x.kY - x.gY).toFixed(2) + " m" + (T && T.n >= 2 ? "・残り " + T.res[i].toFixed(2) + " m" : "") + " <small>(±" + Number(x.acc).toFixed(1) + ")</small></span><button type=\"button\" class=\"chip\" data-li=\"" + i + "\">消す</button></div>").join("");
+          $("locPairs").innerHTML = p.map((x, i) => "<div><span>📌 <b>" + esc(x.name) + "</b> ずれ 北 " + (x.kX - x.gX).toFixed(2) + "・東 " + (x.kY - x.gY).toFixed(2) + " m" + (T && T.n >= 2 ? "・残り " + T.res[i].toFixed(2) + " m" : "") + " <small>(±" + fa(x.acc) + ")</small></span><button type=\"button\" class=\"chip\" data-li=\"" + i + "\">消す</button></div>").join("");
           $("locToggle").textContent = work.loc.on ? "✓ 使っている(押すと切る)" : "使っていない(押すと使う)";
           $("locToggle").classList.toggle("pri", !!work.loc.on);
           let info = "";
@@ -1630,10 +2095,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
                 const a = await average(sec, $("locProg"));
                 work.loc.pairs = (work.loc.pairs || []).filter((x) => x.name !== n).concat([{ name: n, gX: a.rX, gY: a.rY, kX: p.X, kY: p.Y, acc: a.acc, n: a.n, t: a.t }]);
                 work.loc.on = true; saveWork(); refreshLoc(); showLoc(); reproject();
-                toast("📌 「" + n + "」で合わせました(" + a.n + " 回の平均・±" + a.acc.toFixed(1) + " m)");
+                toast("📌 「" + n + "」で合わせました(" + a.n + " 回の平均・±" + fa(a.acc) + " m)");
               } catch (e) { dlg("合わせられません", "", [{ label: "閉じる" }], esc(e.message)); }
               finally { $("locAdd").disabled = false; }
-            } }], "スマホを点(杭)の真上で持って、動かずに待ってください。" + (gps ? "今の精度 ±" + gps.acc.toFixed(1) + " m。" : ""));
+            } }], "スマホを点(杭)の真上で持って、動かずに待ってください。" + (gps ? "今の精度 ±" + fa(gps.acc) + " m。" : ""));
           }, "合わせる既知点を選ぶ", "座標のわかっている点(既知点・杭)を選んで、その上に立ちます");
         });
 
@@ -1649,32 +2114,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
         const PT_RE = /\.(csv|sim|sima|txt)$/i, ZN_RE = /\.(zrd|zsdx|zsdxz)$/i;
         const MT = (s) => String(s).replace(/\\[A-Za-z][^;\\]*;/g, "").replace(/\\P/g, " ").replace(/[{}]/g, "").replace(/%%[cCdDpP]/g, "").trim();   // MTEXT の書式を外す
         function parseDxf(text) {
-          const L = text.split(/\r\n|\r|\n/), N = L.length;
-          // 組(コード, 値)にして、HEADER の $INSUNITS・BLOCKS・ENTITIES を読む
-          let insunits = 0, i = 0;
-          const blocks = new Map(), ents = [];
-          let sec = "", cur = null, blk = null, inBlk = false;
-          for (; i < N - 1; i += 2) {
-            const c = parseInt(L[i], 10), v = (L[i + 1] || "").trim();
-            if (!isFinite(c)) continue;
-            if (c === 0) {
-              if (cur) { (inBlk && blk ? blk.ents : sec === "ENTITIES" ? ents : null)?.push(cur); cur = null; }
-              if (v === "SECTION") { sec = ""; continue; }
-              if (v === "ENDSEC") { sec = ""; continue; }
-              if (v === "EOF") break;
-              if (sec === "BLOCKS" && v === "BLOCK") { blk = { name: "", bx: 0, by: 0, ents: [] }; inBlk = true; cur = { t: "BLOCK", g: [] }; continue; }
-              if (sec === "BLOCKS" && v === "ENDBLK") { if (blk) blocks.set(blk.name, blk); blk = null; inBlk = false; continue; }
-              if (sec === "ENTITIES" || (sec === "BLOCKS" && inBlk)) cur = { t: v, g: [] };
-              continue;
-            }
-            if (c === 2 && sec === "" && (v === "HEADER" || v === "BLOCKS" || v === "ENTITIES" || v === "TABLES" || v === "OBJECTS" || v === "CLASSES")) { sec = v; continue; }
-            if (sec === "HEADER" && c === 9 && v === "$INSUNITS") { const k = parseInt(L[i + 3], 10); if (isFinite(k)) insunits = k; continue; }
-            if (cur) {
-              if (cur.t === "BLOCK" && blk) { if (c === 2) blk.name = v; else if (c === 10) blk.bx = parseFloat(v) || 0; else if (c === 20) blk.by = parseFloat(v) || 0; continue; }
-              cur.g.push([c, v]);
-            }
-          }
-          if (cur && sec === "ENTITIES") ents.push(cur);
+          // v0.4.0 行に分けた大きな配列(text.split)を作らずに 1 行ずつ読む。ENTITIES の図形は、読んだそばから線にする(図形を全部ためない。メモリを減らす)
+          //   まだ定義の来ていないブロックを置く INSERT だけは取っておいて最後に描く(前と同じ絵になる)
           const segs = [], marks = [], texts = [];
           const MAXS = 10000000;   // 線 250 万本まで(大きい図面でも携帯で動くように)
           // xf: [a, b, c, d, e, f] … x' = a x + b y + e、y' = c x + d y + f
@@ -1684,49 +2125,84 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const seg = (m, a, b, c2, d) => { if (!(isFinite(a) && isFinite(b) && isFinite(c2) && isFinite(d)) || segs.length > MAXS) return; const p = ap(m, a, b), q = ap(m, c2, d); segs.push(p[0], p[1], q[0], q[1]); };
           const path = (m, P, closed) => { for (let k = 1; k < P.length; k++) seg(m, P[k - 1][0], P[k - 1][1], P[k][0], P[k][1]); if (closed && P.length > 2) seg(m, P[P.length - 1][0], P[P.length - 1][1], P[0][0], P[0][1]); };
           const arcP = (cx, cy, r, a0, a1) => { const P = []; if (!(r > 0)) return P; if (a1 <= a0) a1 += 360; const n = Math.max(6, Math.min(72, Math.ceil((a1 - a0) / 5))); for (let k = 0; k <= n; k++) { const t = (a0 + (a1 - a0) * k / n) * D; P.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]); } return P; };
-          function walk(list, m, depth) {
-            let poly = null;
-            for (const e of list) {
-              if (segs.length > MAXS) return;
-              const g = (k) => { const x = e.g.find((q) => q[0] === k); return x ? parseFloat(x[1]) : NaN; };
-              const gs = (k) => { const x = e.g.find((q) => q[0] === k); return x ? x[1] : ""; };
-              const t = e.t;
-              if (t === "LINE") seg(m, g(10), g(20), g(11), g(21));
-              else if (t === "LWPOLYLINE") {
-                const P = []; let x = null; for (const q of e.g) { if (q[0] === 10) x = parseFloat(q[1]); else if (q[0] === 20 && x != null) { P.push([x, parseFloat(q[1])]); x = null; } }
-                path(m, P, g(70) & 1);
-              } else if (t === "POLYLINE") poly = { c: g(70) & 1, p: [] };
-              else if (t === "VERTEX" && poly) poly.p.push([g(10), g(20)]);
-              else if (t === "SEQEND" && poly) { path(m, poly.p, poly.c); poly = null; }
-              else if (t === "CIRCLE") path(m, arcP(g(10), g(20), g(40), 0, 360), false);
-              else if (t === "ARC") path(m, arcP(g(10), g(20), g(40), g(50), g(51)), false);
-              else if (t === "ELLIPSE") {
-                const cx = g(10), cy = g(20), mx = g(11), my = g(21), ra = g(40) || 1; let t0 = isFinite(g(41)) ? g(41) : 0, t1 = isFinite(g(42)) ? g(42) : Math.PI * 2;
-                if (t1 <= t0) t1 += Math.PI * 2; const n = Math.max(12, Math.ceil((t1 - t0) / (Math.PI / 36))), P = [];
-                for (let k = 0; k <= n; k++) { const u = t0 + (t1 - t0) * k / n, cu = Math.cos(u), su = Math.sin(u) * ra; P.push([cx + mx * cu - my * su, cy + my * cu + mx * su]); }
-                path(m, P, false);
-              } else if (t === "SPLINE") {
-                const P = []; let x = null; for (const q of e.g) { if (q[0] === 10) x = parseFloat(q[1]); else if (q[0] === 20 && x != null) { P.push([x, parseFloat(q[1])]); x = null; } }
-                if (P.length < 2) { x = null; for (const q of e.g) { if (q[0] === 11) x = parseFloat(q[1]); else if (q[0] === 21 && x != null) { P.push([x, parseFloat(q[1])]); x = null; } } }
-                path(m, P, false);
-              } else if (t === "POINT") { const p = ap(m, g(10), g(20)); if (isFinite(p[0]) && isFinite(p[1])) marks.push(p[0], p[1]); }
-              else if (t === "TEXT" || t === "MTEXT" || t === "ATTRIB") {
-                let s = t === "MTEXT" ? MT(e.g.filter((q) => q[0] === 3 || q[0] === 1).map((q) => q[1]).join("")) : gs(1).trim();
-                const al = t === "TEXT" && (g(72) > 0 || g(73) > 0) && isFinite(g(11)) ? [g(11), g(21)] : [g(10), g(20)];
-                const p = ap(m, al[0], al[1]), h = (g(40) || 0) * Math.hypot(m[2], m[3]);
-                if (s && isFinite(p[0]) && isFinite(p[1]) && texts.length < 200000) texts.push({ x: p[0], y: p[1], h, s: s.replace(/%%[cCdDpP]/g, "") });
-              } else if (t === "INSERT" && depth < 6) {
-                const b = blocks.get(gs(2)); if (!b) continue;
-                const sx = isFinite(g(41)) ? g(41) : 1, sy = isFinite(g(42)) ? g(42) : sx, r = (g(50) || 0) * D, cr = Math.cos(r), sr = Math.sin(r);
-                const x0 = g(10) || 0, y0 = g(20) || 0;
-                // 置く所へ:T(挿入点) R(回転) S(縮尺) T(-基点)
-                const loc = [cr * sx, -sr * sy, sr * sx, cr * sy, 0, 0]; const tb = ap(loc, -b.bx, -b.by); loc[4] = tb[0] + x0; loc[5] = tb[1] + y0;
-                walk(b.ents, mul(m, loc), depth + 1);
-              }
+          const blocks = new Map();
+          // 図形 1 つ(st.poly:POLYLINE〜SEQEND の途中)
+          function one(e, m, depth, st) {
+            const g = (k) => { const x = e.g.find((q) => q[0] === k); return x ? parseFloat(x[1]) : NaN; };
+            const gs = (k) => { const x = e.g.find((q) => q[0] === k); return x ? x[1] : ""; };
+            const t = e.t;
+            if (t === "LINE") seg(m, g(10), g(20), g(11), g(21));
+            else if (t === "LWPOLYLINE") {
+              const P = []; let x = null; for (const q of e.g) { if (q[0] === 10) x = parseFloat(q[1]); else if (q[0] === 20 && x != null) { P.push([x, parseFloat(q[1])]); x = null; } }
+              path(m, P, g(70) & 1);
+            } else if (t === "POLYLINE") st.poly = { c: g(70) & 1, p: [] };
+            else if (t === "VERTEX" && st.poly) st.poly.p.push([g(10), g(20)]);
+            else if (t === "SEQEND" && st.poly) { path(m, st.poly.p, st.poly.c); st.poly = null; }
+            else if (t === "CIRCLE") path(m, arcP(g(10), g(20), g(40), 0, 360), false);
+            else if (t === "ARC") path(m, arcP(g(10), g(20), g(40), g(50), g(51)), false);
+            else if (t === "ELLIPSE") {
+              const cx = g(10), cy = g(20), mx = g(11), my = g(21), ra = g(40) || 1; let t0 = isFinite(g(41)) ? g(41) : 0, t1 = isFinite(g(42)) ? g(42) : Math.PI * 2;
+              if (t1 <= t0) t1 += Math.PI * 2; const n = Math.max(12, Math.ceil((t1 - t0) / (Math.PI / 36))), P = [];
+              for (let k = 0; k <= n; k++) { const u = t0 + (t1 - t0) * k / n, cu = Math.cos(u), su = Math.sin(u) * ra; P.push([cx + mx * cu - my * su, cy + my * cu + mx * su]); }
+              path(m, P, false);
+            } else if (t === "SPLINE") {
+              const P = []; let x = null; for (const q of e.g) { if (q[0] === 10) x = parseFloat(q[1]); else if (q[0] === 20 && x != null) { P.push([x, parseFloat(q[1])]); x = null; } }
+              if (P.length < 2) { x = null; for (const q of e.g) { if (q[0] === 11) x = parseFloat(q[1]); else if (q[0] === 21 && x != null) { P.push([x, parseFloat(q[1])]); x = null; } } }
+              path(m, P, false);
+            } else if (t === "POINT") { const p = ap(m, g(10), g(20)); if (isFinite(p[0]) && isFinite(p[1])) marks.push(p[0], p[1]); }
+            else if (t === "TEXT" || t === "MTEXT" || t === "ATTRIB") {
+              let s = t === "MTEXT" ? MT(e.g.filter((q) => q[0] === 3 || q[0] === 1).map((q) => q[1]).join("")) : gs(1).trim();
+              const al = t === "TEXT" && (g(72) > 0 || g(73) > 0) && isFinite(g(11)) ? [g(11), g(21)] : [g(10), g(20)];
+              const p = ap(m, al[0], al[1]), h = (g(40) || 0) * Math.hypot(m[2], m[3]);
+              if (s && isFinite(p[0]) && isFinite(p[1]) && texts.length < 200000) texts.push({ x: p[0], y: p[1], h, s: s.replace(/%%[cCdDpP]/g, "") });
+            } else if (t === "INSERT" && depth < 6) {
+              const b = blocks.get(gs(2)); if (!b) return;
+              const sx = isFinite(g(41)) ? g(41) : 1, sy = isFinite(g(42)) ? g(42) : sx, r = (g(50) || 0) * D, cr = Math.cos(r), sr = Math.sin(r);
+              const x0 = g(10) || 0, y0 = g(20) || 0;
+              // 置く所へ:T(挿入点) R(回転) S(縮尺) T(-基点)
+              const loc = [cr * sx, -sr * sy, sr * sx, cr * sy, 0, 0]; const tb = ap(loc, -b.bx, -b.by); loc[4] = tb[0] + x0; loc[5] = tb[1] + y0;
+              walk(b.ents, mul(m, loc), depth + 1);
             }
           }
-          walk(ents, I, 0);
+          function walk(list, m, depth) { const st = { poly: null }; for (const e of list) { if (segs.length > MAXS) return; one(e, m, depth, st); } }
+          // ---- 1 行ずつ読む
+          if (text.indexOf("\n") < 0 && text.indexOf("\r") >= 0) text = text.replace(/\r/g, "\n");   // CR だけの改行(古い Mac)
+          const TL = text.length; let pos = 0;
+          const nextLine = () => { if (pos >= TL) return null; let e = text.indexOf("\n", pos); if (e < 0) e = TL; let s = text.slice(pos, e); pos = e + 1; if (s.charCodeAt(s.length - 1) === 13) s = s.slice(0, -1); return s; };
+          // 組(コード, 値)にして、HEADER の $INSUNITS・BLOCKS・ENTITIES を読む
+          let insunits = 0, wantIns = false, sec = "", cur = null, blk = null, inBlk = false;
+          const st0 = { poly: null }, later = [];
+          const done = (e) => {
+            if (segs.length > MAXS) return;
+            if (e.t === "INSERT") { const b = e.g.find((q) => q[0] === 2); if (!b || !blocks.has(b[1])) { later.push(e); return; } }
+            one(e, I, 0, st0);
+          };
+          for (;;) {
+            const l1 = nextLine(), l2 = nextLine(); if (l1 == null || l2 == null) break;
+            const c = parseInt(l1, 10), v = l2.trim();
+            if (!isFinite(c)) continue;
+            if (wantIns) { wantIns = false; const k = parseInt(v, 10); if (isFinite(k)) insunits = k; }   // $INSUNITS の値は次の組
+            if (c === 0) {
+              if (cur) { if (inBlk && blk) blk.ents.push(cur); else if (sec === "ENTITIES") done(cur); cur = null; }
+              if (v === "SECTION") { sec = ""; continue; }
+              if (v === "ENDSEC") { sec = ""; continue; }
+              if (v === "EOF") break;
+              if (sec === "BLOCKS" && v === "BLOCK") { blk = { name: "", bx: 0, by: 0, ents: [] }; inBlk = true; cur = { t: "BLOCK", g: [] }; continue; }
+              if (sec === "BLOCKS" && v === "ENDBLK") { if (blk) blocks.set(blk.name, blk); blk = null; inBlk = false; continue; }
+              if (sec === "ENTITIES" || (sec === "BLOCKS" && inBlk)) cur = { t: v, g: [] };
+              continue;
+            }
+            if (c === 2 && sec === "" && (v === "HEADER" || v === "BLOCKS" || v === "ENTITIES" || v === "TABLES" || v === "OBJECTS" || v === "CLASSES")) { sec = v; continue; }
+            if (sec === "HEADER" && c === 9 && v === "$INSUNITS") { wantIns = true; continue; }
+            if (cur) {
+              if (cur.t === "BLOCK" && blk) { if (c === 2) blk.name = v; else if (c === 10) blk.bx = parseFloat(v) || 0; else if (c === 20) blk.by = parseFloat(v) || 0; continue; }
+              cur.g.push([c, v]);
+            }
+          }
+          if (cur && sec === "ENTITIES") done(cur);
+          for (const e of later) { if (segs.length > MAXS) break; one(e, I, 0, st0); }
           const s = new Float64Array(segs); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+          const cut = segs.length > MAXS; segs.length = 0;   // 元の配列は手放す
           const bbAdd = (x, y) => { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; };
           for (let k = 0; k < s.length; k += 2) bbAdd(s[k], s[k + 1]);
           for (let k = 0; k < marks.length; k += 2) bbAdd(marks[k], marks[k + 1]);
@@ -1739,7 +2215,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             const q = (A, p) => A[Math.min(A.length - 1, Math.floor(A.length * p))], cx0 = q(qs, 0.01), cx1 = q(qs, 0.99), cy0 = q(qy, 0.01), cy1 = q(qy, 0.99), mx = (cx1 - cx0) * 0.1, my = (cy1 - cy0) * 0.1;
             core = { x0: Math.max(x0, cx0 - mx), x1: Math.min(x1, cx1 + mx), y0: Math.max(y0, cy0 - my), y1: Math.min(y1, cy1 + my) };
           }
-          return { segs: s, marks: new Float64Array(marks), texts, bb: core, bbAll: { x0, y0, x1, y1 }, insunits, cut: segs.length > MAXS };
+          return { segs: s, marks: new Float64Array(marks), texts, bb: core, bbAll: { x0, y0, x1, y1 }, insunits, cut };
         }
         const decode = (u) => { try { return new TextDecoder("utf-8", { fatal: true }).decode(u); } catch (e) { return new TextDecoder("shift_jis").decode(u); } };
         const toU8 = (b) => (b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : b && b.buffer ? new Uint8Array(b.buffer, b.byteOffset || 0, b.byteLength) : new Uint8Array(b));
@@ -1846,6 +2322,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             const inDraw = (p) => p.Y >= b.x0 * k - mg && p.Y <= b.x1 * k + mg && p.X >= b.y0 * k - mg && p.X <= b.y1 * k + mg;
             const nearSite = (p) => pts.some((q) => Math.abs(q.X - p.X) < 2000 && Math.abs(q.Y - p.Y) < 2000);
             fpts = fpts.concat(textPoints(r.texts).filter((p) => inDraw(p) || nearSite(p)));
+            r.texts = null; draw.texts = null;   // v0.4.0 文字は点を拾ったら使わないので手放す(メモリ)
             showDrawInfo(); fit(); dirty(); renderList();
             return "drawing";
           } catch (e) { if (my !== loadSeq) return; if (!draw) $("drawLbl").textContent = "図面を開けません"; $("drawNote").textContent = "⚠ 「" + name + "」を開けません: " + e.message; $("drawNote").hidden = false; dirty(); return "error"; }
@@ -1924,6 +2401,14 @@ canvas.xs-3d { background: #0b0c0e !important; }
         // ---------------------------------------------------------------- 平面図(北が上。X=北・Y=東)
         const cv = $("map"); let view = { cx: 0, cy: 0, s: 2 }, follow = false, needDraw = false;
         const dirty = () => { if (needDraw) return; needDraw = true; requestAnimationFrame(render); };
+        // v0.4.0 方位センサー(1 秒に数十回)・GPS で描き直すとき:LITE は 1 秒に 5 回まで(指で動かす・押したときは dirty() ですぐ)
+        let softT = 0, lastDraw = 0;
+        const dirtySoft = () => {
+          if (!LITE) { dirty(); return; }
+          if (needDraw || softT) return;
+          const w = 200 - (performance.now() - lastDraw);
+          if (w <= 0) dirty(); else softT = setTimeout(() => { softT = 0; dirty(); }, w);
+        };
         const toS = (X, Y, W, H) => [W / 2 + (Y - view.cy) * view.s, H / 2 - (X - view.cx) * view.s];
         function fit() {
           let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -1938,16 +2423,30 @@ canvas.xs-3d { background: #0b0c0e !important; }
           dirty();
         }
         function render() {
-          needDraw = false;
+          needDraw = false; lastDraw = performance.now();
           showHead();
-          const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+          if (arOn) return;   // v0.4.0 AR の間は下の図面は見えないので描かない(AR は arLoop が描く)
+          const W = cv.clientWidth, H = cv.clientHeight, dpr = DPR();
           if (!W || !H) return;
           if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-          const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = "#0d1114"; c.fillRect(0, 0, W, H);
           const g = here();
           if (follow && g) { view.cx = g.X; view.cy = g.Y; }
-          // 目盛り(格子)
           const step = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].find((s) => s * view.s >= 60) || 10000;
+          // v0.4.0 目盛りと図面は、見る所・倍率・図面が変わったときだけ描き直して取っておく(方位センサー・GPS での描き直しは重ねるだけ)
+          const key = [cv.width, cv.height, dpr, view.cx, view.cy, view.s, dScale].join(",");
+          if (!bgCv || bgKey !== key || bgDraw !== draw) {
+            if (!bgCv) bgCv = document.createElement("canvas");
+            if (bgCv.width !== cv.width || bgCv.height !== cv.height) { bgCv.width = cv.width; bgCv.height = cv.height; }
+            bgKey = key; bgDraw = draw;
+            drawBg(bgCv.getContext("2d"), W, H, dpr, step);
+          }
+          const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bgCv, 0, 0); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+          drawFg(c, W, H, g, step);
+        }
+        let bgCv = null, bgKey = "", bgDraw = null;
+        function drawBg(c, W, H, dpr, step) {
+          c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = "#0d1114"; c.fillRect(0, 0, W, H);
+          // 目盛り(格子)
           c.strokeStyle = "rgba(255,255,255,.06)"; c.lineWidth = 1; c.beginPath();
           const Y0 = view.cy - W / 2 / view.s, X0 = view.cx - H / 2 / view.s;
           for (let y = Math.floor(Y0 / step) * step; y < Y0 + W / view.s; y += step) { const sx = toS(0, y, W, H)[0]; c.moveTo(sx, 0); c.lineTo(sx, H); }
@@ -1955,20 +2454,36 @@ canvas.xs-3d { background: #0b0c0e !important; }
           c.stroke();
           // 図面
           if (draw) {
-            const s = draw.segs, k = dScale; c.strokeStyle = "#8b98a5"; c.lineWidth = 1; c.beginPath();
-            for (let i = 0; i < s.length; i += 4) { const a = toS(s[i + 1] * k, s[i] * k, W, H), b = toS(s[i + 3] * k, s[i + 2] * k, W, H);
-              if ((a[0] < 0 && b[0] < 0) || (a[0] > W && b[0] > W) || (a[1] < 0 && b[1] < 0) || (a[1] > H && b[1] > H)) continue;
-              c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); }
+            // v0.4.0 軽く描く:画面の座標は toS を呼ばずに一次式で(配列を作らない)。つながった線で 1 画素(LITE は 0.8)より動かない所は描かない
+            const s = draw.segs, k = dScale, kk = k * view.s, ox = W / 2 - view.cy * view.s, oy = H / 2 + view.cx * view.s, mn = LITE ? 0.8 : 0.5;
+            c.strokeStyle = "#8b98a5"; c.lineWidth = 1; c.beginPath();
+            let lx = -1e9, ly = -1e9;
+            for (let i = 0; i < s.length; i += 4) {
+              const ax = ox + s[i] * kk, ay = oy - s[i + 1] * kk, bx = ox + s[i + 2] * kk, by = oy - s[i + 3] * kk;
+              if ((ax < 0 && bx < 0) || (ax > W && bx > W) || (ay < 0 && by < 0) || (ay > H && by > H)) continue;
+              if (Math.abs(ax - lx) < mn && Math.abs(ay - ly) < mn) {   // 前の線の続き
+                if (Math.abs(bx - lx) < mn && Math.abs(by - ly) < mn) continue;   // ほとんど動かない:飛ばす(ペンはそのまま)
+                c.lineTo(bx, by);
+              } else { c.moveTo(ax, ay); c.lineTo(bx, by); }
+              lx = bx; ly = by;
+            }
             c.stroke();
-            // 図面の点・記号(小さい点)
+            // 図面の点・記号(小さい点)。同じ所(2 画素のます)に重ねて描かない
             if (draw.marks.length && draw.marks.length < 400000) {
-              const m = draw.marks; c.fillStyle = "#adb5bd";
-              for (let i = 0; i < m.length; i += 2) { const a = toS(m[i + 1] * k, m[i] * k, W, H); if (a[0] < 0 || a[1] < 0 || a[0] > W || a[1] > H) continue; c.fillRect(a[0] - 1.5, a[1] - 1.5, 3, 3); }
+              const m = draw.marks, gw = Math.ceil(W / 2) + 1, occ = new Uint8Array(gw * (Math.ceil(H / 2) + 1)); c.fillStyle = "#adb5bd";
+              for (let i = 0; i < m.length; i += 2) {
+                const x = ox + m[i] * kk, y = oy - m[i + 1] * kk; if (x < 0 || y < 0 || x > W || y > H) continue;
+                const o = (y >> 1) * gw + (x >> 1); if (occ[o]) continue; occ[o] = 1;
+                c.fillRect(x - 1.5, y - 1.5, 3, 3);
+              }
             }
           }
+        }
+        function drawFg(c, W, H, g, step) {
           // 図面・点ファイルから拾った点(紫:座標の文字・水色:点のファイル・橙の ×:押した所)
+          const siteNames = fpts.length ? new Set(pts.map((q) => q.name)) : null;
           for (const p of fpts) {
-            if (pts.some((q) => q.name === p.name)) continue;
+            if (siteNames.has(p.name)) continue;
             const [x, y] = toS(p.X, p.Y, W, H); if (x < -20 || y < -20 || x > W + 20 || y > H + 20) continue;
             const t = p.name === target;
             if (p.src === "tap") { c.strokeStyle = "#f76707"; c.lineWidth = 2.5; c.beginPath(); c.moveTo(x - 8, y - 8); c.lineTo(x + 8, y + 8); c.moveTo(x + 8, y - 8); c.lineTo(x - 8, y + 8); c.stroke(); continue; }
@@ -2000,9 +2515,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           // 北の印・縮尺
           c.fillStyle = "#fff"; c.font = "bold 13px system-ui,sans-serif"; c.textAlign = "left"; c.fillText("↑北(X)", 10, 16);
           c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.moveTo(10, 34); c.lineTo(10 + step * view.s, 34); c.stroke(); c.font = "11px system-ui,sans-serif"; c.fillText(step + " m", 12, 46);
-          if (!g && !pts.length && !draw) { c.textAlign = "center"; c.fillStyle = "#9aa1ab"; c.font = "14px system-ui,sans-serif"; c.fillText("📡 GPS を始めると、ここに今の位置が出ます", W / 2, H / 2); }
+          if (!g && !pts.length && !draw) { c.textAlign = "center"; c.fillStyle = "#9aa1ab"; c.font = "14px system-ui,sans-serif"; c.fillText("📡 " + srcName() + " を始めると、ここに今の位置が出ます", W / 2, H / 2); }
           c.textAlign = "left";
-          if (arOn) renderAr();
         }
         // 指で動かす・拡大する・点を押す
         const ptrs = new Map(); let gest = null;
@@ -2043,7 +2557,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const o = rel();
           let h = "📍 <b>" + esc(p.name) + "</b>" + (kind && kind !== "点" ? "(" + esc(kind) + "に吸い付き)" : kind === "" ? "(吸い付く所なし・押した位置)" : "") + "<br>X(北) <b>" + f3(p.X) + "</b>・Y(東) <b>" + f3(p.Y) + "</b> m";
           if (o && o.p === p) h += "<br>今の位置から <b>" + o.r.toFixed(2) + " m</b>・北から " + o.az.toFixed(1) + "°(" + dir8(o.az) + ")" + (o.rel != null ? "・" + (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(2) + "・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(2) + " m" : "");
-          else if (!here()) h += "<br>📡 GPS を始めると、今の位置からの距離・方向が出ます";
+          else if (!here()) h += "<br>📡 " + srcName() + " を始めると、今の位置からの距離・方向が出ます";
           h += '<div class="row"><button type="button" class="pri" id="tiGo">🎯 ここを確認(簡易確認へ)</button>' + (p.src === "tap" ? '<button type="button" id="tiSave">💾 座標に保存</button>' : "") + "</div>";
           $("tapInfo").innerHTML = h; $("tapInfo").hidden = false;
           $("tiGo").onclick = () => $("tgtCard").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2064,7 +2578,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           setTimeout(() => { const i = d.el.querySelector("#hkTN"); if (i) { i.focus(); i.select(); } }, 50);
         }        function zoom(k) { view.s = Math.max(0.005, Math.min(2000, view.s * k)); dirty(); }
         function setFollow(on) { follow = on; $("mFollow").setAttribute("aria-pressed", String(on)); if (on) dirty(); }
-        $("mFollow").addEventListener("click", () => { if (!here()) { toast("まだ今の位置がありません(📡 GPS を始めてください)"); return; } setFollow(!follow); if (follow && view.s < 2) view.s = 4; dirty(); });
+        $("mFollow").addEventListener("click", () => { if (!here()) { toast("まだ今の位置がありません(📡 " + srcName() + " を始めてください)"); return; } setFollow(!follow); if (follow && view.s < 2) view.s = 4; dirty(); });
         $("mFit").addEventListener("click", () => { setFollow(false); fit(); });
         $("mIn").addEventListener("click", () => zoom(1.6)); $("mOut").addEventListener("click", () => zoom(1 / 1.6));
         window.addEventListener("resize", dirty);
@@ -2075,11 +2589,16 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (!byName(target)) { pickPoint((n) => { setTarget(n); arOpen(); }, "AR で探す点を選ぶ"); return; }
           arOn = true; $("arOvl").hidden = false; document.body.style.overflow = "hidden";
           await headStart();
-          if (gpsWatch == null) gpsStart();
+          if (!running()) gpsStart();
           try { if (navigator.wakeLock) arLock = await navigator.wakeLock.request("screen"); } catch (e) { /* 画面を消さないのはできなくてもよい */ }
           try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("この画面ではカメラが使えません");
-            arStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }, audio: false });
+            // v0.4.0 カメラは 1280x720 まで(LITE は 15 コマ/秒まで)。決まりが合わないカメラは、やわらかい決まりで取り直す
+            const vc = { facingMode: { ideal: "environment" }, width: { ideal: LITE ? 960 : 1280, max: 1280 }, height: { ideal: LITE ? 540 : 720, max: 720 } };
+            if (LITE) vc.frameRate = { ideal: 15, max: 15 };
+            try { arStream = await navigator.mediaDevices.getUserMedia({ video: vc, audio: false }); }
+            catch (e1) { if (e1 && (e1.name === "OverconstrainedError" || e1.name === "ConstraintNotSatisfiedError")) arStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); else throw e1; }
+            if (!arOn) { for (const t of arStream.getTracks()) t.stop(); arStream = null; return; }   // 待っている間に閉じた
             $("arVid").srcObject = arStream; await $("arVid").play().catch(() => {});
           } catch (e) { arCamErr = "カメラが使えません(" + (e.name || e.message || e) + ")。矢印と距離だけ出します"; }
           arLoop();
@@ -2090,6 +2609,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (arStream) { for (const t of arStream.getTracks()) t.stop(); arStream = null; }
           $("arVid").srcObject = null; arCamErr = "";
           try { if (arLock) arLock.release(); } catch (e) { /* */ } arLock = null;
+          dirty();   // AR の間は描いていなかった図面を描く
         }
         $("arBtn").addEventListener("click", arOpen);
         $("arClose").addEventListener("click", arClose);
@@ -2103,13 +2623,13 @@ canvas.xs-3d { background: #0b0c0e !important; }
           dlg("🎯 向きを合わせる", "", [{ label: "やめる" }, { label: "向けました(合わせる)", ok: true, run: () => { headCal = norm(o.az - headRaw); showHead(); toast("🎯 向きを合わせました"); } },
             ...(headCal != null ? [{ label: "合わせを消す", run: () => { headCal = null; showHead(); } }] : [])],
             "スマホの上(背面カメラ)を、見えている「<b>" + esc(o.p.name) + "</b>」(" + o.r.toFixed(1) + " m 先)へまっすぐ向けてから押してください。<br>" +
-            (err > 10 ? "<b style=\"color:var(--ng)\">⚠ 点が近すぎます(GPS ±" + o.g.acc.toFixed(1) + " m で向きが ±" + err.toFixed(0) + "° ずれます)。20 m 以上はなれた点で合わせてください。</b>" : "この距離なら向きの誤差はおよそ ±" + err.toFixed(0) + "° です。") +
+            (err > 10 ? "<b style=\"color:var(--ng)\">⚠ 点が近すぎます(" + srcName() + " ±" + fa(o.g.acc) + " m で向きが ±" + err.toFixed(0) + "° ずれます)。20 m 以上はなれた点で合わせてください。</b>" : "この距離なら向きの誤差はおよそ ±" + err.toFixed(0) + "° です。") +
             "<br>8 の字の較正も合わせてどうぞ。");
         });
         function arLoop() {
           if (!arOn) return;
           arRaf = requestAnimationFrame(arLoop);
-          const now = performance.now(); if (arLoop.t && now - arLoop.t < 80) return; arLoop.t = now;
+          const now = performance.now(); if (arLoop.t && now - arLoop.t < (LITE ? 200 : 80)) return; arLoop.t = now;   // LITE は 1 秒に 5 回
           renderAr();
         }
         function renderAr() {
@@ -2120,22 +2640,27 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const hs = headState(); $("arHead").textContent = hs.t + (hd != null ? "・今 北から " + hd.toFixed(0) + "°" : "") + (arCamErr ? "・" + arCamErr : "");
           const src = $("arSrc");
           src.classList.toggle("warn", !g || g.acc > cfg.warn);
-          src.textContent = !g ? (gpsErr || (!zone() ? "系が決まっていません(⚙ 設定)" : "GPS を待っています…")) : "GPS ±" + g.acc.toFixed(1) + " m" + (locOn() ? "・ローカライゼーション " + locT.n + " 点" : "・補正なし") + "(簡易確認。本測量には使えません)";
+          const fix = rtkFix(g);
+          src.classList.toggle("warn", !g || g.acc > cfg.warn || (g.src === "i76" && !fix));
+          src.textContent = !g ? (gpsErr || (!zone() ? "系が決まっていません(⚙ 設定)" : srcName() + " を待っています…")) : (g.src === "i76" ? "i76 " + (g.fix || "") + " ±" : "GPS ±") + fa(g.acc) + " m" + (locOn() ? "・ローカライゼーション " + locT.n + " 点" : "・補正なし") +
+            (fix ? "(RTK FIX。本測量に使うかは現場の判断)" : "(簡易確認。本測量には使えません)");
           const w = $("arWarn"), ws = [];
-          if (g && g.acc > cfg.warn) ws.push("⚠ GPS の精度が悪い(±" + g.acc.toFixed(1) + " m)。表示は当てになりません");
+          if (g && g.acc > cfg.warn) ws.push("⚠ " + srcName() + " の精度が悪い(±" + fa(g.acc) + " m)。表示は当てになりません");
           if (hs.c === "ng" || (headOn && headRaw != null && hd == null)) ws.push("🧭 方位センサーを較正してください(8 の字に回す・🎯で合わせる)");
           w.hidden = !ws.length; w.textContent = ws.join("\n");
           if (!o) { $("arR").textContent = "---"; $("arR").className = "ar-r"; $("arFR").textContent = p ? "今の位置を待っています" : ""; arDraw(cv2, null); return; }
-          $("arR").textContent = near ? "このあたり" : o.r.toFixed(o.r < 100 ? 1 : 0) + " m"; $("arR").className = "ar-r" + (near ? " ok" : "");
-          if (near) $("arFR").textContent = "残り " + o.r.toFixed(1) + " m(GPS ±" + o.g.acc.toFixed(1) + " m の中)。ここからは杭ナビ・TS・テープで";
-          else if (o.rel != null) $("arFR").textContent = (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(1) + " m・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(1) + " m";
+          // i76 の RTK FIX:近くでも「このあたり」にせず、残りを cm まで出す
+          $("arR").textContent = fix ? o.r.toFixed(o.r < 10 ? 3 : 2) + " m" : near ? "このあたり" : o.r.toFixed(o.r < 100 ? 1 : 0) + " m"; $("arR").className = "ar-r" + (near ? " ok" : "");
+          if (near && fix) $("arFR").textContent = o.rel != null ? (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(3) + " m・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(3) + " m" : (o.dX >= 0 ? "北へ " : "南へ ") + Math.abs(o.dX).toFixed(3) + " m・" + (o.dY >= 0 ? "東へ " : "西へ ") + Math.abs(o.dY).toFixed(3) + " m";
+          else if (near) $("arFR").textContent = "残り " + o.r.toFixed(1) + " m(" + srcName() + " ±" + fa(o.g.acc) + " m の中)。ここからは杭ナビ・TS・テープで";
+          else if (o.rel != null) $("arFR").textContent = (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(fix ? 2 : 1) + " m・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(fix ? 2 : 1) + " m";
           else $("arFR").textContent = "北から " + o.az.toFixed(0) + "°(" + dir8(o.az) + ")・向きがわからないので矢印は出せません";
           arDraw(cv2, o.rel, o, near);
         }
         // 画面に重ねる絵:目的の点の旗(カメラに写る向きのとき)・足もとの矢印・右上のレーダー
         function arDraw(cv2, relA, o, near) {
-          const W = cv2.clientWidth, H = cv2.clientHeight, dpr = window.devicePixelRatio || 1;
-          if (cv2.width !== Math.round(W * dpr)) { cv2.width = Math.round(W * dpr); cv2.height = Math.round(H * dpr); }
+          const W = cv2.clientWidth, H = cv2.clientHeight, dpr = DPR();
+          if (cv2.width !== Math.round(W * dpr) || cv2.height !== Math.round(H * dpr)) { cv2.width = Math.round(W * dpr); cv2.height = Math.round(H * dpr); }
           const c = cv2.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
           if (!o) return;
           const portrait = H >= W, hfov = (portrait ? 48 : 64) * D / 2, vf = Math.atan(Math.tan(hfov) * H / W);
@@ -2210,12 +2735,48 @@ canvas.xs-3d { background: #0b0c0e !important; }
           "<b>図面を押す</b>と、その所(近くの点・線の端に吸い付く)の X・Y が出て、目的の点になります。図面の中の座標の文字(X=…・Y=… や座標表)は点として拾い、📋 で選べます。<br>" +
           "<b>📍 保存</b>:今の位置を点として現場の座標に入れます(ほかのアプリで見えます)。CSV・SIMA にも出せます。<br>" +
           "<b>② 簡易ローカライゼーション</b>:既知点の上に立って GPS を平均し、ずれを合わせます(1 点で平行移動、2 点以上で回転も)。<br><br>" +
+          "<b>📡 i76(Bluetooth)</b>(Android アプリのみ):① 端末の Bluetooth の設定で i76(GNSS-機械番号7桁)とペアリング ② <b>LandStar を閉じる</b> ③ ① 今の位置で「📡 i76(Bluetooth)」を選び、受信機を選んで「🔗 i76 につなぐ」 ④ 🛰 NTRIP の補正に会社・マウント・ID・パスワードを入れて「▶ 補正を受ける」 ⑤ 「解 FIX」(緑)になったら cm の位置。FLOAT・RTD・単独のときは本測量には使えません。FIX でも、杭打ちなどの本測量に使うかは現場で判断してください(既知点で点検)。データが来ないときは LandStar で i76 の NMEA 出力(GGA 1Hz)を有効にしてください。<br><br>" +
           "iPhone は、向きのセンサー・カメラ・位置情報の許可を聞かれたら「許可」を押してください。"));
 
+        // ---------------------------------------------------------------- v0.4.0 OPPO(ColorOS)・裏に回って戻ったとき
+        let devName = ""; try { devName = AND && AND.device ? String(AND.device()) : ""; } catch (e) { /* */ }
+        const OPPO = /\b(OPPO|realme|OnePlus)\b/i.test(devName) || /[?&]oppo=1\b/.test(location.search);
+        function showOppo(force) { const b = $("hkOppo"); if (!OPPO) return; b.hidden = !force && ls.get("hisoka.oppoOk") === "1"; }
+        $("hkOppoOk").addEventListener("click", () => { ls.set("hisoka.oppoOk", "1"); $("hkOppo").hidden = true; });
+        let hiddenAt = 0;
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) { hiddenAt = Date.now(); return; }
+          const away = hiddenAt ? Date.now() - hiddenAt : 0; hiddenAt = 0;
+          if (isI76() && gnAble() && cfg.gnOn && cfg.btAddr) {
+            let s = null; try { s = JSON.parse(AND.gnssState() || "null"); } catch (e) { /* */ }
+            if (s) gn.st = s;
+            const bs = s && s.bt ? s.bt.s : "";
+            if (!bs || bs === "off") {   // 裏にいる間に切られた(ColorOS の電池の節約など):つなぎ直す
+              gn.want = true; gn.since = Date.now();
+              try { AND.gnssOpen(cfg.btAddr, cfg.btName || ""); } catch (e) { /* */ }
+              toast("📡 i76 が切れていたので、つなぎ直します" + (OPPO ? "(裏で止められないよう、上の「OPPO」の設定を)" : ""));
+              if (OPPO && away > 5000) showOppo(true);
+            }
+            gnShow(); showBtn();
+          }
+          showPos(); dirty(); if (listStale && listSeen()) { listStale = false; renderList(); }
+        });
+
         // ---------------------------------------------------------------- 起動
+        showOppo(false);
         window.addEventListener("genba", (e) => { const t = e.detail && e.detail.type; if (t === "points" && e.detail.name === site) loadPoints().then(() => { showTarget(); renderList(); dirty(); }); });
         (async () => {
           await loadWork(); await loadPoints(); refreshLoc();
+          // v0.3.0 位置の入力元。i76 で前につないでいたら、つなぎ直す(アプリはつないだままなら何もしない)
+          if (cfg.src !== "i76") cfg.src = "phone";
+          $("srcSel").querySelectorAll("[data-src]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === cfg.src)));
+          if (gnAble()) {
+            try { const s = JSON.parse(AND.gnssState() || "null"); if (s) gn.st = s; } catch (e) { /* */ }
+            try { $("gnVer").textContent = "アプリ " + (AND.version ? AND.version() : ""); } catch (e) { /* */ }
+            if (isI76()) { gnDevices(false); ntLoad(); if (cfg.gnOn && cfg.btAddr) gnStart(); }
+            setCorr(cfg.corr, true);
+          }
+          gnShow(); showBtn();
           target = work.target || ""; showSaved(); showLoc(); showPos(); showChecks(); renderList();
           const hdr = document.querySelector("header"), setH = () => document.documentElement.style.setProperty("--hdrH", (hdr ? hdr.offsetHeight : 0) + "px");
           setH(); window.addEventListener("resize", setH); if (hdr && window.ResizeObserver) new ResizeObserver(setH).observe(hdr);
@@ -2233,9 +2794,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
             } catch (e) { /* 図面なしでも動く */ }
           }
           fit(); dirty();
-          setInterval(() => { if (gpsWatch != null) { showPos(); renderList(); } }, 3000);   // 「古い」の表示を出すため
+          setInterval(() => { if (document.hidden) return; if (running()) { showPos(); listTick(); } if (isI76()) gnShow(); }, 3000);   // 「古い」の表示を出すため(v0.4.0 見えないときはしない)
         })();
-        window.hisoka = { state: () => ({ gps, headRaw, headCal, heading: heading(), target, work, view, dScale, locT, cfg }), render: renderAr, llToXY, solveLoc, drawing: () => draw, points: () => allPts(), snapAt, loadDrawing };   // 点検・テスト用
+        window.hisoka = { state: () => ({ gps, headRaw, headCal, heading: heading(), target, work, view, dScale, locT, cfg }), render: renderAr, llToXY, solveLoc, drawing: () => draw, points: () => allPts(), snapAt, loadDrawing,
+          gn: () => gn, nmeaLine, heightOf, GEOID, setSrc, average };   // 点検・テスト用(v0.3.0:i76)
       })();
     </script>
     <script>
