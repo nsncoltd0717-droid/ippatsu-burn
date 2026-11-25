@@ -31,11 +31,12 @@ const APPS = [
   { key: 'kurukuru', file: 'kurukuru.html', name: 'くるくる回し太郎', short: 'くるくる', mark: '④', color: '#7048e8' },
   { key: 'utsushi', file: 'utsushi.html', name: 'こっそり写し太郎', short: '写し', mark: '⑤', color: '#c2255c' },
   { key: 'pen', file: 'pen.html', name: '写真ペン太郎', short: 'ペン', mark: '⑥', color: '#e8590c' },
+  { key: 'hisoka', file: 'hisoka.html', name: 'ひそかに調べ太郎', short: 'ひそか', mark: '⑦', color: '#0c8599' },
 ];
 // 「アプリの更新」で取ってくる物：配る名前 → 公開ページの場所
 const WEB_FILES = {
   'index.html': 'index.html', 'nomiso.html': 'nomiso.html', 'sumi.html': 'sumi.html', 'kamashi.html': 'kamashi.html',
-  'kurukuru.html': 'kurukuru.html', 'utsushi.html': 'utsushi.html', 'pen.html': 'pen.html',
+  'kurukuru.html': 'kurukuru.html', 'utsushi.html': 'utsushi.html', 'pen.html': 'pen.html', 'hisoka.html': 'hisoka.html',
   'desktop.js': 'windows/pen/desktop.js', 'desktop.css': 'windows/pen/desktop.css',
   'win/common.js': 'windows/ippatsu/common.js', 'win/common.css': 'windows/ippatsu/common.css', 'win/rail.html': 'windows/ippatsu/rail.html',
 };
@@ -102,7 +103,11 @@ const appOf = (url) => {
 };
 function openApp(key) {
   const a = APPS.find((x) => x.key === key) || APPS[0];
-  if (view) view.webContents.loadURL(ORIGIN + a.file);
+  if (!view) return;
+  // v2.13.0 の見張りは「さわらずに何度も開き直した」と安全モードにする。左の帯やショートカットでの切り替えは
+  // アプリの画面をさわったことにならないので、切り替える前に「さわった」しるし(ipx.act)を付けておく
+  const go = () => view.webContents.loadURL(ORIGIN + a.file);
+  view.webContents.executeJavaScript("try{localStorage.setItem('ipx.act',String(Date.now()))}catch(e){};1").then(go, go);
 }
 
 function layout() {
@@ -236,6 +241,7 @@ function patchPage(file, html) {
 // 「アプリの更新」で取った物があれば、そちらを使う(本体の版が変わったら、同梱の方に戻す)
 const webDir = () => path.join(app.getPath('userData'), 'web');
 function webMeta() { try { return JSON.parse(fs.readFileSync(path.join(webDir(), 'meta.json'), 'utf8')); } catch (e) { return null; } }
+const ASSET_RE = /vendor\/(?:ipx|opening)\/[A-Za-z0-9_.-]+/g;
 async function readWeb(rel) {
   const m = webMeta();
   if (m && m.shell === app.getVersion()) { try { return await fs.promises.readFile(path.join(webDir(), rel)); } catch (e) { /* */ } }
@@ -270,13 +276,26 @@ async function update() {
   }
   let shellNew = null;
   try { const pk = JSON.parse((await fetchBuf('windows/ippatsu/package.json')).toString('utf8')); if (newer(pk.version, app.getVersion())) shellNew = pk.version; } catch (e) { /* */ }
+  // v2.13.0 から、各 HTML は共通部品(vendor/ipx/)とオープニングの絵(vendor/opening/)を別ファイルで読む。
+  // 名前に版の印が付いている(中身が変わると名前も変わる)ので、HTML に書いてある物のうち、手元に無い物だけ取ってくる
+  const assets = new Set();
+  for (const [n, b] of Object.entries(got)) {
+    if (!n.endsWith('.html')) continue;
+    for (const m of b.toString('utf8').matchAll(ASSET_RE)) assets.add(m[0]);
+  }
+  const assetBuf = {};
+  for (const a of assets) {
+    const have = await readWeb(a).catch(() => null);
+    if (have) { assetBuf[a] = have; continue; }
+    try { assetBuf[a] = got[a] = await fetchBuf(a); } catch (e) { return { ok: false, error: `部品 ${a} を取れませんでした。更新はしていません。` + e.message }; }
+  }
   const changedFiles = [];
   for (const n of Object.keys(got)) { const cur = await readWeb(n).catch(() => null); if (!cur || !cur.equals(got[n])) changedFiles.push(n); }
   if (changedFiles.length) {
     const tmp = webDir() + '.new';
     fs.rmSync(tmp, { recursive: true, force: true });
-    for (const n of Object.keys(WEB_FILES)) {
-      const b = got[n] || await readWeb(n);   // まだ公開されていない物は今の物を使う
+    for (const n of [...Object.keys(WEB_FILES), ...assets]) {
+      const b = assetBuf[n] || got[n] || await readWeb(n);   // まだ公開されていない物は今の物を使う
       fs.mkdirSync(path.dirname(path.join(tmp, n)), { recursive: true });
       fs.writeFileSync(path.join(tmp, n), b);
     }
@@ -381,7 +400,7 @@ app.whenReady().then(() => {
     const file = path.normalize(path.join(ROOT, rel));
     if (!file.startsWith(ROOT + path.sep)) return new Response('forbidden', { status: 403 });
     try {
-      let body = WEB_FILES[rel] ? await readWeb(rel) : await fs.promises.readFile(file);
+      let body = await readWeb(rel);   // 「更新」で取った物(HTML・共通部品)があればそちら、無ければ同梱の物
       if (APPS.some((a) => a.file === rel)) body = patchPage(rel, body.toString('utf8'));
       return new Response(body, { headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'cache-control': 'no-store' } });
     } catch (e) { return new Response('not found', { status: 404 }); }

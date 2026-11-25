@@ -13,7 +13,7 @@ const REPO = path.resolve(HERE, '..', '..');
 const APP = path.join(HERE, 'app');
 const DIST = path.join(HERE, 'dist');
 const pkg = require('./package.json');
-const PAGES = ['index.html', 'nomiso.html', 'sumi.html', 'kamashi.html', 'kurukuru.html', 'utsushi.html', 'pen.html'];
+const PAGES = ['index.html', 'nomiso.html', 'sumi.html', 'kamashi.html', 'kurukuru.html', 'utsushi.html', 'pen.html', 'hisoka.html'];
 
 function prepare() {
   fs.rmSync(APP, { recursive: true, force: true });
@@ -27,7 +27,7 @@ function prepare() {
   for (const f of ['desktop.js', 'desktop.css']) fs.copyFileSync(path.join(REPO, 'windows', 'pen', f), path.join(APP, f));
   for (const f of ['common.js', 'common.css', 'rail.html']) fs.copyFileSync(path.join(HERE, f), path.join(APP, 'win', f));
   for (const f of ['icon-180.png', 'icon-192.png', 'icon-512.png', 'manifest.webmanifest']) fs.copyFileSync(path.join(REPO, f), path.join(APP, f));
-  for (const d of ['libredwg', 'pdfjs']) fs.cpSync(path.join(REPO, 'vendor', d), path.join(APP, 'vendor', d), { recursive: true });
+  for (const d of ['libredwg', 'pdfjs', 'ipx', 'opening']) fs.cpSync(path.join(REPO, 'vendor', d), path.join(APP, 'vendor', d), { recursive: true });
   fs.copyFileSync(path.join(REPO, 'icon-512.png'), path.join(HERE, 'icon.png'));
   console.log('app/ を用意しました');
 }
@@ -79,8 +79,8 @@ async function build() {
   フォルダ版(zip)：このフォルダの「IppatsuBurn.exe」をダブルクリックします。
 
 ■ 使い方
-  左の帯でアプリを切り替えます(Ctrl+0〜6 でも切り替わります)。
-  脳みそバーン・逃墨太郎・かまし太郎・くるくる・写し太郎・写真ペン太郎が入っていて、現場と写真は全アプリで共通です。
+  左の帯でアプリを切り替えます(Ctrl+0〜7 でも切り替わります)。
+  脳みそバーン・逃墨太郎・かまし太郎・くるくる・写し太郎・写真ペン太郎・ひそかに調べ太郎が入っていて、現場と写真は全アプリで共通です。
   書き出しは「名前を付けて保存」の窓が出るので、保存先を選びます。
   左の帯の「⟳ 更新」で、公開ページから全アプリの新しい版を取ってきます。帯の下に版が出ます。
 
