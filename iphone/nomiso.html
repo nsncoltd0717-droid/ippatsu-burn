@@ -276,6 +276,17 @@
   "use strict";
   if (window.IPPATSU_GUARD) return;
   var W = window, now = Date.now();
+  // ---- 2026-11-25 古い WebView(OPPO A73 の Android 10 など Chrome 80 台)に無い小さな関数を足す(ある端末では何もしない)
+  try {
+    var def = function (o, k, f) { if (o && !o[k]) Object.defineProperty(o, k, { value: f, writable: true, configurable: true }); };
+    var at = function (n) { n = Math.trunc(n) || 0; if (n < 0) n += this.length; return n < 0 || n >= this.length ? undefined : this[n]; };
+    def(Array.prototype, "at", at); def(String.prototype, "at", at);
+    [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array].forEach(function (T) { def(T.prototype, "at", at); });
+    def(Object, "hasOwn", function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); });
+    def(String.prototype, "replaceAll", function (a, b) { return a instanceof RegExp ? this.replace(a, b) : this.split(a).join(typeof b === "function" ? b(a) : b); });
+    def(Array.prototype, "findLast", function (f, t) { for (var i = this.length - 1; i >= 0; i--) if (f.call(t, this[i], i, this)) return this[i]; return undefined; });
+    def(Array.prototype, "findLastIndex", function (f, t) { for (var i = this.length - 1; i >= 0; i--) if (f.call(t, this[i], i, this)) return i; return -1; });
+  } catch (e) { /* */ }
   var ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* */ } } };
   var ls = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* */ } } };
   var q = location.search, page = (location.pathname.split("/").pop() || "index.html");
@@ -375,7 +386,7 @@
     </script>
     <script>window.IPPATSU_APP = "nomiso"; window.IPPATSU_READONLY = true;</script>
     <script src="vendor/ipx/ios_f85f40675d.js"></script>
-    <script src="vendor/ipx/common_8f149615b5.js"></script>
+    <script src="vendor/ipx/common_57beade42c.js"></script>
     <script>window.IPPATSU_IOS && IPPATSU_IOS.afterCommon && IPPATSU_IOS.afterCommon();</script>
     <script src="vendor/ipx/xs_9774e1a72b.js"></script>
     <link rel="manifest" href="manifest.webmanifest" />
