@@ -172,7 +172,7 @@
     <script src="vendor/ipx/ios_f85f40675d.js"></script>
     <script src="vendor/ipx/common_57beade42c.js"></script>
     <script>window.IPPATSU_IOS && IPPATSU_IOS.afterCommon && IPPATSU_IOS.afterCommon();</script>
-    <script>window.IPPATSU_OPENING = { name: "一発バーン", ver: "v2.15.0", logo: "vendor/opening/opening_logo_efcc8fdb.webp", girl: "vendor/opening/opening_girl_479cca19.webp", movie: "vendor/opening/opening_movie_28987426.mp4", poster: "vendor/opening/opening_movie_c1e8b858.webp" };
+    <script>window.IPPATSU_OPENING = { name: "一発バーン", ver: "v2.16.0", logo: "vendor/opening/opening_logo_efcc8fdb.webp", girl: "vendor/opening/opening_girl_479cca19.webp", movie: "vendor/opening/opening_movie_28987426.mp4", poster: "vendor/opening/opening_movie_c1e8b858.webp" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -391,7 +391,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
     </style>
   </head>
   <body>
-    <header><h1>一発バーン <small>v2.15.0</small></h1></header>
+    <header><h1>一発バーン <small>v2.16.0</small></h1></header>
     <p class="lead">現場を選んでから、使うアプリを選んでください。4本のアプリは、ここで選んだ現場の図面と座標を使います。</p>
 
     <h2>いまの現場</h2>
@@ -420,7 +420,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
       <i>⑥</i><b>写真ペン太郎</b><small>v0.2.0</small><span>写真に書き込む・Excel の写真帳に貼って出す</span>
     </a>
     <a class="app" href="hisoka.html" style="--c:#0c8599">
-      <i>⑦</i><b>ひそかに調べ太郎</b><small>v0.4.0</small><span>携帯の GPS か i76(Bluetooth・NTRIP の RTK)で今の位置を図面(DXF・DWG・図脳・SFC・A納図)に出し、点までの距離・方向を確認。AR で点の方へ誘導(携帯の GPS は数 m の誤差で本測量には使えない)</span>
+      <i>⑦</i><b>ひそかに調べ太郎</b><small>v0.5.0</small><span>携帯の GPS か i76(Bluetooth・NTRIP の RTK)で今の位置を図面(DXF・DWG・図脳・SFC・A納図)に出し、点までの距離・方向を確認。AR で点の方へ誘導(携帯の GPS は数 m の誤差で本測量には使えない)</span>
     </a>
 
     <h2>現場の一覧</h2>
@@ -442,7 +442,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
     <footer>
       現場(図面・座標・設定・くるくるの器械点や打った杭・工事写真・写真帳・3D)はこの端末の中に保存します。「☁ クラウド共有」で Google ドライブのフォルダ「一発バーン現場共有」に接続すると、同じフォルダに接続した携帯・パソコンと自動で受け渡します(この端末の現場は消えません)。手で渡すとき・バックアップは「⬇ 保存」で1つのファイル(genba_〜.zip)にします。ECP一撃測量とは、ECP の kurukuru_〜.json を「⬆ 現場のファイルを取り込む」で読み、こちらからは「📤 ECP一撃測量向けに書き出す」で渡します。<br />
       電波のない所でも、一度開いたことがあれば使えます。電波のある所で開くと新しい版に入れ替わります。アプリの左上の ⌂ でこの画面に戻ります。<br />
-      作成 20261125
+      作成 20261126
     </footer>
     <script>
       (() => {
