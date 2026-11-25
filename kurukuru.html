@@ -854,7 +854,7 @@
     <script>window.IPPATSU_APP = "kurukuru";</script>
     <script src="vendor/ipx/common_9faa4e06ef.js"></script>
     <script src="vendor/ipx/xs_9774e1a72b.js"></script>
-    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.34.2", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
+    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.35.0", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -1087,7 +1087,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.34.2</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.35.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -1609,7 +1609,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             <button type="button" data-f="todo" aria-pressed="false">まだ</button>
             <button type="button" data-f="near" aria-pressed="false">近い順</button>
           </div>
-          <button type="button" class="ghost" id="clAdd" style="margin-top:6px">＋ 点を手入力で足す</button>
+          <div class="field2" style="margin-top:6px"><button type="button" class="ghost" id="clAdd">＋ 点を手入力で足す</button><button type="button" class="ghost" id="clBig">⛶ 大きな画面で編集</button></div>
           <div class="cl-wrap"><table class="cl-tbl"><thead><tr><th>点名</th><th id="clHX">X</th><th id="clHY">Y</th><th>H</th><th>距離 m</th></tr></thead><tbody id="clBody"></tbody></table></div>
           <p class="step-note" id="clNote" style="margin:4px 0 6px"></p>
           <div class="field2 cl-dl">
@@ -1805,7 +1805,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <h3>🏗 現場</h3>
         <p>メニューの「現場」で現場を作ると、図面と座標データ(点・既知点・杭ナビの位置・打った杭)を現場ごとにこの端末へ自動で保存します。アプリを閉じても、別の図面を開いても点は消えません(現場を開いているときに図面を開くと、図面だけ入れ替わります)。現場を切り替えると、その現場の図面と点が開きます。「⬇ この現場を保存」で現場を丸ごと1つのファイル(kurukuru_〜.json)にしてダウンロードでき、「⬆ 保存した現場を読み込む」で別のスマホや PC にそのまま入れられます(バックアップにも)。ブラウザのデータを消すと端末の中の現場も消えるので、ときどきファイルに保存しておくと安心です。</p>
         <h3>📋 座標リスト</h3>
-        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・既知点1/2にする・LIVE で見る、ができます。① 据付・器械設置の「📋 リストから選ぶ」から開くと、タップした点がそのまま後方交会の既知点になります。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
+        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。「⛶ 大きな画面で編集」で、表のまま点名・X・Y・H・種別・メモをじかに直す、☑ で選んでまとめて消す・H に足す・種別を変える、行を足す、↶ 戻す、CSV・SIMA の読み込み(足す/置き換え・同じ点名は上書き/別名/飛ばす)と書き出し(選んだ点か表示している点)ができます。「💾 保存して戻る」で一覧に入ります。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・既知点1/2にする・LIVE で見る、ができます。① 据付・器械設置の「📋 リストから選ぶ」から開くと、タップした点がそのまま後方交会の既知点になります。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
         <h3>注意</h3>
         <ul>
           <li class="warn">点名は半角英数（SIMA・杭ナビで全角が困ります）。同じ点名を杭ナビに入れ直すと上書きされず追加されます。</li>
@@ -5173,6 +5173,331 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         });
         $("clLive").addEventListener("click", () => { const p = byName(clSelN); if (p) { target = p.name; afterChange(); } setCtlTab("live"); });
         $("liveList").addEventListener("click", () => setCtlTab("list"));
+        // ================================================================ 座標リストの大きな画面(2026-11-26 v0.35.0 ゆきちゃん「くるくるの座標リストで編集・削除が一括で行える大きな画面を別画面で開く仕様に。その画面でも CSV・SIMA の入出力を」)
+        // 座標リストの「⛶ 大きな画面で編集」で開く(全画面。見出しの ⌂ の列は隠さない。「← 戻る」・端末の戻るで閉じる)。
+        // 表:☑・点名・X・Y・H・種別(設計/既知)・メモ・使っている所。セルをじかに直す(点名は半角英数 16 文字・重ならない、X・Y・H は数)。
+        // ＋ 行を足す、☑ で選んで 🗑 一括で消す・H に足す・種別を変える、全部選ぶ/外す、さがす・絞り込み、点名・X・Y・H で並べ替え、↶ 戻す(100 手)。
+        // 📥 CSV・SIMA を読む(足す/置き換える、同じ点名は 上書き/別名/飛ばす)・⬇ CSV・SIMA(選んだ点、なければ表示している点。形は座標リストの ⬇ と同じ)。
+        // 直したものは「💾 保存して戻る」で一覧(picks)へ入れて、いつもどおり現場に保存(afterChange)。「やめる」は直したところを捨てる(聞く)。
+        // 行は見えている所だけ作る(数千点でも軽く)。
+        let PE = null;
+        const PE_H = 40;   // 1 行の高さ(px)
+        const peNum = (s) => { const t = String(s == null ? "" : s).trim().replace(/[−ー－]/g, "-").replace(/[０-９．]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)); return t === "" ? NaN : Number(t); };
+        function peRefs(nm) {   // その点を使っている所
+          const a = [];
+          if (nm === k1) a.push("既知点1"); if (nm === k2) a.push("既知点2");
+          if (nm === kNext) a.push("次に測る既知点");
+          if (kPlan.includes(nm)) a.push("器械設置の枠");
+          if (kSeq.some((q) => q.name === nm)) a.push("計測済みの既知点");
+          if (nm === target) a.push("出す点");
+          return a;
+        }
+        function peCss() {
+          if ($("peCss")) return;
+          const s = document.createElement("style"); s.id = "peCss";
+          s.textContent = ".pe-ovl{position:fixed;left:0;right:0;bottom:0;top:0;z-index:5000;background:var(--bg,#fff);color:var(--ink,#111);display:flex;flex-direction:column;font-size:14px}" +
+            ".pe-ovl[hidden]{display:none}.pe-bar{display:flex;flex-wrap:wrap;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line,#ccc);background:var(--panel,#fff)}" +
+            ".pe-bar>*{margin:3px}.pe-bar button,.pe-bar select{font:inherit;font-size:13.5px;min-height:38px;padding:4px 10px;border-radius:9px;border:1px solid var(--line,#ccc);background:var(--surface2,#eef);color:inherit}" +
+            ".pe-bar button.pri{background:var(--accent,#2563eb);color:#fff;border-color:transparent;font-weight:700}.pe-bar button.ng{color:#e03131}.pe-bar input[type=search]{font:inherit;font-size:15px;min-height:38px;padding:4px 8px;border-radius:9px;border:1px solid var(--line,#ccc);width:150px;background:var(--bg,#fff);color:inherit}" +
+            ".pe-bar b.t{font-size:16px;margin-right:auto}.pe-info{font-size:12.5px;color:var(--sub,#667);padding:4px 10px}" +
+            ".pe-wrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;position:relative}.pe-in{position:relative;min-width:830px}" +
+            ".pe-row{position:absolute;left:0;right:0;height:" + PE_H + "px;display:flex;align-items:center;border-bottom:1px solid var(--line,#ddd);box-sizing:border-box}" +
+            ".pe-row.sel{background:rgba(37,99,235,.12)}.pe-row.hd{position:sticky;top:0;z-index:2;background:var(--panel,#f4f4f4);font-size:12px;color:var(--sub,#667);font-weight:700}" +
+            ".pe-row>*{flex:0 0 auto;box-sizing:border-box;padding:0 3px}.pe-row input,.pe-row select{width:100%;box-sizing:border-box;font:inherit;font-size:14.5px;height:32px;padding:2px 6px;border-radius:7px;border:1px solid var(--line,#ccc);background:var(--bg,#fff);color:inherit;font-variant-numeric:tabular-nums}" +
+            ".pe-row input.bad{border:2px solid #e03131;background:rgba(224,49,49,.08)}.pe-row .ref{font-size:11px;color:#e67700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+            ".pe-c0{width:38px;text-align:center}.pe-c1{width:130px}.pe-c2,.pe-c3{width:140px}.pe-c4{width:95px}.pe-c5{width:78px}.pe-c6{width:130px}.pe-c7{width:96px}" +
+            ".pe-row.hd>span{cursor:pointer;user-select:none}.pe-row.hd input{width:20px;height:20px}.pe-row .pe-c0 input{width:22px;height:22px}" +
+            ".pe-ask{position:fixed;left:0;right:0;top:0;bottom:0;z-index:5100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:14px}" +
+            ".pe-ask>div{background:var(--panel,#fff);color:inherit;border-radius:14px;padding:14px;max-width:480px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.35)}" +
+            ".pe-ask h3{margin:0 0 8px;font-size:16px}.pe-ask .bs{display:flex;flex-wrap:wrap;justify-content:flex-end;margin-top:12px}.pe-ask .bs button{margin:4px;font:inherit;min-height:42px;padding:6px 14px;border-radius:10px;border:1px solid var(--line,#ccc);background:var(--surface2,#eef);color:inherit}.pe-ask .bs button.pri{background:var(--accent,#2563eb);color:#fff;border-color:transparent;font-weight:700}" +
+            ".pe-ask label{display:block;margin:6px 0}.pe-ask input[type=text]{font:inherit;font-size:16px;width:100%;box-sizing:border-box;padding:8px;border-radius:9px;border:1px solid var(--line,#ccc)}";
+          document.head.appendChild(s);
+        }
+        function peAsk(title, html, buttons) {   // 小さな聞く窓。押したボタンの値を返す
+          return new Promise((ok) => {
+            const o = document.createElement("div"); o.className = "pe-ask";
+            o.innerHTML = '<div><h3>' + esc(title) + "</h3>" + html + '<div class="bs">' + buttons.map((b, i) => '<button type="button" data-i="' + i + '"' + (b.pri ? ' class="pri"' : "") + ">" + esc(b.label) + "</button>").join("") + "</div></div>";
+            o.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; const v = buttons[Number(b.dataset.i)].v; const box = o.firstChild; o.remove(); ok({ v, box }); });
+            document.body.appendChild(o);
+            const f = o.querySelector("input"); if (f) setTimeout(() => { try { f.focus(); f.select(); } catch (e) { /* */ } }, 30);
+          });
+        }
+        function peBuild() {
+          peCss();
+          const o = document.createElement("div"); o.className = "pe-ovl"; o.id = "peOvl"; o.hidden = true;
+          o.innerHTML = '<div class="pe-bar"><button type="button" id="peBack">← 戻る</button><b class="t">📋 座標リスト(大きな画面)</b>' +
+            '<button type="button" id="peUndo" disabled>↶ 戻す</button><button type="button" class="pri" id="peSave">💾 保存して戻る</button></div>' +
+            '<div class="pe-bar"><input type="search" id="peQ" placeholder="点名・メモでさがす" autocomplete="off" data-noipx />' +
+            '<select id="peF"><option value="all">全部</option><option value="design">設計点</option><option value="known">既知点</option><option value="todo">まだ打っていない</option><option value="sel">選んだ点だけ</option><option value="bad">直すところ(赤)</option></select>' +
+            '<select id="peSort"><option value="">登録順</option><option value="name">点名順</option><option value="X">X 順</option><option value="Y">Y 順</option><option value="H">H 順</option></select>' +
+            '<button type="button" id="peAll">☑ 表示を全部選ぶ</button><button type="button" id="peNone">☐ 外す</button></div>' +
+            '<div class="pe-bar"><button type="button" id="peAdd">＋ 行を足す</button><button type="button" class="ng" id="peDel">🗑 選んだ点を消す</button>' +
+            '<button type="button" id="peHAdd">H に足す</button><button type="button" id="peRole">種別を変える</button>' +
+            '<button type="button" id="peImp">📥 CSV・SIMA を読む</button><button type="button" id="peCsv">⬇ CSV</button><button type="button" id="peSima">⬇ SIMA</button>' +
+            '<input type="file" id="peFile" accept=".csv,.txt,.sim,.sima,text/csv,text/plain" hidden data-nofp /></div>' +
+            '<div class="pe-info" id="peInfo"></div><div class="pe-wrap" id="peWrap"><div class="pe-in" id="peIn"></div></div>';
+          document.body.appendChild(o);
+          $("peWrap").addEventListener("scroll", () => { if (!PE || PE.raf) return; PE.raf = requestAnimationFrame(() => { PE.raf = 0; peDraw(false); }); }, { passive: true });
+          $("peQ").addEventListener("input", () => { PE.q = $("peQ").value; peView(); });
+          $("peF").addEventListener("change", () => { PE.f = $("peF").value; peView(); });
+          $("peSort").addEventListener("change", () => { PE.sort = $("peSort").value; PE.dir = 1; peView(); });
+          $("peAll").addEventListener("click", () => { peCommit(); for (const i of PE.view) PE.rows[i].sel = true; peDraw(true); });
+          $("peNone").addEventListener("click", () => { for (const r of PE.rows) r.sel = false; peView(); });
+          $("peAdd").addEventListener("click", peAddRow);
+          $("peDel").addEventListener("click", peDelSel);
+          $("peHAdd").addEventListener("click", peHAdd);
+          $("peRole").addEventListener("click", peRoleSel);
+          $("peUndo").addEventListener("click", peUndo);
+          $("peSave").addEventListener("click", () => peClose(true));
+          $("peBack").addEventListener("click", () => peClose(false));
+          $("peImp").addEventListener("click", () => { $("peFile").value = ""; $("peFile").click(); });
+          $("peFile").addEventListener("change", peImport);
+          $("peCsv").addEventListener("click", () => peExport("csv"));
+          $("peSima").addEventListener("click", () => peExport("sima"));
+          $("peIn").addEventListener("change", peCell);
+          $("peIn").addEventListener("click", (e) => {
+            const h = e.target.closest("[data-sort]"); if (h) { const k = h.dataset.sort; if (PE.sort === k) PE.dir = -PE.dir; else { PE.sort = k; PE.dir = 1; } $("peSort").value = PE.sort; peView(); return; }
+            if (e.target.id === "peHdChk") { const on = e.target.checked; peCommit(); for (const i of PE.view) PE.rows[i].sel = on; peDraw(true); }
+          });
+          window.addEventListener("popstate", () => {
+            if (!PE || $("peOvl").hidden) return;
+            if (PE.dirty && !confirm("座標リストの直したところを捨てて戻りますか?(保存するときは「💾 保存して戻る」)")) { history.pushState({ pe: 1 }, ""); return; }
+            PE.popped = true; peClose(false, true);
+          });
+        }
+        function peOpen() {
+          if (!$("peOvl")) peBuild();
+          const u = unitName();
+          const rows = picks.map((p, i) => { const [X, Y] = fmtXY(p.x, p.y).map(Number); const H = Number(fmtH(p.h)); return { id: i + 1, o: p, name: p.name, X, Y, H, X0: X, Y0: Y, H0: H, role: roleOf(p), memo: p.memo || "", sel: false }; });
+          PE = { rows, nid: rows.length + 1, undo: [], dirty: false, q: "", f: "all", sort: "", dir: 1, view: [], unit: u, raf: 0, popped: false };
+          $("peQ").value = ""; $("peF").value = "all"; $("peSort").value = "";
+          const hdr = document.querySelector("header"), top = hdr ? Math.max(0, Math.round(hdr.getBoundingClientRect().bottom)) : 0;
+          $("peOvl").style.top = top + "px";   // ⌂ の見出しは隠さない
+          $("peOvl").hidden = false; document.body.style.overflow = "hidden";
+          try { history.pushState({ pe: 1 }, ""); } catch (e) { /* */ }
+          peView(); $("peWrap").scrollTop = 0;
+        }
+        function peClose(save, fromPop) {
+          if (!PE) return;
+          peCommit();
+          if (save) {
+            const bad = PE.rows.filter((r) => peBad(r));
+            if (bad.length) { alert(`直すところ(赤)が ${bad.length} 行あります(点名・X・Y)。直すか消してから保存してください。`); PE.f = "bad"; $("peF").value = "bad"; peView(); return; }
+            peApply();
+          } else if (PE.dirty && !fromPop && !confirm("座標リストの直したところを捨てて戻りますか?")) return;
+          $("peOvl").hidden = true; document.body.style.overflow = "";
+          if (!fromPop) { try { if (history.state && history.state.pe) history.back(); } catch (e) { /* */ } }
+          PE = null;
+          if (typeof renderCList === "function") renderCList();
+        }
+        const peBad = (r) => !NAME_OK.test(r.name) || r.name.includes(",") || !Number.isFinite(r.X) || !Number.isFinite(r.Y) || !Number.isFinite(r.H) || PE.dup.has(r.name);
+        function peDupCalc() { const c = new Map(); for (const r of PE.rows) c.set(r.name, (c.get(r.name) || 0) + 1); PE.dup = new Set([...c].filter(([, n]) => n > 1).map(([k]) => k)); }
+        function peView() {   // さがす・絞り込み・並べ替え → 出す行の番号
+          peCommit(); peDupCalc();
+          const q = PE.q.trim().toLowerCase(), f = PE.f, R = PE.rows;
+          let v = [];
+          for (let i = 0; i < R.length; i++) {
+            const r = R[i];
+            if (q && !r.name.toLowerCase().includes(q) && !String(r.memo).toLowerCase().includes(q)) continue;
+            if (f === "design" && r.role === "known") continue;
+            if (f === "known" && r.role !== "known") continue;
+            if (f === "todo" && (r.role === "known" || (r.o && r.o.done))) continue;
+            if (f === "sel" && !r.sel) continue;
+            if (f === "bad" && !peBad(r)) continue;
+            v.push(i);
+          }
+          if (PE.sort) {
+            const k = PE.sort, d = PE.dir;
+            v.sort(k === "name" ? (a, b) => d * String(R[a].name).localeCompare(String(R[b].name), "ja", { numeric: true }) : (a, b) => d * ((R[a][k] || 0) - (R[b][k] || 0)));
+          }
+          PE.view = v; peDraw(true);
+        }
+        function peDraw(full) {
+          const wrap = $("peWrap"), inn = $("peIn"), v = PE.view, R = PE.rows;
+          const top = wrap.scrollTop, hgt = wrap.clientHeight || 600;
+          const s = Math.max(0, Math.floor(top / PE_H) - 8), e = Math.min(v.length, Math.ceil((top + hgt) / PE_H) + 8);
+          if (!full && PE.win && PE.win[0] === s && PE.win[1] === e) return;
+          peCommit();
+          PE.win = [s, e];
+          const [nx, ny] = axisNames(), u = PE.unit, arrow = (k) => (PE.sort === k ? (PE.dir > 0 ? " ▲" : " ▼") : "");
+          const nSel = R.filter((r) => r.sel).length;
+          let h = '<div class="pe-row hd" style="top:0"><span class="pe-c0"><input type="checkbox" id="peHdChk"' + (v.length && v.every((i) => R[i].sel) ? " checked" : "") + ' aria-label="表示を全部選ぶ"></span>' +
+            '<span class="pe-c1" data-sort="name">点名' + arrow("name") + '</span><span class="pe-c2" data-sort="X">' + nx + "(" + u + ")" + arrow("X") + '</span><span class="pe-c3" data-sort="Y">' + ny + "(" + u + ")" + arrow("Y") + "</span>" +
+            '<span class="pe-c4" data-sort="H">H(' + u + ")" + arrow("H") + '</span><span class="pe-c5">種別</span><span class="pe-c6">メモ</span><span class="pe-c7">使っている所</span></div>';
+          const f3 = (x) => (Number.isFinite(x) ? (u === "m" ? x.toFixed(3) : x.toFixed(1)) : "");
+          for (let j = s; j < e; j++) {
+            const i = v[j], r = R[i], refs = r.o ? peRefs(r.o.name) : [];
+            const nb = !NAME_OK.test(r.name) || r.name.includes(",") || PE.dup.has(r.name);
+            h += '<div class="pe-row' + (r.sel ? " sel" : "") + '" style="top:' + (PE_H * (j + 1)) + 'px" data-i="' + i + '">' +
+              '<span class="pe-c0"><input type="checkbox" data-k="sel"' + (r.sel ? " checked" : "") + ' aria-label="選ぶ"></span>' +
+              '<span class="pe-c1"><input type="text" data-k="name" data-noipx autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(r.name) + '"' + (nb ? ' class="bad"' : "") + "></span>" +
+              '<span class="pe-c2"><input type="text" inputmode="decimal" data-k="X" data-noipx value="' + f3(r.X) + '"' + (Number.isFinite(r.X) ? "" : ' class="bad"') + "></span>" +
+              '<span class="pe-c3"><input type="text" inputmode="decimal" data-k="Y" data-noipx value="' + f3(r.Y) + '"' + (Number.isFinite(r.Y) ? "" : ' class="bad"') + "></span>" +
+              '<span class="pe-c4"><input type="text" inputmode="decimal" data-k="H" data-noipx value="' + f3(r.H) + '"' + (Number.isFinite(r.H) ? "" : ' class="bad"') + "></span>" +
+              '<span class="pe-c5"><select data-k="role"><option value="design"' + (r.role !== "known" ? " selected" : "") + '>設計</option><option value="known"' + (r.role === "known" ? " selected" : "") + ">既知</option></select></span>" +
+              '<span class="pe-c6"><input type="text" data-k="memo" data-noipx autocomplete="off" value="' + esc(r.memo) + '"></span>' +
+              '<span class="pe-c7 ref" title="' + esc(refs.join("・")) + '">' + esc(refs.join("・")) + (r.o && r.o.done ? (refs.length ? "・" : "") + "✓打った" : "") + "</span></div>";
+          }
+          inn.style.height = PE_H * (v.length + 1) + "px";
+          inn.innerHTML = h;
+          peInfo();
+        }
+        function peSnap() {   // ↶ 戻す ための写し
+          PE.undo.push({ rows: PE.rows.map((r) => ({ ...r })), nid: PE.nid }); if (PE.undo.length > 100) PE.undo.shift();
+          PE.dirty = true;
+        }
+        function peUndo() { const s = PE.undo.pop(); if (!s) return; PE.rows = s.rows; PE.nid = s.nid; peView(); }
+        function peSet(r, k, raw) {   // 1 つのセルを直す(戻せるように写してから)。値が変わらなければ何もしない
+          let v = raw;
+          if (k === "X" || k === "Y" || k === "H") { v = peNum(raw); if (raw.trim() === "" && k === "H") v = 0; if (!Number.isFinite(v)) { /* 数でない:赤のまま覚える */ v = NaN; } }
+          else if (k === "name" || k === "memo") v = String(raw).trim();
+          if (k === "sel") { r.sel = !!raw; return true; }
+          if (Object.is(r[k], v) || (typeof v === "number" && typeof r[k] === "number" && Math.abs(r[k] - v) < 1e-12)) return false;
+          peSnap(); r[k] = v; return true;
+        }
+        function peCell(e) {
+          const t = e.target, row = t.closest("[data-i]"); if (!row || !t.dataset.k) return;
+          const r = PE.rows[Number(row.dataset.i)], k = t.dataset.k;
+          if (k === "sel") { r.sel = t.checked; row.classList.toggle("sel", t.checked); peMark(); return; }
+          if (peSet(r, k, t.value)) { peDupCalc(); peMark(); }   // 作り直さない(次に押したセルのフォーカスを消さないため)
+        }
+        function peMark() {   // 見えている行の赤・選んだ印と、上の知らせだけを直す
+          for (const row of $("peIn").querySelectorAll(".pe-row[data-i]")) {
+            const r = PE.rows[Number(row.dataset.i)]; if (!r) continue;
+            row.classList.toggle("sel", r.sel);
+            const q = (k) => row.querySelector('[data-k="' + k + '"]');
+            q("name").classList.toggle("bad", !NAME_OK.test(r.name) || r.name.includes(",") || PE.dup.has(r.name));
+            for (const k of ["X", "Y", "H"]) q(k).classList.toggle("bad", !Number.isFinite(r[k]));
+          }
+          peInfo();
+        }
+        function peInfo() {
+          const R = PE.rows, nSel = R.filter((r) => r.sel).length, bad = R.filter((r) => peBad(r)).length;
+          $("peInfo").textContent = `${PE.view.length} 行を表示(全部 ${R.length} 点・選んだ ${nSel} 点)` + (bad ? `・⚠ 直すところ ${bad} 行(赤。点名は半角英数 16 文字まで・同じ名前は 1 つ、X・Y・H は数)` : "") + (PE.dirty ? "・まだ保存していません" : "") + "。セルを押して直す。⬇ は選んだ点(なければ表示している点)。";
+          $("peUndo").disabled = !PE.undo.length;
+          $("peDel").textContent = `🗑 選んだ点を消す${nSel ? "(" + nSel + ")" : ""}`;
+        }
+        function peCommit() {   // 打っている途中のセル(まだ change が来ていない)を入れる
+          const a = document.activeElement;
+          if (!PE || !a || !a.dataset || !a.dataset.k || a.dataset.k === "sel" || !$("peIn").contains(a)) return;
+          const row = a.closest("[data-i]"); if (!row) return;
+          peSet(PE.rows[Number(row.dataset.i)], a.dataset.k, a.value);
+        }
+        function peNewName(used) { let n = nextName(); for (let k = 0; used.has(n) && k < 100000; k++) { const m = /^(.*?)(\d+)$/.exec(n); n = m ? m[1] + String(Number(m[2]) + 1).padStart(m[2].length, "0") : n + "_2"; } return n; }
+        function peAddRow() {
+          peCommit(); peSnap();
+          const used = new Set(PE.rows.map((r) => r.name)), nm = peNewName(used), hc = Number($("hConst").value) || 0;
+          PE.rows.push({ id: PE.nid++, o: null, name: nm, X: NaN, Y: NaN, H: hc, X0: NaN, Y0: NaN, H0: NaN, role: "design", memo: "", sel: false });
+          PE.q = ""; $("peQ").value = ""; if (PE.f !== "all") { PE.f = "all"; $("peF").value = "all"; } PE.sort = ""; $("peSort").value = "";
+          peView(); $("peWrap").scrollTop = PE_H * PE.view.length;
+          setTimeout(() => { const i = PE.rows.length - 1, x = $("peIn").querySelector('[data-i="' + i + '"] [data-k="X"]'); if (x) x.focus(); }, 60);
+        }
+        async function peDelSel() {
+          peCommit();
+          const sel = PE.rows.filter((r) => r.sel); if (!sel.length) { alert("消す点を ☑ で選んでください。"); return; }
+          const used = sel.filter((r) => r.o && peRefs(r.o.name).length);
+          const msg = `${sel.length} 点を消します。` + (used.length ? `\n\n⚠ 使っている点があります:\n` + used.slice(0, 12).map((r) => `・${r.o.name}(${peRefs(r.o.name).join("・")})`).join("\n") + (used.length > 12 ? `\n…ほか ${used.length - 12} 点` : "") + "\n消すと、その設定も外れます。" : "") + "\nよろしいですか?(↶ 戻す で戻せます。保存するまで一覧はそのまま)";
+          if (!confirm(msg)) return;
+          peSnap(); PE.rows = PE.rows.filter((r) => !r.sel); peView();
+        }
+        async function peHAdd() {
+          peCommit();
+          const sel = PE.rows.filter((r) => r.sel), tg = sel.length ? sel : PE.view.map((i) => PE.rows[i]);
+          if (!tg.length) return;
+          const { v, box } = await peAsk("H に足す", `<p style="margin:0">${sel.length ? "選んだ " + sel.length + " 点" : "表示している " + tg.length + " 点"}の H に足します(${PE.unit}。下げるときは −)。</p><label>足す値<input type="text" inputmode="decimal" id="peHv" data-noipx value="0"></label>`, [{ label: "やめる", v: 0 }, { label: "足す", v: 1, pri: true }]);
+          if (!v) return;
+          const d = peNum(box.querySelector("#peHv").value); if (!Number.isFinite(d)) { alert("数を入れてください。"); return; }
+          peSnap(); for (const r of tg) if (Number.isFinite(r.H)) r.H = Math.round((r.H + d) * 1e6) / 1e6; peView();
+        }
+        async function peRoleSel() {
+          peCommit();
+          const sel = PE.rows.filter((r) => r.sel); if (!sel.length) { alert("種別を変える点を ☑ で選んでください。"); return; }
+          const { v } = await peAsk("種別を変える", `<p style="margin:0">選んだ ${sel.length} 点の種別を変えます。</p>`, [{ label: "やめる", v: "" }, { label: "設計点に", v: "design" }, { label: "既知点に", v: "known", pri: true }]);
+          if (!v) return;
+          peSnap(); for (const r of sel) r.role = v; peView();
+        }
+        async function peImport(ev) {
+          const f = ev.target.files && ev.target.files[0]; if (!f) return;
+          peCommit();
+          let res;
+          try { res = parseAny(decodeText(new Uint8Array(await f.arrayBuffer())), f.name); } catch (e) { alert("読めません: " + e.message); return; }
+          const { sima, rows } = res;
+          if (!rows.length) { alert(`${f.name}:点が見つかりません(CSV は 点名,X,Y,H、SIMA は A01)。`); return; }
+          const { v, box } = await peAsk("📥 " + f.name + "(" + rows.length + " 点・" + (sima ? "SIMA・X=北・Y=東・m" : "CSV・" + ($("axis").value === "northEast" ? "X=北・Y=東" : "X=横・Y=縦") + "・" + unitName()) + ")",
+            '<label><input type="radio" name="peM" value="add" checked> 今の一覧に足す</label><label><input type="radio" name="peM" value="rep"> 今の一覧を置き換える(今の点は消える)</label>' +
+            '<p style="margin:8px 0 2px"><b>同じ点名があったら</b></p><label><input type="radio" name="peD" value="over" checked> 上書きする(座標・H を読んだ値に)</label><label><input type="radio" name="peD" value="ren"> 別の名前で足す(名前_2…)</label><label><input type="radio" name="peD" value="skip"> 飛ばす(今の点のまま)</label>' +
+            (sima && $("axis").value !== "northEast" ? '<p style="color:#e03131;margin:6px 0 0">⚠ SIMA は公共座標ですが、図面が公共座標ではありません。位置が合わないかもしれません。</p>' : ""),
+            [{ label: "やめる", v: "" }, { label: "読む", v: "go", pri: true }]);
+          if (!v) return;
+          const mode = box.querySelector('input[name=peM]:checked').value, dup = box.querySelector('input[name=peD]:checked').value;
+          const k = sima ? (unitName() === "m" ? 1 : 1000) : 1, hc = Number($("hConst").value) || 0;
+          peSnap();
+          if (mode === "rep") PE.rows = [];
+          const byN = new Map(PE.rows.map((r) => [r.name, r])), used = new Set(byN.keys());
+          let add = 0, over = 0, skip = 0, ren = 0;
+          for (const q of rows) {
+            let nm = String(q.name || "").trim(); if (!nm) { skip++; continue; }
+            const X = q.X * k, Y = q.Y * k, H = q.H !== undefined && Number.isFinite(q.H) ? q.H * k : hc;
+            const r0 = byN.get(nm);
+            if (r0) {
+              if (dup === "skip") { skip++; continue; }
+              if (dup === "over") { r0.X = X; r0.Y = Y; r0.H = H; over++; continue; }
+              let i = 2, base = nm.slice(0, 13); while (used.has(base + "_" + i)) i++; nm = base + "_" + i; ren++;
+            }
+            const r = { id: PE.nid++, o: null, name: nm, X, Y, H, X0: NaN, Y0: NaN, H0: NaN, role: KNOWN_RE.test(nm) ? "known" : "design", memo: "", sel: false };
+            PE.rows.push(r); byN.set(nm, r); used.add(nm); add++;
+          }
+          peView();
+          alert(`✓ ${f.name}:足した ${add} 点` + (over ? `・上書き ${over} 点` : "") + (ren ? `・別名 ${ren} 点` : "") + (skip ? `・飛ばした ${skip} 点` : "") + (mode === "rep" ? "(置き換え)" : "") + "。「💾 保存して戻る」で一覧に入ります。");
+        }
+        function peExport(kind) {
+          peCommit();
+          const sel = PE.rows.filter((r) => r.sel), list = (sel.length ? sel : PE.view.map((i) => PE.rows[i])).filter((r) => !peBad(r));
+          if (!list.length) { alert("書き出す点がありません(赤の行は書き出しません)。"); return; }
+          const u = PE.unit, pts = list.map((r) => { const [x, y] = fromDisplay(r.X, r.Y, u); return { name: r.name, x, y, h: r.H }; });
+          const base = safeName(($("fname").value || site || "kurukuru").trim()) + (sel.length ? "_sel" : "");
+          if (kind === "csv") {
+            download(TL.toTopLayoutCsv(pts, { axis: $("axis").value, unit: u, decimals: 3 }), base + ".csv", "text/csv");
+            setStatus(`⬇ ${list.length} 点を ${base}.csv(点名,X,Y,H・${$("axis").value === "northEast" ? "X=北・Y=東" : "X=横・Y=縦"}・${u})にしました。`);
+          } else {
+            try {
+              const kk = u === "m" ? 1 : 0.001;
+              download(TL.simaToSjis(TL.toSima(pts.map((p) => ({ ...p, h: p.h * kk })), { unit: "m", decimals: 3, title: "KURUKURU" })), base + ".sim", "application/octet-stream");
+              setStatus(`⬇ ${list.length} 点を ${base}.sim(SIMA・X=北・Y=東・m)にしました。`);
+            } catch (e) { alert("SIMA を書けません: " + e.message); return; }
+          }
+          $("peInfo").textContent = `⬇ ${list.length} 点を${sel.length ? "(選んだ点)" : "(表示している点)"}書き出しました。`;
+        }
+        function peApply() {   // 大きな画面の表 → 一覧(picks)。名前を変えた・消した点の設定(既知点・出す点・器械設置の枠など)も直す
+          const u = PE.unit, keep = new Set(PE.rows.filter((r) => r.o).map((r) => r.o));
+          const gone = picks.filter((p) => !keep.has(p));
+          const ren = (a, b) => {
+            if (k1 === a) k1 = b; if (k2 === a) k2 = b; if (target === a) target = b; if (kNext === a) kNext = b;
+            if (typeof clSelN !== "undefined" && clSelN === a) clSelN = b;
+            kPlan = kPlan.map((n) => (n === a ? b : n)); kSeq = kSeq.map((q) => (q.name === a ? { ...q, name: b } : q));
+          };
+          for (const p of gone) ren(p.name, null);
+          kSeq = kSeq.filter((q) => q.name); kPlanSave();
+          let nNew = 0, nEd = 0;
+          const out = PE.rows.map((r) => {
+            let p = r.o;
+            if (!p) { const [x, y] = fromDisplay(r.X, r.Y, u); nNew++; return { name: r.name, x, y, h: r.H, kind: "hand", role: r.role, ...(r.memo ? { memo: r.memo } : {}) }; }
+            let ch = false;
+            if (p.name !== r.name) { ren(p.name, r.name); p.name = r.name; ch = true; }
+            if (r.X !== r.X0 || r.Y !== r.Y0) { const [x, y] = fromDisplay(r.X, r.Y, u); p.x = x; p.y = y; p.kind = "hand"; ch = true; }
+            if (r.H !== r.H0) { p.h = r.H; ch = true; }
+            if (roleOf(p) !== r.role) { p.role = r.role; if (r.role === "design") { if (k1 === p.name) k1 = null; if (k2 === p.name) k2 = null; } ch = true; }
+            if ((p.memo || "") !== r.memo) { if (r.memo) p.memo = r.memo; else delete p.memo; ch = true; }
+            if (ch) nEd++;
+            return p;
+          });
+          kPlanSave();
+          picks = out;
+          afterChange();
+          setStatus(`✓ 座標リストを保存しました(いま ${picks.length} 点・直した ${nEd}・足した ${nNew}・消した ${gone.length})。`);
+        }
+        $("clBig").addEventListener("click", peOpen);
+        window.IPPATSU_KR_PE = { open: peOpen, state: () => PE, picks: () => picks };   // 試験用
         if (window.KurukuruAndroid) {   // Android アプリ版: 中継はアプリの中で動いている(Termux はいらない)
           document.body.classList.add("in-android");
           $("cfgRelay").value = "ws://127.0.0.1:8766";
