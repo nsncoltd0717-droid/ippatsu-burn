@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   // 画面の版(「⟳ 更新」で届く分)。左の帯の下に出る
-  const SCREEN_VER = '画面 2026-11-25a';
+  const SCREEN_VER = '画面 2026-11-25b';
   window.IPPATSU_WINDOWS_SCREEN = SCREEN_VER;
   const root = document.documentElement;
   const LS = {
