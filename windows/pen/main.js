@@ -151,6 +151,7 @@ HTMLAnchorElement.prototype.click = function(){ try { if (this.download && this.
 
 // 「アプリの更新」で取った物があれば、そちらを使う(本体の版が変わったら、同梱の方に戻す)
 function webMeta() { try { return JSON.parse(fs.readFileSync(path.join(webDir(), 'meta.json'), 'utf8')); } catch (e) { return null; } }
+const ASSET_RE = /vendor\/(?:ipx|opening)\/[A-Za-z0-9_.-]+/g;   // v2.13.0 から HTML が別ファイルで読む共通部品
 async function readWeb(name) {
   const m = webMeta();
   if (m && m.shell === app.getVersion()) { try { return await fs.promises.readFile(path.join(webDir(), name)); } catch (e) { /* */ } }
@@ -173,14 +174,23 @@ ipcMain.handle('pen:update', async () => {
   if (!/写真ペン太郎/.test(html) || !/<\/html>/i.test(html)) return { ok: false, error: '取ってきた pen.html が正しくありません' };
   let shellNew = null;
   try { const pk = JSON.parse((await fetchText('windows/pen/package.json')).toString('utf8')); if (newer(pk.version, app.getVersion())) shellNew = pk.version; } catch (e) { /* */ }
+  // 共通部品は名前に版の印が付いているので、HTML に書いてある物のうち手元に無い物だけ取ってくる
+  const assets = new Set();
+  for (const m of html.matchAll(ASSET_RE)) assets.add(m[0]);
+  for (const a of assets) {
+    const have = await readWeb(a).catch(() => null);
+    if (have) { got[a] = have; continue; }
+    try { got[a] = await fetchText(a); } catch (e) { return { ok: false, error: `部品 ${a} を取れませんでした。更新はしていません。` + e.message }; }
+  }
   let changed = false;
   for (const name of Object.keys(got)) { const cur = await readWeb(name).catch(() => null); if (!cur || !cur.equals(got[name])) changed = true; }
   const before = verOf((await readWeb('pen.html')).toString('utf8'));
   if (changed) {
     const tmp = webDir() + '.new';
     fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
-    for (const name of Object.keys(WEB_FILES)) {
+    for (const name of [...Object.keys(WEB_FILES), ...assets]) {
       const b = got[name] || await readWeb(name);   // desktop.* がまだ公開されていなければ今の物を使う
+      fs.mkdirSync(path.dirname(path.join(tmp, name)), { recursive: true });
       fs.writeFileSync(path.join(tmp, name), b);
     }
     fs.writeFileSync(path.join(tmp, 'meta.json'), JSON.stringify({ shell: app.getVersion(), at: new Date().toISOString(), pen: verOf(html) }));
@@ -245,7 +255,7 @@ app.whenReady().then(() => {
     const file = path.normalize(path.join(ROOT, rel));
     if (!file.startsWith(ROOT + path.sep)) return new Response('forbidden', { status: 403 });
     try {
-      let body = WEB_FILES[rel] ? await readWeb(rel) : await fs.promises.readFile(file);
+      let body = await readWeb(rel);   // 「更新」で取った物(HTML・共通部品)があればそちら、無ければ同梱の物
       if (rel === 'pen.html') body = patchPen(body.toString('utf8'));
       return new Response(body, { headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'cache-control': 'no-store' } });
     } catch (e) { return new Response('not found', { status: 404 }); }
