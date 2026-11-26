@@ -35,6 +35,17 @@
         足したあとの標高を、画面・🎯 の標高差・点の保存(H)・CSV・SIMA・確認の記録のすべてに使う(onPosData で gps.alt に足す。足す前は gps.altRaw)。
         「既知点で合わせる」:標高のわかっている点の上で、平均した標高(足す前)と既知の標高の差をオフセットにする(i76 は FIX の回だけで平均)。「0 に戻す」。
         ② ローカライゼーションは平面(X・Y)だけなので、標高はこのオフセットだけで合わせる(重ならない)。
+      2026-11-27 v0.6.0 ゆきちゃん「Android 版では標高が 40 m 位高い。XY も 1〜2 m ずれる。原因を探って改善を。目的の点に Z も」:
+        原因:Android(WebView・Chrome)の位置情報の高さ(coords.altitude)は WGS84 の楕円体高(Location.getAltitude)。日本のジオイド高は約 30〜45 m
+        (大阪で 37.6 m)なので、そのまま「標高」と出すと 40 m 近く高い。iPhone(Safari)の高さは海抜(Apple がジオイドで直した値)なので引かない。i76 は GGA の海抜のまま。
+        → Android の端末 GPS のときは「ジオイド高 N」(現場ごと work.geoidN)を楕円体高から引く(標高 = 楕円体高 − N + オフセット)。N は「🌐 国土地理院で調べる」
+        (今の緯度経度でジオイド高の計算を開く。JPGEO2024+標高の基準の差 を入れる)で調べて入れる。入れていないときは「⚠ 楕円体高」と出す。
+        XY:緯度経度 → 平面直角座標は pyproj と 0.000 mm で合う(v0.3.0 の試験)。enableHighAccuracy・maximumAge 0。1〜2 m は携帯の GPS(単独測位)の普通の誤差と、
+        測地系の地殻変動(GPS は今の位置、JGD2011 は 2011 年の位置。近畿で数十 cm)。② ローカライゼーション(既知点 1 点で平行移動)で合わせるか i76 を使う。
+        目的の点:図面の下の「📍」・🎯・上の帯に Z(標高)と、今の標高との差を出す。
+      2026-11-27 v0.7.0 ゆきちゃん「(ジオイド高は)アプリが地理院に聞く」:Android アプリ(1.34.0 の KurukuruAndroid.geoidGet)が国土地理院のジオイド高の計算を読み、
+        window.__geoid で返す。Android の端末 GPS のとき、ジオイド高が無いか、前に取った所から 1 km 以上動いたら自動で聞いて入れる(現場ごと。取った所・日時を出す)。
+        失敗(圏外など)は前の値・手入力のまま ⚠。手で入れた値は、1 km 以上動くまで自動で上書きしない。⚙「ジオイド高を自動で国土地理院に聞く」で切れる。古いアプリ(geoidGet なし)は今までどおり手で。
     -->
     <style>
       :root {
@@ -288,7 +299,7 @@
     </script>
     <script>window.IPPATSU_APP = "hisoka";</script>
     <script src="vendor/ipx/common_9faa4e06ef.js"></script>
-    <script>window.IPPATSU_OPENING = { name: "ひそかに調べ太郎", ver: "v0.5.0", girl: "vendor/opening/hisoka_opening_cfd53982.jpg", nologo: true, key: "ipx.op.hisoka" };
+    <script>window.IPPATSU_OPENING = { name: "ひそかに調べ太郎", ver: "v0.7.0", girl: "vendor/opening/hisoka_opening_cfd53982.jpg", nologo: true, key: "ipx.op.hisoka" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -992,7 +1003,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>ひそかに調べ太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.5.0</small></h1>
+      <h1>ひそかに調べ太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.7.0</small></h1>
       <button type="button" class="hbtn" id="helpBtn" aria-label="使い方">？</button>
     </header>
     <!-- 今の目的の点と距離(どこまで下へ動かしても見える) -->
@@ -1031,6 +1042,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <div><small>取れた時刻</small><b id="nT">---</b></div>
         </div>
         <p class="step-note" id="zoneNote" hidden></p>
+        <div class="alarm info" id="gnWarnEll" hidden style="background:#1864ab"></div>
         <!-- v0.4.0 OPPO(ColorOS)の手当て。Android アプリで OPPO・realme・OnePlus のときだけ出す -->
         <div class="caution" id="hkOppo" hidden>
           📱 <b>OPPO(ColorOS)でお使いのとき</b>:裏に回ると電池の節約で GPS・i76 が止められることがあります。はじめに一度、次を設定してください。<br>
@@ -1215,8 +1227,19 @@ canvas.xs-3d { background: #0b0c0e !important; }
 
       <!-- v0.5.0 標高のオフセット(入力元ごと・現場ごと) -->
       <details class="box" id="hoBox">
-        <summary>📏 標高のオフセット<span class="sm" id="hoSum" style="font-weight:400;margin-left:6px"></span></summary>
+        <summary>📏 標高(ジオイド高・オフセット)<span class="sm" id="hoSum" style="font-weight:400;margin-left:6px"></span></summary>
         <div>
+          <div id="gnBox" hidden style="margin-bottom:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
+            <b>🌐 ジオイド高(Android の端末 GPS)</b>
+            <p class="step-note" style="margin-top:2px">Android の GPS の高さは<b>楕円体高</b>で、日本では標高より <b>約 30〜45 m 高く</b>出ます。現場のジオイド高 N を入れると、標高 = 楕円体高 − N にします(現場ごとに覚えます)。</p>
+            <label class="f" for="gnN">ジオイド高 N(m)</label>
+            <div class="row">
+              <input type="text" id="gnN" inputmode="decimal" data-noipx autocomplete="off" placeholder="例 37.631" />
+              <button type="button" class="big" id="gnNSet" style="flex:0 0 auto;width:auto;min-height:44px;font-size:14px">この値にする</button>
+            </div>
+            <div class="row" style="margin-top:8px"><button type="button" class="big" id="gnNGsi">🌐 国土地理院で調べる(今の位置)</button></div>
+            <p class="step-note" id="gnNInfo"></p>
+          </div>
           <p class="step-note" style="margin-top:0"><b id="hoSrc">📱 端末の GPS</b> の標高に、この値(m)を足して使います(画面・🎯 の標高差・点の保存・CSV・SIMA・確認の記録)。入力元(端末の GPS/i76)ごと・現場ごとに覚えます。</p>
           <label class="f" for="hoVal">足す値(m。下げるときは −)</label>
           <div class="row">
@@ -1253,6 +1276,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           <label class="f" for="cDecl">磁北のずれ(偏角・西へ °)</label>
           <select id="cDeclMode"><option value="auto">自動(国土地理院の近似式)</option><option value="manual">手で入れる</option></select>
           <input type="number" id="cDecl" min="0" max="20" step="0.1" style="margin-top:6px" />
+          <label class="f" for="cGeoAuto">ジオイド高(Android の端末 GPS)</label>
+          <select id="cGeoAuto"><option value="1">自動で国土地理院に聞く(アプリ 1.34.0 以上・電波が要る)</option><option value="0">聞かない(手で入れる)</option></select>
           <label class="f" for="cEye">AR:スマホを持つ高さ(m)</label>
           <input type="number" id="cEye" min="0.5" max="2.5" step="0.1" />
         </div>
@@ -1378,7 +1403,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* */ } } };
 
         // ---------------------------------------------------------------- 設定(端末ごと)
-        const CFG_DEF = { warn: 5, near: 3, avg: 10, saveH: "0", unit: "auto", declMode: "auto", decl: 7.5, eye: 1.4, zone: "", src: "phone", btAddr: "", btName: "", gnOn: false, corr: "app" };   // corr:補正の受け方(app=アプリの NTRIP / rx=i76 が自分で)   // v0.3.0 src:位置の入力元(phone/i76)
+        const CFG_DEF = { geoAuto: true, warn: 5, near: 3, avg: 10, saveH: "0", unit: "auto", declMode: "auto", decl: 7.5, eye: 1.4, zone: "", src: "phone", btAddr: "", btName: "", gnOn: false, corr: "app" };   // corr:補正の受け方(app=アプリの NTRIP / rx=i76 が自分で)   // v0.3.0 src:位置の入力元(phone/i76)
         let cfg = { ...CFG_DEF }; try { cfg = { ...CFG_DEF, ...JSON.parse(ls.get("hisoka.cfg") || "{}") }; } catch (e) { /* */ }
         const saveCfg = () => ls.set("hisoka.cfg", JSON.stringify(cfg));
 
@@ -1467,9 +1492,38 @@ canvas.xs-3d { background: #0b0c0e !important; }
         const samples = [];   // 平均を取っている間の生の値
         let sampling = null;
         // 端末の GPS(watchPosition)
+        // v0.6.0 Android の端末 GPS の高さは楕円体高(WGS84)。現場のジオイド高 N を引いて標高にする(iPhone は海抜なので引かない)
+        const ELLIP = /Android/i.test(navigator.userAgent || "") && !/iPhone|iPad|iPod/i.test(navigator.userAgent || "") && !(window.IPPATSU_IOS && window.IPPATSU_IOS.on);
+        const geoidN = () => { const v = Number(work.geoidN); return work.geoidN != null && work.geoidN !== "" && isFinite(v) ? v : null; };
+        // v0.7.0 ジオイド高を国土地理院に聞く(Android アプリが代わりに読む)
+        const geoAble = () => !!(ELLIP && AND && typeof AND.geoidGet === "function");
+        const kmBetween = (a, b, c, d) => { const R = 6371, x = (d - b) * D * Math.cos(((a + c) / 2) * D), y = (c - a) * D; return Math.hypot(x, y) * R; };
+        let geoAsk = null, geoLastTry = 0, geoErr = "";
+        function geoMaybe(lat, lon) {
+          if (!geoAble() || !cfg.geoAuto || geoAsk || isI76()) return;
+          const at = work.geoidAt, N = geoidN();
+          if (N != null && (!at || at.lat == null)) { work.geoidAt = { ...(at || { src: "hand", t: Date.now() }), lat, lon }; saveWork(); return; }   // 手で入れた値(位置なし)は、今の所で入れたものとする
+          const moved = at && at.lat != null ? kmBetween(at.lat, at.lon, lat, lon) : Infinity;
+          if (N != null && moved < 1) return;   // 前に取った(入れた)所から 1 km 以内
+          if (geoErr && Date.now() - geoLastTry < 60000) return;   // しくじったら 1 分あけて聞き直す(聞いている間は geoAsk で 1 回だけ)
+          geoLastTry = Date.now(); geoAsk = { id: "g" + geoLastTry, lat, lon };
+          try { AND.geoidGet(lat, lon, geoAsk.id); } catch (e) { geoAsk = null; geoErr = "アプリに聞けません(" + e.message + ")"; showGeoid(); }
+          showGeoid();
+        }
+        window.__geoid = (r) => {
+          const a = geoAsk; geoAsk = null;
+          if (!r || (a && r.id && r.id !== a.id)) return;
+          const v = parseFloat(r.n);
+          if (!r.ok || !isFinite(v) || v < -100 || v > 120) { geoErr = (r && r.msg) || "国土地理院の答えが読めません"; showGeoid(); showPos(); return; }
+          geoErr = "";
+          setGeoidN(v, { src: "auto", lat: r.lat != null ? Number(r.lat) : a && a.lat, lon: r.lon != null ? Number(r.lon) : a && a.lon, t: Date.now(), geoid: r.geoid, hrc: r.hrc });
+          toast("🌐 国土地理院のジオイド高 " + v.toFixed(3) + " m を入れました(標高 = GPS の高さ − " + v.toFixed(3) + ")");
+        };
         function onPos(g) {
-          const c = g.coords;
-          onPosData({ lat: c.latitude, lon: c.longitude, acc: c.accuracy, alt: c.altitude, altAcc: c.altitudeAccuracy, t: g.timestamp || Date.now(), spd: c.speed, hdg: c.heading, src: "phone" });
+          const c = g.coords; if (ELLIP && c.altitude != null) geoMaybe(c.latitude, c.longitude);
+          const N = ELLIP ? geoidN() : null;
+          const alt = c.altitude == null ? null : ELLIP && N != null ? c.altitude - N : c.altitude;
+          onPosData({ lat: c.latitude, lon: c.longitude, acc: c.accuracy, alt, altEll: ELLIP ? c.altitude : null, ellNoN: ELLIP && N == null && c.altitude != null, altAcc: c.altitudeAccuracy, t: g.timestamp || Date.now(), spd: c.speed, hdg: c.heading, src: "phone" });
         }
         // v0.3.0:端末の GPS と i76 のどちらの位置もここを通す(図面・🎯・AR・座標リスト・保存・ローカライゼーションは gps を見る)
         function onPosData(d) {
@@ -1769,7 +1823,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           cfg.src = s; saveCfg(); gps = null; sampling = null;
           $("srcSel").querySelectorAll("[data-src]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === cfg.src)));
           if (isI76() && gnAble()) { gnDevices(false); ntLoad(); }
-          gnShow(); showBtn(); showPos(); showOff(); dirty();
+          gnShow(); showBtn(); showPos(); showOff(); showGeoid(); dirty();
           if (was) gpsStart();
           if (isI76() && !gnAble()) toast("i76 は Android アプリでのみ使えます");
         }
@@ -1851,7 +1905,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
           } else zn.hidden = true;
           const g = gps, acc = $("accChip"), al = $("accAlarm"), sn = srcName();
           const ho = offOf(isI76() ? "i76" : "phone");
-          $("nHl").textContent = (isI76() ? "標高(参考・受信機のジオイド)" : "標高(参考・GPS)") + (ho ? "・補正" + fOff(ho) + "m" : "");
+          const N = geoidN();
+          $("nHl").textContent = (isI76() ? "標高(参考・受信機のジオイド)" : ELLIP ? (N != null ? "標高(GPS・ジオイド高 " + N.toFixed(3) + " を引いた)" : "⚠ 楕円体高(GPS。ジオイド高が未設定)") : "標高(参考・GPS)") + (ho ? "・補正" + fOff(ho) + "m" : "");
+          const gw = $("gnWarnEll"), wn = !isI76() && ELLIP && N == null;
+          gw.hidden = !wn; if (wn) gw.innerHTML = geoAsk ? "🌐 ジオイド高を国土地理院に聞いています…(届くまで高さは楕円体高です)" : "⚠ Android の GPS の高さは<b>楕円体高</b>です(日本では標高より約 30〜45 m 高い)。" + (geoErr ? "国土地理院に自動で聞けませんでした(" + esc(geoErr) + ")。" : "") + "下の「📏 標高(ジオイド高・オフセット)」で<b>ジオイド高</b>を入れてください(🌐 国土地理院で調べられます)。";
           if (!g) {
             acc.textContent = running() ? (gpsErr || sn + " を待っています…") : sn + (isI76() ? " つないでいません" : " 止まっています"); acc.className = "chip" + (gpsErr ? " ng" : "");
             ["nX", "nY", "nLat", "nLon", "nH", "nT"].forEach((k) => ($(k).textContent = "---")); al.hidden = !gpsErr; al.textContent = gpsErr ? "⚠ " + gpsErr : "";
@@ -1884,9 +1941,16 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (o.rel != null) { const q = o.rel * D; o.fw = r * Math.cos(q); o.rt = r * Math.sin(q); if (Math.abs(o.rt) < 0.005) o.rt = 0; if (Math.abs(o.fw) < 0.005) o.fw = 0; }
           return o;
         }
+        // v0.6.0 点の Z(標高)。図面を押した所(仮の点)は高さが無いので「—」
+        const zOf = (p) => (p && p.src !== "tap" && p.H != null && isFinite(p.H) ? f3(p.H) : "—");
+        function zDiff(p) {   // 今の標高との差(今の位置 − 点。+ は今の方が高い)
+          const g = here(); if (!p || p.src === "tap" || p.H == null || !isFinite(p.H) || !g || g.alt == null) return "";
+          const d = g.alt - p.H, cm = g.acc < 0.1;
+          return "今の標高との差 " + (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(cm ? 3 : 2) + " m(" + (d >= 0 ? "今が高い・切り" : "今が低い・盛り") + (g.ellNoN ? "。⚠ 楕円体高のまま" : "") + ")";
+        }
         function showTarget() {
           const p = byName(target);
-          $("tName").textContent = p ? "🎯 " + p.name + (p.src === "hisoka" ? "(GPS で保存)" : p.src === "text" ? "(図面の座標の文字)" : p.src === "file" ? "(点のファイル)" : p.src === "tap" ? "(X " + f3(p.X) + "・Y " + f3(p.Y) + ")" : "") : target ? "「" + target + "」は現場の座標にありません" : "目的の点を選んでください";
+          $("tName").textContent = p ? "🎯 " + p.name + (p.src === "hisoka" ? "(GPS で保存)" : p.src === "text" ? "(図面の座標の文字)" : p.src === "file" ? "(点のファイル)" : p.src === "tap" ? "(X " + f3(p.X) + "・Y " + f3(p.Y) + ")" : "") + "・Z " + zOf(p) : target ? "「" + target + "」は現場の座標にありません" : "目的の点を選んでください";
           const o = rel(), al = $("tAlarm");
           if (!o) {
             $("tDist").textContent = "--- m"; $("tDist").className = "dist"; $("tDir").textContent = p ? "今の位置を待っています" : "北から ---°"; $("tFR").textContent = p ? "📡 " + srcName() + " を始めてください" : "";
@@ -1915,7 +1979,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         // 上の帯:今の目的の点と距離(どこまで下へ動かしても見える)
         function showBar() {
           const p = byName(target), o = rel();
-          $("tbName").textContent = p ? "🎯 " + p.name + (checkedOf(p.name) ? " ✓" : "") : target ? "🎯 「" + target + "」が見つかりません" : "🎯 目的の点なし(📋 か図面を押す)";
+          $("tbName").textContent = p ? "🎯 " + p.name + (checkedOf(p.name) ? " ✓" : "") + (zOf(p) !== "—" ? "  Z " + zOf(p) : "") : target ? "🎯 「" + target + "」が見つかりません" : "🎯 目的の点なし(📋 か図面を押す)";
           const s = $("tbDist");
           if (!p) { s.textContent = ""; s.className = ""; return; }
           if (!o) { s.textContent = here() ? "" : (running() ? srcName() + " を待っています…" : "📡 " + srcName() + " を始めると距離が出ます"); s.className = ""; return; }
@@ -2585,7 +2649,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
         let tapCnt = 0;
         function showTap(p, kind) {
           const o = rel();
-          let h = "📍 <b>" + esc(p.name) + "</b>" + (kind && kind !== "点" ? "(" + esc(kind) + "に吸い付き)" : kind === "" ? "(吸い付く所なし・押した位置)" : "") + "<br>X(北) <b>" + f3(p.X) + "</b>・Y(東) <b>" + f3(p.Y) + "</b> m";
+          const zd = zDiff(p);
+          let h = "📍 <b>" + esc(p.name) + "</b>" + (kind && kind !== "点" ? "(" + esc(kind) + "に吸い付き)" : kind === "" ? "(吸い付く所なし・押した位置)" : "") + "<br>X(北) <b>" + f3(p.X) + "</b>・Y(東) <b>" + f3(p.Y) + "</b>・Z <b>" + zOf(p) + "</b> m" + (zd ? "<br>" + zd : "");
           if (o && o.p === p) h += "<br>今の位置から <b>" + o.r.toFixed(2) + " m</b>・北から " + o.az.toFixed(1) + "°(" + dir8(o.az) + ")" + (o.rel != null ? "・" + (o.fw >= 0 ? "前へ " : "後ろへ ") + Math.abs(o.fw).toFixed(2) + "・" + (o.rt >= 0 ? "右へ " : "左へ ") + Math.abs(o.rt).toFixed(2) + " m" : "");
           else if (!here()) h += "<br>📡 " + srcName() + " を始めると、今の位置からの距離・方向が出ます";
           h += '<div class="row"><button type="button" class="pri" id="tiGo">🎯 ここを確認(簡易確認へ)</button>' + (p.src === "tap" ? '<button type="button" id="tiSave">💾 座標に保存</button>' : "") + "</div>";
@@ -2736,6 +2801,38 @@ canvas.xs-3d { background: #0b0c0e !important; }
           c.fillStyle = "#fff"; c.font = "10px system-ui,sans-serif"; c.fillText("半径 " + rng + " m", cx, cy + R + 13);
         }
 
+        // ---------------------------------------------------------------- v0.6.0 ジオイド高(Android の端末 GPS)
+        function showGeoid() {
+          const box = $("gnBox"); box.hidden = !ELLIP || isI76(); if (box.hidden) return;
+          const N = geoidN(); if (document.activeElement !== $("gnN")) $("gnN").value = N != null ? N.toFixed(3) : "";
+          const at = work.geoidAt;
+          $("gnNInfo").innerHTML = (N != null ? "いま:ジオイド高 <b>" + N.toFixed(3) + " m</b> を引いています" + (site ? "(現場「" + esc(site) + "」)" : "(現場なし)") +
+              (at ? "・" + (at.src === "auto" ? "🌐 国土地理院から自動" : "手入力") + (at.t ? "(" + esc(stampOf(at.t)) + (at.lat != null ? "・緯度 " + Number(at.lat).toFixed(5) + "・経度 " + Number(at.lon).toFixed(5) : "") + ")" : "") : "") + "。" : "<b>まだ入っていません(高さは楕円体高のまま)。</b>") +
+            (geoAsk ? "<br>🌐 国土地理院に聞いています…" : "") + (geoErr ? "<br><b style=\"color:var(--ng)\">⚠ 自動で取れませんでした:" + esc(geoErr) + "。" + (N != null ? "前の値のまま使っています。" : "電波のある所で、または手で入れてください。") + "</b>" : "") +
+            (!geoAble() ? "<br><small>このアプリは自動で聞けません(Android アプリ 1.34.0 以上で自動)。手で入れてください。</small>" : !cfg.geoAuto ? "<br><small>⚙ で自動を切っています。</small>" : "<br><small>GPS を取ると自動で聞きます(前の所から 1 km 以上動いたら聞き直す)。</small>") + "<br>" +
+            "「🌐 国土地理院で調べる」で出る <b>geoidHeight+HeightReferenceConversion</b>(JPGEO2024 と標高の基準の差の合計)の値を入れてください。" +
+            (offOf("phone") ? "<br>⚠ 端末の GPS のオフセット(" + fOff(offOf("phone")) + " m)が入っています。前に既知点で合わせていたら、その中にジオイド高の分も入っているので、ジオイド高を入れたらもう一度「既知点で合わせる」か「0 に戻す」をしてください。" : "");
+        }
+        function setGeoidN(v, at) {
+          work.geoidN = v == null ? null : Math.round(v * 10000) / 10000;
+          work.geoidAt = v == null ? null : at || { src: "hand", lat: gps && gps.lat, lon: gps && gps.lon, t: Date.now() };
+          saveWork();
+          if (gps && gps.src === "phone" && gps.altEll != null) { const N = geoidN(); gps.altRaw = N != null ? gps.altEll - N : gps.altEll; gps.alt = gps.altRaw + offOf("phone"); gps.ellNoN = N == null; }
+          showGeoid(); showOff(); showPos();
+        }
+        $("gnNSet").addEventListener("click", () => {
+          const s = String($("gnN").value).trim(); if (!s) { setGeoidN(null); toast("ジオイド高を消しました(高さは楕円体高のまま)"); return; }
+          const v = numIn(s); if (!isFinite(v) || v < -100 || v > 120) { toast("ジオイド高(m)を数で入れてください(日本では 25〜45 くらい)"); return; }
+          geoErr = ""; setGeoidN(v); toast("🌐 ジオイド高 " + v.toFixed(3) + " m を引いて標高にします");
+        });
+        $("gnNGsi").addEventListener("click", () => {
+          const g = gps && gps.lat != null ? gps : null;
+          if (!g) { toast("先に 📡 GPS で今の位置を取ってください(その緯度経度で調べます)"); return; }
+          const u = "https://vldb.gsi.go.jp/sokuchi/surveycalc/geoid/calcgh/cgi/geoidcalc.pl?outputType=json&latitude=" + g.lat.toFixed(6) + "&longitude=" + g.lon.toFixed(6);
+          try { window.open(u, "_blank"); } catch (e) { location.href = u; }
+          toast("国土地理院のジオイド高の計算を開きました。geoidHeight+HeightReferenceConversion の値を入れてください");
+        });
+
         // ---------------------------------------------------------------- v0.5.0 標高のオフセットの画面
         const curSrc = () => (isI76() ? "i76" : "phone");
         function showOff() {
@@ -2799,6 +2896,8 @@ canvas.xs-3d { background: #0b0c0e !important; }
           catch (e) { toast("⚠ " + e.message); }
         });
         const bindN = (id, k, after) => { const el = $(id); el.value = cfg[k]; el.addEventListener("change", () => { const v = el.type === "number" ? Number(el.value) : el.value; if (el.type === "number" && !(v > 0)) { el.value = cfg[k]; return; } cfg[k] = v; saveCfg(); if (after) after(); showPos(); dirty(); }); };
+        $("cGeoAuto").value = cfg.geoAuto ? "1" : "0";
+        $("cGeoAuto").addEventListener("change", () => { cfg.geoAuto = $("cGeoAuto").value === "1"; saveCfg(); geoErr = ""; showGeoid(); if (cfg.geoAuto && gps && gps.src === "phone") geoMaybe(gps.lat, gps.lon); });
         bindN("cWarn", "warn"); bindN("cNear", "near"); bindN("cAvg", "avg"); bindN("cSaveH", "saveH"); bindN("cEye", "eye");
         bindN("cUnit", "unit", () => { unitAuto(); showDrawInfo(); fit(); });
         bindN("cDeclMode", "declMode", () => { $("cDecl").disabled = cfg.declMode !== "manual"; });
@@ -2858,7 +2957,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             if (isI76()) { gnDevices(false); ntLoad(); if (cfg.gnOn && cfg.btAddr) gnStart(); }
             setCorr(cfg.corr, true);
           }
-          gnShow(); showBtn(); showOff();
+          gnShow(); showBtn(); showOff(); showGeoid();
           target = work.target || ""; showSaved(); showLoc(); showPos(); showChecks(); renderList();
           const hdr = document.querySelector("header"), setH = () => document.documentElement.style.setProperty("--hdrH", (hdr ? hdr.offsetHeight : 0) + "px");
           setH(); window.addEventListener("resize", setH); if (hdr && window.ResizeObserver) new ResizeObserver(setH).observe(hdr);

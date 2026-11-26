@@ -673,6 +673,9 @@
       .kwiz .kw-sel button { width: auto; min-height: 32px; padding: 2px 10px; font-size: 13px; }
       .kwiz .ezpts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 6px; }
       .kwiz .ezpts.more { max-height: 30vh; overflow: auto; }
+      /* v0.36.0 点の選び方は 1 行(青いボタンの並びをやめた) */
+      .kwiz .kw-pick button { width: 100%; min-height: 44px; font-size: 15px; font-weight: 700; margin: 4px 0 6px; }
+      .kwiz .kw-sel .kw-xy { font-size: 11.5px; color: var(--sub); margin: 0 4px; font-variant-numeric: tabular-nums; }
       .kwiz .ezpts button { min-height: 44px; font-size: 15px; font-weight: 800; padding: 4px; line-height: 1.2; background: #3b5bdb; color: #fff; border: 0; }
       .kwiz .ezpts button small { display: block; font-weight: 600; font-size: 11px; opacity: .85; }
       .kwiz .ezpts button.on { background: #f59e0b; color: #111; }
@@ -854,7 +857,7 @@
     <script>window.IPPATSU_APP = "kurukuru";</script>
     <script src="vendor/ipx/common_9faa4e06ef.js"></script>
     <script src="vendor/ipx/xs_9774e1a72b.js"></script>
-    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.35.1", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
+    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.36.0", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -1087,7 +1090,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.35.1</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.36.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -4370,24 +4373,23 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           h += `<div class="ezbig"><button type="button" data-kwm="known" aria-pressed="${known}">📍 既知点の上に据える<small>既知点設置(器械点と後視点)</small></button>` +
             `<button type="button" data-kwm="free" aria-pressed="${free}">🎯 好きな所に据える<small>後方交会(既知点を 2 点以上)</small></button></div>` +
             `<div class="kw-more"><button type="button" class="ghost" data-kwm="bm" aria-pressed="${ctMethod === "bm"}">BM 測定(高さだけ)</button><button type="button" class="ghost" data-kwm="last" aria-pressed="${ctMethod === "last"}">前回の設置を使う</button></div>`;
-          // 点のボタン:既知点を先に、そのあとにほかの登録した点(選ぶと既知点になる)
-          const ks = knowns(), others = picks.filter((p) => roleOf(p) !== "known" && !p.temp);
-          const btn = (which, p, sel, dist) => `<button type="button" data-kpt="${which}" data-n="${esc(p.name)}" class="${p.name === sel ? "on" : ""}">${esc(p.name)}${dist && A ? `<small>${dm(A, p).toFixed(1)} m</small>` : ""}</button>`;
-          const list = (which, excl, sel, dist) => {
-            const a = ks.filter((p) => !excl.includes(p.name)), o = others.filter((p) => !excl.includes(p.name));
-            if (!a.length && !o.length) return `<p class="step-note">点がありません。座標ファイル(SIMA・CSV)を入れてください。</p>`;
-            return (a.length ? `<div class="ezpts">${a.map((p) => btn(which, p, sel, dist)).join("")}</div>` : `<p class="step-note">既知点はまだありません。下の点から選ぶと既知点になります。</p>`) +
-              (o.length ? `<div class="kw-sub">ほかの登録した点(${o.length} 点。選ぶと既知点になります)</div><div class="ezpts more">${o.map((p) => btn(which, p, sel, dist)).join("")}</div>` : "");
+          // 点の選び方(v0.36.0 ゆきちゃん「座標リストの青いボタンは扱い辛いので廃止」):点名のボタンを並べず、選んだ点を 1 行で出し、
+          //   「📋 一覧から選ぶ」「変える」で小窓(kpDlg:さがす・点名・X・Y・H の 1 行ずつ)を開く。枠の既知点と同じ選び方
+          const list = (which, excl, sel, label) => {
+            const p = sel && byName(sel);
+            if (!picks.some((q) => !q.temp && !excl.includes(q.name))) return `<p class="step-note">点がありません。座標ファイル(SIMA・CSV)を入れてください。</p>`;
+            if (p) { const [X, Y] = fmtXY(p.x, p.y); return `<div class="kw-sel">${label} <b>${esc(p.name)}</b><small class="kw-xy">(${X}, ${Y})</small><button type="button" class="ghost" data-kpick="${which}">変える</button></div>`; }
+            return `<div class="kw-pick"><button type="button" class="big ghost" data-kpick="${which}">📋 ${label}を一覧から選ぶ</button></div>`;
           };
           if (known) {
             h += A ? `<div class="kw-sel">器械点 <b>${esc(A.name)}</b><button type="button" class="ghost" data-kch="k1">変える</button></div>`
-              : `<div class="kw-h">② 器械点(杭ナビを据えた既知点)を選ぶ</div>` + list("k1", [], null, false);
+              : `<div class="kw-h">② 器械点(杭ナビを据えた既知点)を選ぶ</div>` + list("k1", [], null, "器械点");
             if (A) h += B ? `<div class="kw-sel">後視点 <b>${esc(B.name)}</b>(器械点から ${dm(A, B).toFixed(3)} m)<button type="button" class="ghost" data-kch="k2">変える</button></div>`
-              : `<div class="kw-h">③ 後視点(プリズムを立てる既知点)を選ぶ</div>` + list("k2", [A.name], null, true);
+              : `<div class="kw-h">③ 後視点(プリズムを立てる既知点)を選ぶ</div>` + list("k2", [A.name], null, "後視点");
             if (A && B && !pend && !done) h += `<div class="kw-h">④ 後視点 ${esc(B.name)} にプリズムを立てて追尾(🔍 サーチ)→「📏 計測」→「✓ 計算する」</div>`;
           } else if (free) {
             const measured = kSeq.map((q) => q.name);
-            if (!pend && !done) h += `<div class="kw-h">② ${kSeq.length + 1} 点目に測る既知点を選ぶ(選んでプリズムを立てて追尾 →「📏 計測」)</div>` + list("next", measured, kNext, false) +
+            if (!pend && !done) h += `<div class="kw-h">② ${kSeq.length + 1} 点目に測る既知点を選ぶ(選んでプリズムを立てて追尾 →「📏 計測」)</div>` + list("next", measured, kNext, `${kSeq.length + 1} 点目の既知点`) +
               (kSeq.length >= 2 ? `<p class="step-note">${kSeq.length} 点 測りました。3 点目も測ると確かめができます(おすすめ)。終わったら「✓ 計算する」。</p>` : "");
           } else {
             h += `<p class="step-note">${METHOD_NOTE[ctMethod] || ""}</p>`;
@@ -4401,15 +4403,18 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (m) { ctMethod = m.dataset.kwm; store("kr.method", ctMethod); kSeq = []; kNext = null; kPending = null; $("kResult").hidden = true; $("kResult").innerHTML = ""; KuiNavi.send("method", { method: ctMethod }); renderCtl(); return; }
           const c = e.target.closest("[data-kch]");
           if (c) { if (c.dataset.kch === "k1") { k1 = null; k2 = null; } else k2 = null; kSeq = []; kNext = null; kPending = null; $("kResult").hidden = true; $("kResult").innerHTML = ""; afterChange(); renderCtl(); return; }
+          const pk = e.target.closest("[data-kpick]"); if (pk) { kPickOpen(pk.dataset.kpick); return; }
           const b = e.target.closest("[data-kpt]"); if (!b) return;
-          const p = byName(b.dataset.n); if (!p) return;
-          const w = b.dataset.kpt;
+          kPickApply(b.dataset.kpt, byName(b.dataset.n));
+        });
+        function kPickApply(w, p) {   // 器械点(k1)・後視点(k2)・次に測る既知点(next)を p にする
+          if (!p) return;
           if (w === "next") { setKnown("next", p); return; }
           if (w === "k1") { k1 = p.name; if (k2 === k1) k2 = null; kSeq = []; setStatus(`器械点を ${p.name} にしました。次は後視点を選んでください。`); }
           else { k2 = p.name; kNext = p.name; setStatus(`後視点を ${p.name} にしました。プリズムを立てて追尾し「📏 計測」を押してください。`); }
           if (roleOf(p) !== "known") p.role = "known";
           afterChange(); renderCtl();
-        });
+        }
         function renderKSeq() {
           if (!$("kSeq")) return;
           if (!kNext || kSeq.some((q) => q.name === kNext)) kNext = nextKnown();
@@ -4451,32 +4456,40 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         });
         // 枠の既知点は、いつも小窓(ダイアログ)の一覧で選ぶ(座標リストの画面には飛ばない。2026-11-19 ゆきちゃん)
         // 選んだら、操作盤のスクロールを開いたときの位置にもどす
-        let kpSlot = 0, kpScroll = null;
+        let kpSlot = 0, kpScroll = null, kpFor = "slot", kpExcl = [];   // kpFor:slot(枠)/k1/k2/next
         function kpRestore() {
           const s = kpScroll; kpScroll = null; if (!s) return;
-          const go = () => { s.el.scrollTop = s.top; const c = $("kSeq").querySelector(`[data-kslot="${s.i}"]`); if (c) { const r = c.getBoundingClientRect(), R = s.el.getBoundingClientRect(); if (r.top < R.top || r.bottom > R.bottom) c.scrollIntoView({ block: "center" }); } };
+          const go = () => { s.el.scrollTop = s.top; const c = s.i >= 0 ? $("kSeq").querySelector(`[data-kslot="${s.i}"]`) : null; if (c) { const r = c.getBoundingClientRect(), R = s.el.getBoundingClientRect(); if (r.top < R.top || r.bottom > R.bottom) c.scrollIntoView({ block: "center" }); } };
           go(); requestAnimationFrame(go); setTimeout(go, 120);
         }
         const slotName = (i) => (SLOT[i] || [`${i + 1}点目`])[0];
+        function kPickOpen(w) {   // v0.36.0 器械点・後視点・次に測る既知点も、枠と同じ小窓で選ぶ
+          kpFor = w; kpExcl = w === "k2" && k1 ? [k1] : w === "next" ? kSeq.map((q) => q.name) : [];
+          const el = $("ctlOvl").querySelector(".ovl-card"); kpScroll = el ? { el, top: el.scrollTop, i: -1 } : null;
+          $("kpTitle").textContent = w === "k1" ? "器械点(杭ナビを据えた既知点)を選ぶ" : w === "k2" ? "後視点(プリズムを立てる既知点)を選ぶ" : `${kSeq.length + 1} 点目に測る既知点を選ぶ`;
+          $("kpClear").hidden = true;
+          $("kpQ").value = ""; renderKpList(); $("kpDlg").hidden = false;
+        }
         function kSlotOpen(i) {
-          kpSlot = i;
+          kpSlot = i; kpFor = "slot"; kpExcl = []; $("kpClear").hidden = false;
           const el = $("ctlOvl").querySelector(".ovl-card"); kpScroll = el ? { el, top: el.scrollTop, i } : null;
           $("kpTitle").textContent = `${slotName(i)}の既知点を選ぶ`;
           $("kpQ").value = ""; renderKpList(); $("kpDlg").hidden = false;
         }
         function renderKpList() {
-          const q = $("kpQ").value.trim().toLowerCase(), cur = kPlan[kpSlot];
-          const hit = (p) => !q || p.name.toLowerCase().includes(q);
+          const q = $("kpQ").value.trim().toLowerCase(), cur = kpFor === "slot" ? kPlan[kpSlot] : kpFor === "k1" ? k1 : kpFor === "k2" ? k2 : kNext;
+          const hit = (p) => (!q || p.name.toLowerCase().includes(q)) && !kpExcl.includes(p.name);
           const ks = knowns().filter(hit), os = picks.filter((p) => roleOf(p) !== "known" && !p.temp && hit(p));
           const row = (p) => { const at = kPlan.indexOf(p.name), [X, Y] = fmtXY(p.x, p.y);
-            return `<button type="button" class="ghost${p.name === cur ? " on" : ""}" data-kp="${esc(p.name)}"><span>${esc(p.name)}${at >= 0 && at !== kpSlot ? `<small>(いま ${slotName(at)})</small>` : ""}</span><small>${X}, ${Y}${inst ? `・${dm(inst, p).toFixed(1)} m` : ""}</small></button>`; };
+            const ref = kpFor === "k2" && byName(k1) ? byName(k1) : inst;
+            return `<button type="button" class="ghost${p.name === cur ? " on" : ""}" data-kp="${esc(p.name)}"><span>${esc(p.name)}${kpFor === "slot" && at >= 0 && at !== kpSlot ? `<small>(いま ${slotName(at)})</small>` : ""}</span><small>X ${X}・Y ${Y}・H ${fmtH(p.h)}${ref ? `・${dm(ref, p).toFixed(1)} m` : ""}</small></button>`; };
           const lim = 300;
           $("kpList").innerHTML = (ks.length ? `<div class="kp-h">既知点(${ks.length})</div>` + ks.slice(0, lim).map(row).join("") : `<div class="kp-h">既知点はまだありません。下の点から選ぶと既知点になります。</div>`) +
             (os.length ? `<div class="kp-h">ほかの登録した点(${os.length}。選ぶと既知点になります)</div>` + os.slice(0, lim).map(row).join("") + (os.length > lim ? `<div class="kp-h">…ほか ${os.length - lim} 点(点名でさがしてください)</div>` : "") : "");
           $("kpClear").disabled = !cur;
         }
         $("kpQ").addEventListener("input", renderKpList);
-        $("kpList").addEventListener("click", (e) => { const b = e.target.closest("[data-kp]"); if (!b) return; $("kpDlg").hidden = true; kSlotSet(kpSlot, byName(b.dataset.kp)); });
+        $("kpList").addEventListener("click", (e) => { const b = e.target.closest("[data-kp]"); if (!b) return; $("kpDlg").hidden = true; if (kpFor === "slot") kSlotSet(kpSlot, byName(b.dataset.kp)); else { kPickApply(kpFor, byName(b.dataset.kp)); kpRestore(); } });
         $("kpClear").addEventListener("click", () => { $("kpDlg").hidden = true; kSlotSet(kpSlot, null); });
         // 枠 i に点 p を入れる(p = null で空にする)。その枠をもう測ってあって別の点に変えるときは、測った値を消すか聞く
         function kSlotSet(i, p) {
