@@ -857,7 +857,7 @@
     <script src="vendor/ipx/common_57beade42c.js"></script>
     <script>window.IPPATSU_IOS && IPPATSU_IOS.afterCommon && IPPATSU_IOS.afterCommon();</script>
     <script src="vendor/ipx/xs_9774e1a72b.js"></script>
-    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.35.0", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
+    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.35.1", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -1090,7 +1090,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.35.0</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.35.1</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -1808,7 +1808,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
         <h3>🏗 現場</h3>
         <p>メニューの「現場」で現場を作ると、図面と座標データ(点・既知点・杭ナビの位置・打った杭)を現場ごとにこの端末へ自動で保存します。アプリを閉じても、別の図面を開いても点は消えません(現場を開いているときに図面を開くと、図面だけ入れ替わります)。現場を切り替えると、その現場の図面と点が開きます。「⬇ この現場を保存」で現場を丸ごと1つのファイル(kurukuru_〜.json)にしてダウンロードでき、「⬆ 保存した現場を読み込む」で別のスマホや PC にそのまま入れられます(バックアップにも)。ブラウザのデータを消すと端末の中の現場も消えるので、ときどきファイルに保存しておくと安心です。</p>
         <h3>📋 座標リスト</h3>
-        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。「⛶ 大きな画面で編集」で、表のまま点名・X・Y・H・種別・メモをじかに直す、☑ で選んでまとめて消す・H に足す・種別を変える、行を足す、↶ 戻す、CSV・SIMA の読み込み(足す/置き換え・同じ点名は上書き/別名/飛ばす)と書き出し(選んだ点か表示している点)ができます。「💾 保存して戻る」で一覧に入ります。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・既知点1/2にする・LIVE で見る、ができます。① 据付・器械設置の「📋 リストから選ぶ」から開くと、タップした点がそのまま後方交会の既知点になります。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
+        <p>メニューの「座標リスト」か 🎛 操作盤・LIVE の「📋 座標リスト」で開きます。「⛶ 大きな画面で編集」で、上に「全 N 点/選択 M 点」。「☑ 選ぶ」では行を押すと左の大きな ☑ が切り替わり、1 つ選んで別の行を長押しすると間を全部選べます(「☑ 全部選ぶ/☐ 全部外す」も)。「✏ 直す」で表のまま点名・X・Y・H・種別・メモをじかに直す、☑ で選んでまとめて消す・H に足す・種別を変える、行を足す、↶ 戻す、CSV・SIMA の読み込み(足す/置き換え・同じ点名は上書き/別名/飛ばす)と書き出し(選んだ点か表示している点)ができます。「💾 保存して戻る」で一覧に入ります。点名でさがし、設計点・既知点・まだ打っていない点・杭ナビから近い順で絞れます。点をタップすると、出す点にする・その方へ回す・既知点1/2にする・LIVE で見る、ができます。① 据付・器械設置の「📋 リストから選ぶ」から開くと、タップした点がそのまま後方交会の既知点になります。「⬇ CSV」「⬇ SIMA」で、いま表示している点(さがす・絞り込み・並びのとおり)をダウンロードできます。CSV は 点名,X,Y,H(TopLayout と同じ形)、SIMA は X=北・Y=東・m です。</p>
         <h3>注意</h3>
         <ul>
           <li class="warn">点名は半角英数（SIMA・杭ナビで全角が困ります）。同じ点名を杭ナビに入れ直すと上書きされず追加されます。</li>
@@ -5184,6 +5184,10 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         // 📥 CSV・SIMA を読む(足す/置き換える、同じ点名は 上書き/別名/飛ばす)・⬇ CSV・SIMA(選んだ点、なければ表示している点。形は座標リストの ⬇ と同じ)。
         // 直したものは「💾 保存して戻る」で一覧(picks)へ入れて、いつもどおり現場に保存(afterChange)。「やめる」は直したところを捨てる(聞く)。
         // 行は見えている所だけ作る(数千点でも軽く)。
+        // v0.35.1(2026-11-26 ゆきちゃん「大きな画面の座標リスト全ての座標一覧を表示してチェック☑️ボックスを付けて複数選択出来る様に」):
+        //   携帯の幅では、くるくるの「ボタンは横いっぱい」の決まりで上のボタンが縦に積み上がり、表の場所が 0 になって一覧も ☑ も見えていなかった。
+        //   → 上の列は横にずらす 1 行ずつにまとめ、表に場所を残す。「全 N 点/選択 M 点」をいつも出す。左はしに大きな ☑(押しやすい 44px・横にずらしても残る)。
+        //   「☑ 選ぶ」(はじめ。行のどこを押しても ☑ が切り替わる。1 つ選んで別の行を長押し・Shift+クリックで間を全部)と「✏ 直す」(セルを直す)を切り替える。
         let PE = null;
         const PE_H = 40;   // 1 行の高さ(px)
         const peNum = (s) => { const t = String(s == null ? "" : s).trim().replace(/[−ー－]/g, "-").replace(/[０-９．]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)); return t === "" ? NaN : Number(t); };
@@ -5201,7 +5205,10 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           const s = document.createElement("style"); s.id = "peCss";
           s.textContent = ".pe-ovl{position:fixed;left:0;right:0;bottom:0;top:0;z-index:5000;background:var(--bg,#fff);color:var(--ink,#111);display:flex;flex-direction:column;font-size:14px}" +
             ".pe-ovl[hidden]{display:none}.pe-bar{display:flex;flex-wrap:wrap;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line,#ccc);background:var(--panel,#fff)}" +
-            ".pe-bar>*{margin:3px}.pe-bar button,.pe-bar select{font:inherit;font-size:13.5px;min-height:38px;padding:4px 10px;border-radius:9px;border:1px solid var(--line,#ccc);background:var(--surface2,#eef);color:inherit}" +
+            ".pe-bar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:0 0 auto}.pe-bar>*{margin:3px;flex:0 0 auto}" +
+            ".pe-ovl .pe-bar button,.pe-ovl .pe-bar select{width:auto!important;font:inherit;font-size:13.5px;min-height:40px;padding:4px 10px;border-radius:9px;border:1px solid var(--line,#ccc);background:var(--surface2,#eef);color:inherit;white-space:nowrap}" +
+            ".pe-ovl .pe-bar button[aria-pressed=true]{background:var(--accent,#2563eb);color:#fff;border-color:transparent;font-weight:700}.pe-bar .cnt{font-size:15px;font-weight:800;white-space:nowrap;padding:0 4px}" +
+            ".pe-bar b.t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pe-ovl .pe-bar input[type=search]{width:150px!important;flex:0 0 150px}" +
             ".pe-bar button.pri{background:var(--accent,#2563eb);color:#fff;border-color:transparent;font-weight:700}.pe-bar button.ng{color:#e03131}.pe-bar input[type=search]{font:inherit;font-size:15px;min-height:38px;padding:4px 8px;border-radius:9px;border:1px solid var(--line,#ccc);width:150px;background:var(--bg,#fff);color:inherit}" +
             ".pe-bar b.t{font-size:16px;margin-right:auto}.pe-info{font-size:12.5px;color:var(--sub,#667);padding:4px 10px}" +
             ".pe-wrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;position:relative}.pe-in{position:relative;min-width:830px}" +
@@ -5209,7 +5216,13 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             ".pe-row.sel{background:rgba(37,99,235,.12)}.pe-row.hd{position:sticky;top:0;z-index:2;background:var(--panel,#f4f4f4);font-size:12px;color:var(--sub,#667);font-weight:700}" +
             ".pe-row>*{flex:0 0 auto;box-sizing:border-box;padding:0 3px}.pe-row input,.pe-row select{width:100%;box-sizing:border-box;font:inherit;font-size:14.5px;height:32px;padding:2px 6px;border-radius:7px;border:1px solid var(--line,#ccc);background:var(--bg,#fff);color:inherit;font-variant-numeric:tabular-nums}" +
             ".pe-row input.bad{border:2px solid #e03131;background:rgba(224,49,49,.08)}.pe-row .ref{font-size:11px;color:#e67700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
-            ".pe-c0{width:38px;text-align:center}.pe-c1{width:130px}.pe-c2,.pe-c3{width:140px}.pe-c4{width:95px}.pe-c5{width:78px}.pe-c6{width:130px}.pe-c7{width:96px}" +
+            ".pe-c0{width:48px;position:sticky;left:0;z-index:1;align-self:stretch;display:flex;align-items:center;justify-content:center;background:var(--bg,#fff);cursor:pointer}" +
+            ".pe-row.sel .pe-c0{background:linear-gradient(rgba(37,99,235,.14),rgba(37,99,235,.14)),var(--bg,#fff)}.pe-row.hd .pe-c0{background:var(--panel,#f4f4f4)}" +
+            ".pe-ck{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:2px solid var(--sub,#778);font-size:20px;font-weight:900;line-height:1;color:transparent;background:var(--bg,#fff);box-sizing:border-box}" +
+            ".pe-ck.on{background:var(--accent,#2563eb);border-color:var(--accent,#2563eb);color:#fff}.pe-ck.part{background:var(--accent,#2563eb);border-color:var(--accent,#2563eb);color:#fff}" +
+            ".pe-row .v{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;font-size:14.5px}.pe-row .v.bad{color:#e03131;font-weight:700}.pe-row.selmode{cursor:pointer}" +
+            ".pe-c1{width:130px;position:sticky;left:48px;z-index:1;align-self:stretch;display:flex;align-items:center;background:var(--bg,#fff)}.pe-row.sel .pe-c1{background:linear-gradient(rgba(37,99,235,.14),rgba(37,99,235,.14)),var(--bg,#fff)}.pe-row.hd .pe-c1{background:var(--panel,#f4f4f4)}" +
+            ".pe-c2,.pe-c3{width:140px}.pe-c4{width:95px}.pe-c5{width:78px}.pe-c6{width:130px}.pe-c7{width:96px}" +
             ".pe-row.hd>span{cursor:pointer;user-select:none}.pe-row.hd input{width:20px;height:20px}.pe-row .pe-c0 input{width:22px;height:22px}" +
             ".pe-ask{position:fixed;left:0;right:0;top:0;bottom:0;z-index:5100;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:14px}" +
             ".pe-ask>div{background:var(--panel,#fff);color:inherit;border-radius:14px;padding:14px;max-width:480px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.35)}" +
@@ -5229,12 +5242,13 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         function peBuild() {
           peCss();
           const o = document.createElement("div"); o.className = "pe-ovl"; o.id = "peOvl"; o.hidden = true;
-          o.innerHTML = '<div class="pe-bar"><button type="button" id="peBack">← 戻る</button><b class="t">📋 座標リスト(大きな画面)</b>' +
+          o.innerHTML = '<div class="pe-bar"><button type="button" id="peBack">← 戻る</button><b class="t">📋 座標リスト</b>' +
             '<button type="button" id="peUndo" disabled>↶ 戻す</button><button type="button" class="pri" id="peSave">💾 保存して戻る</button></div>' +
+            '<div class="pe-bar"><span class="cnt" id="peCnt">全 0 点/選択 0 点</span><button type="button" id="peMSel" aria-pressed="true">☑ 選ぶ</button><button type="button" id="peMEd" aria-pressed="false">✏ 直す</button>' +
+            '<button type="button" id="peAll">☑ 全部選ぶ</button><button type="button" id="peNone">☐ 全部外す</button></div>' +
             '<div class="pe-bar"><input type="search" id="peQ" placeholder="点名・メモでさがす" autocomplete="off" data-noipx />' +
             '<select id="peF"><option value="all">全部</option><option value="design">設計点</option><option value="known">既知点</option><option value="todo">まだ打っていない</option><option value="sel">選んだ点だけ</option><option value="bad">直すところ(赤)</option></select>' +
-            '<select id="peSort"><option value="">登録順</option><option value="name">点名順</option><option value="X">X 順</option><option value="Y">Y 順</option><option value="H">H 順</option></select>' +
-            '<button type="button" id="peAll">☑ 表示を全部選ぶ</button><button type="button" id="peNone">☐ 外す</button></div>' +
+            '<select id="peSort"><option value="">登録順</option><option value="name">点名順</option><option value="X">X 順</option><option value="Y">Y 順</option><option value="H">H 順</option></select></div>' +
             '<div class="pe-bar"><button type="button" id="peAdd">＋ 行を足す</button><button type="button" class="ng" id="peDel">🗑 選んだ点を消す</button>' +
             '<button type="button" id="peHAdd">H に足す</button><button type="button" id="peRole">種別を変える</button>' +
             '<button type="button" id="peImp">📥 CSV・SIMA を読む</button><button type="button" id="peCsv">⬇ CSV</button><button type="button" id="peSima">⬇ SIMA</button>' +
@@ -5245,8 +5259,8 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("peQ").addEventListener("input", () => { PE.q = $("peQ").value; peView(); });
           $("peF").addEventListener("change", () => { PE.f = $("peF").value; peView(); });
           $("peSort").addEventListener("change", () => { PE.sort = $("peSort").value; PE.dir = 1; peView(); });
-          $("peAll").addEventListener("click", () => { peCommit(); for (const i of PE.view) PE.rows[i].sel = true; peDraw(true); });
-          $("peNone").addEventListener("click", () => { for (const r of PE.rows) r.sel = false; peView(); });
+          $("peAll").addEventListener("click", () => { peCommit(); for (const i of PE.view) PE.rows[i].sel = true; peMark(); });
+          $("peNone").addEventListener("click", () => { for (const r of PE.rows) r.sel = false; if (PE.f === "sel") peView(); else peMark(); });
           $("peAdd").addEventListener("click", peAddRow);
           $("peDel").addEventListener("click", peDelSel);
           $("peHAdd").addEventListener("click", peHAdd);
@@ -5259,10 +5273,29 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           $("peCsv").addEventListener("click", () => peExport("csv"));
           $("peSima").addEventListener("click", () => peExport("sima"));
           $("peIn").addEventListener("change", peCell);
+          const setMode = (m) => { peCommit(); PE.mode = m; $("peMSel").setAttribute("aria-pressed", String(m === "sel")); $("peMEd").setAttribute("aria-pressed", String(m === "edit")); peDraw(true); };
+          $("peMSel").addEventListener("click", () => setMode("sel"));
+          $("peMEd").addEventListener("click", () => setMode("edit"));
           $("peIn").addEventListener("click", (e) => {
+            if (PE.lp) { PE.lp = false; return; }   // 長押しで範囲を選んだあとのクリック
             const h = e.target.closest("[data-sort]"); if (h) { const k = h.dataset.sort; if (PE.sort === k) PE.dir = -PE.dir; else { PE.sort = k; PE.dir = 1; } $("peSort").value = PE.sort; peView(); return; }
-            if (e.target.id === "peHdChk") { const on = e.target.checked; peCommit(); for (const i of PE.view) PE.rows[i].sel = on; peDraw(true); }
+            if (e.target.closest("#peHdChk")) { peCommit(); const on = !(PE.view.length && PE.view.every((i) => PE.rows[i].sel)); for (const i of PE.view) PE.rows[i].sel = on; peMark(); return; }
+            const row = e.target.closest(".pe-row[data-i]"); if (!row) return;
+            if (PE.mode !== "sel" && !e.target.closest(".pe-c0")) return;   // ✏ 直すのときは ☑ の所だけ
+            const i = Number(row.dataset.i);
+            if (e.shiftKey && PE.anchor != null) { peRange(i); return; }
+            PE.rows[i].sel = !PE.rows[i].sel; PE.anchor = i; peMark();
           });
+          // 長押しで範囲:1 つ選んでから、別の行を長押し → 間を全部選ぶ
+          $("peIn").addEventListener("pointerdown", (e) => {
+            const row = e.target.closest(".pe-row[data-i]"); clearTimeout(PE.lpT); PE.lp = false;
+            if (!row || (PE.mode !== "sel" && !e.target.closest(".pe-c0"))) return;
+            PE.lpXY = [e.clientX, e.clientY];
+            PE.lpT = setTimeout(() => { PE.lp = true; peRange(Number(row.dataset.i)); }, 550);
+          });
+          $("peIn").addEventListener("pointermove", (e) => { if (PE.lpXY && Math.hypot(e.clientX - PE.lpXY[0], e.clientY - PE.lpXY[1]) > 10) clearTimeout(PE.lpT); });
+          for (const ev of ["pointerup", "pointercancel"]) $("peIn").addEventListener(ev, () => clearTimeout(PE.lpT));
+          $("peIn").addEventListener("contextmenu", (e) => { if (e.target.closest(".pe-row[data-i]")) e.preventDefault(); });
           window.addEventListener("popstate", () => {
             if (!PE || $("peOvl").hidden) return;
             if (PE.dirty && !confirm("座標リストの直したところを捨てて戻りますか?(保存するときは「💾 保存して戻る」)")) { history.pushState({ pe: 1 }, ""); return; }
@@ -5273,8 +5306,9 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (!$("peOvl")) peBuild();
           const u = unitName();
           const rows = picks.map((p, i) => { const [X, Y] = fmtXY(p.x, p.y).map(Number); const H = Number(fmtH(p.h)); return { id: i + 1, o: p, name: p.name, X, Y, H, X0: X, Y0: Y, H0: H, role: roleOf(p), memo: p.memo || "", sel: false }; });
-          PE = { rows, nid: rows.length + 1, undo: [], dirty: false, q: "", f: "all", sort: "", dir: 1, view: [], unit: u, raf: 0, popped: false };
-          $("peQ").value = ""; $("peF").value = "all"; $("peSort").value = "";
+          PE = { rows, nid: rows.length + 1, undo: [], dirty: false, q: "", f: "all", sort: "", dir: 1, view: [], unit: u, raf: 0, popped: false, mode: "sel", anchor: null };
+          $("peQ").value = ""; $("peF").value = "all"; $("peSort").value = "";   // 開いたら いつも全部の点(絞り込み・並べ替えなし)
+          $("peMSel").setAttribute("aria-pressed", "true"); $("peMEd").setAttribute("aria-pressed", "false");
           const hdr = document.querySelector("header"), top = hdr ? Math.max(0, Math.round(hdr.getBoundingClientRect().bottom)) : 0;
           $("peOvl").style.top = top + "px";   // ⌂ の見出しは隠さない
           $("peOvl").hidden = false; document.body.style.overflow = "hidden";
@@ -5325,15 +5359,24 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           PE.win = [s, e];
           const [nx, ny] = axisNames(), u = PE.unit, arrow = (k) => (PE.sort === k ? (PE.dir > 0 ? " ▲" : " ▼") : "");
           const nSel = R.filter((r) => r.sel).length;
-          let h = '<div class="pe-row hd" style="top:0"><span class="pe-c0"><input type="checkbox" id="peHdChk"' + (v.length && v.every((i) => R[i].sel) ? " checked" : "") + ' aria-label="表示を全部選ぶ"></span>' +
+          const all = v.length && v.every((i) => R[i].sel), some = !all && v.some((i) => R[i].sel), ed = PE.mode === "edit";
+          let h = '<div class="pe-row hd" style="top:0"><span class="pe-c0" id="peHdChk" role="checkbox" aria-checked="' + (all ? "true" : some ? "mixed" : "false") + '" aria-label="表示を全部選ぶ・外す"><span class="pe-ck' + (all ? " on" : some ? " part" : "") + '">' + (all ? "✓" : some ? "−" : "✓") + "</span></span>" +
             '<span class="pe-c1" data-sort="name">点名' + arrow("name") + '</span><span class="pe-c2" data-sort="X">' + nx + "(" + u + ")" + arrow("X") + '</span><span class="pe-c3" data-sort="Y">' + ny + "(" + u + ")" + arrow("Y") + "</span>" +
             '<span class="pe-c4" data-sort="H">H(' + u + ")" + arrow("H") + '</span><span class="pe-c5">種別</span><span class="pe-c6">メモ</span><span class="pe-c7">使っている所</span></div>';
           const f3 = (x) => (Number.isFinite(x) ? (u === "m" ? x.toFixed(3) : x.toFixed(1)) : "");
           for (let j = s; j < e; j++) {
             const i = v[j], r = R[i], refs = r.o ? peRefs(r.o.name) : [];
             const nb = !NAME_OK.test(r.name) || r.name.includes(",") || PE.dup.has(r.name);
-            h += '<div class="pe-row' + (r.sel ? " sel" : "") + '" style="top:' + (PE_H * (j + 1)) + 'px" data-i="' + i + '">' +
-              '<span class="pe-c0"><input type="checkbox" data-k="sel"' + (r.sel ? " checked" : "") + ' aria-label="選ぶ"></span>' +
+            const ck = '<span class="pe-c0" role="checkbox" aria-checked="' + r.sel + '" aria-label="' + esc(r.name) + ' を選ぶ"><span class="pe-ck' + (r.sel ? " on" : "") + '">✓</span></span>';
+            if (!ed) {   // ☑ 選ぶ:入力欄を作らず文字だけ(軽い。行のどこを押しても ☑)
+              const vb = (x, cls) => '<span class="' + cls + '"><span class="v' + (Number.isFinite(x) ? "" : " bad") + '">' + (Number.isFinite(x) ? f3(x) : "(数なし)") + "</span></span>";
+              h += '<div class="pe-row selmode' + (r.sel ? " sel" : "") + '" style="top:' + (PE_H * (j + 1)) + 'px" data-i="' + i + '">' + ck +
+                '<span class="pe-c1"><span class="v' + (nb ? " bad" : "") + '"><b>' + esc(r.name) + "</b></span></span>" + vb(r.X, "pe-c2") + vb(r.Y, "pe-c3") + vb(r.H, "pe-c4") +
+                '<span class="pe-c5"><span class="v">' + (r.role === "known" ? "既知" : "設計") + '</span></span><span class="pe-c6"><span class="v">' + esc(r.memo) + "</span></span>" +
+                '<span class="pe-c7 ref" title="' + esc(refs.join("・")) + '">' + esc(refs.join("・")) + (r.o && r.o.done ? (refs.length ? "・" : "") + "✓打った" : "") + "</span></div>";
+              continue;
+            }
+            h += '<div class="pe-row' + (r.sel ? " sel" : "") + '" style="top:' + (PE_H * (j + 1)) + 'px" data-i="' + i + '">' + ck +
               '<span class="pe-c1"><input type="text" data-k="name" data-noipx autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(r.name) + '"' + (nb ? ' class="bad"' : "") + "></span>" +
               '<span class="pe-c2"><input type="text" inputmode="decimal" data-k="X" data-noipx value="' + f3(r.X) + '"' + (Number.isFinite(r.X) ? "" : ' class="bad"') + "></span>" +
               '<span class="pe-c3"><input type="text" inputmode="decimal" data-k="Y" data-noipx value="' + f3(r.Y) + '"' + (Number.isFinite(r.Y) ? "" : ' class="bad"') + "></span>" +
@@ -5345,6 +5388,15 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           inn.style.height = PE_H * (v.length + 1) + "px";
           inn.innerHTML = h;
           peInfo();
+        }
+        function peRange(i) {   // 前に押した行(PE.anchor)から i の行まで、表の並びで間を全部選ぶ
+          const v = PE.view, a = PE.anchor != null ? v.indexOf(PE.anchor) : -1, b = v.indexOf(i);
+          if (b < 0) return;
+          if (a < 0) { PE.rows[i].sel = true; PE.anchor = i; peMark(); return; }
+          const [s, e] = a < b ? [a, b] : [b, a];
+          for (let j = s; j <= e; j++) PE.rows[v[j]].sel = true;
+          PE.anchor = i; peMark();
+          $("peCnt").textContent += `(${e - s + 1} 点をまとめて選びました)`;
         }
         function peSnap() {   // ↶ 戻す ための写し
           PE.undo.push({ rows: PE.rows.map((r) => ({ ...r })), nid: PE.nid }); if (PE.undo.length > 100) PE.undo.shift();
@@ -5369,15 +5421,20 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           for (const row of $("peIn").querySelectorAll(".pe-row[data-i]")) {
             const r = PE.rows[Number(row.dataset.i)]; if (!r) continue;
             row.classList.toggle("sel", r.sel);
+            const c = row.querySelector(".pe-c0"), b = c && c.firstChild; if (c) c.setAttribute("aria-checked", String(r.sel)); if (b) b.classList.toggle("on", r.sel);
             const q = (k) => row.querySelector('[data-k="' + k + '"]');
+            if (!q("name")) continue;   // ☑ 選ぶ(文字だけ)
             q("name").classList.toggle("bad", !NAME_OK.test(r.name) || r.name.includes(",") || PE.dup.has(r.name));
             for (const k of ["X", "Y", "H"]) q(k).classList.toggle("bad", !Number.isFinite(r[k]));
           }
+          const hc = $("peHdChk");
+          if (hc) { const v = PE.view, all = v.length && v.every((i) => PE.rows[i].sel), some = !all && v.some((i) => PE.rows[i].sel), b = hc.firstChild; hc.setAttribute("aria-checked", all ? "true" : some ? "mixed" : "false"); b.className = "pe-ck" + (all ? " on" : some ? " part" : ""); b.textContent = some ? "−" : "✓"; }
           peInfo();
         }
         function peInfo() {
           const R = PE.rows, nSel = R.filter((r) => r.sel).length, bad = R.filter((r) => peBad(r)).length;
-          $("peInfo").textContent = `${PE.view.length} 行を表示(全部 ${R.length} 点・選んだ ${nSel} 点)` + (bad ? `・⚠ 直すところ ${bad} 行(赤。点名は半角英数 16 文字まで・同じ名前は 1 つ、X・Y・H は数)` : "") + (PE.dirty ? "・まだ保存していません" : "") + "。セルを押して直す。⬇ は選んだ点(なければ表示している点)。";
+          $("peCnt").textContent = `全 ${R.length} 点/選択 ${nSel} 点` + (PE.view.length !== R.length ? `(表示 ${PE.view.length})` : "");
+          $("peInfo").textContent = (PE.mode === "edit" ? "✏ 直す:セルを押して直す(左の ☑ で選ぶ)。" : "☑ 選ぶ:行を押すと ☑。1 つ選んで別の行を長押しで間を全部。直すときは「✏ 直す」。") + (bad ? `⚠ 直すところ ${bad} 行(赤)。` : "") + (PE.dirty ? "まだ保存していません。" : "") + "⬇ は選んだ点(なければ表示している点)。";
           $("peUndo").disabled = !PE.undo.length;
           $("peDel").textContent = `🗑 選んだ点を消す${nSel ? "(" + nSel + ")" : ""}`;
         }
@@ -5393,6 +5450,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           const used = new Set(PE.rows.map((r) => r.name)), nm = peNewName(used), hc = Number($("hConst").value) || 0;
           PE.rows.push({ id: PE.nid++, o: null, name: nm, X: NaN, Y: NaN, H: hc, X0: NaN, Y0: NaN, H0: NaN, role: "design", memo: "", sel: false });
           PE.q = ""; $("peQ").value = ""; if (PE.f !== "all") { PE.f = "all"; $("peF").value = "all"; } PE.sort = ""; $("peSort").value = "";
+          if (PE.mode !== "edit") { PE.mode = "edit"; $("peMSel").setAttribute("aria-pressed", "false"); $("peMEd").setAttribute("aria-pressed", "true"); }
           peView(); $("peWrap").scrollTop = PE_H * PE.view.length;
           setTimeout(() => { const i = PE.rows.length - 1, x = $("peIn").querySelector('[data-i="' + i + '"] [data-k="X"]'); if (x) x.focus(); }, 60);
         }
@@ -5501,7 +5559,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           setStatus(`✓ 座標リストを保存しました(いま ${picks.length} 点・直した ${nEd}・足した ${nNew}・消した ${gone.length})。`);
         }
         $("clBig").addEventListener("click", peOpen);
-        window.IPPATSU_KR_PE = { open: peOpen, state: () => PE, picks: () => picks };   // 試験用
+        window.IPPATSU_KR_PE = { open: peOpen, state: () => PE, picks: () => picks, range: (i) => peRange(i) };   // 試験用
         if (window.KurukuruAndroid) {   // Android アプリ版: 中継はアプリの中で動いている(Termux はいらない)
           document.body.classList.add("in-android");
           $("cfgRelay").value = "ws://127.0.0.1:8766";
