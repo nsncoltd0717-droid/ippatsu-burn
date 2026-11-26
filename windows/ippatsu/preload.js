@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('ippatsuApp', {
   menu: (what) => ipcRenderer.send('rail:menu', String(what)),
   update: () => ipcRenderer.invoke('ipw:update'),
   versions: () => ipcRenderer.invoke('ipw:versions'),
+  mode: (m) => ipcRenderer.invoke('ipw:mode', m ? String(m) : ''),   // 0.6.0：'desk' / 'tab'。引数なしで今の使い方
   onState: (cb) => ipcRenderer.on('rail:state', (_e, key) => { try { cb(key); } catch (e) { /* */ } }),
 });
 contextBridge.exposeInMainWorld('penApp', {

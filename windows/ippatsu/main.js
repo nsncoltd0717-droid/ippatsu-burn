@@ -20,7 +20,11 @@ const ROOT = path.join(__dirname, 'app');
 const SITE = process.env.IPPATSU_SITE || 'https://nsncoltd0717-droid.github.io/ippatsu-burn/';   // 試験用に変えられる
 const HOST = 'pen';
 const ORIGIN = `app://${HOST}/`;
-const RAIL_W = 76;
+// 画面の使い方(0.6.0)：desk = デスクトップ(マウス・キーボード、PC 向けの並び) / tab = タブレット(指で使う、全体を少し大きく)
+// 左の帯の「🖥/✋」かメニューの「表示」で切り替える。window.json の mode に覚える
+const MODES = { desk: { rail: 76, zoom: 0 }, tab: { rail: 88, zoom: 0.75 } };
+let MODE = 'desk';
+const railW = () => MODES[MODE].rail;
 
 // アプリの並び(帯とメニューとショートカット)
 const APPS = [
@@ -113,14 +117,29 @@ function openApp(key) {
 function layout() {
   if (!win) return;
   const [w, h] = win.getContentSize();
-  rail.setBounds({ x: 0, y: 0, width: RAIL_W, height: h });
-  view.setBounds({ x: RAIL_W, y: 0, width: Math.max(0, w - RAIL_W), height: h });
+  rail.setBounds({ x: 0, y: 0, width: railW(), height: h });
+  view.setBounds({ x: railW(), y: 0, width: Math.max(0, w - railW()), height: h });
 }
 
 const webPrefs = () => ({ preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, spellcheck: false });
 
+// 大きさ(拡大の段)は住所ごとに決まるので、帯とアプリ(と写真ペン太郎の編集の窓)が一緒に変わる
+function applyZoom() { try { if (view) view.webContents.setZoomLevel(MODES[MODE].zoom); } catch (e) { /* */ } }
+function setMode(m) {
+  if (!MODES[m] || m === MODE) return MODE;
+  MODE = m; saveState({ mode: m });
+  layout(); applyZoom();
+  if (view) view.webContents.reload();   // ページの <html> のしるし(ipw-desk / ipw-tab)を付け直す
+  if (rail) rail.webContents.reload();
+  for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.reload();
+  buildMenu();
+  return MODE;
+}
+ipcMain.handle('ipw:mode', (_e, m) => (m ? setMode(String(m)) : MODE));
+
 function createWindow() {
   const st = loadState();
+  if (MODES[process.env.IPPATSU_MODE || st.mode]) MODE = process.env.IPPATSU_MODE || st.mode;
   win = new BaseWindow({
     width: 1440, height: 920, minWidth: 960, minHeight: 600, ...(st.bounds || {}),
     title: TITLE, backgroundColor: '#16181d', icon: path.join(__dirname, 'icon.png'), autoHideMenuBar: true,
@@ -143,6 +162,7 @@ function createWindow() {
   wc.on('did-navigate', tell);
   wc.on('did-navigate-in-page', tell);
   wc.on('did-finish-load', tell);
+  wc.once('did-finish-load', applyZoom);
 
   // 写真ペン太郎の編集は別の窓。外のページは既定のブラウザ。ほかはアプリの中で開かない
   wc.setWindowOpenHandler(({ url }) => {
@@ -219,14 +239,14 @@ ipcMain.on('rail:menu', (_e, what) => {
 });
 
 // ---------- ページを Windows 版にする手当て(元の HTML はさわらない) ----------
-const HEAD = `<script>(function(){ document.documentElement.classList.add('ipw'); window.IPPATSU_WINDOWS = true;
+const HEAD = `<script>(function(){ document.documentElement.classList.add('ipw'); window.IPPATSU_WINDOWS = true; window.IPPATSU_WINDOWS_MODE = '@MODE@';
 var A = window.ippatsuApp; if (!A) return; var c = HTMLAnchorElement.prototype.click;
 HTMLAnchorElement.prototype.click = function(){ try { if (this.download && this.href) A.noteDownload(this.href, this.download); } catch (e) {} return c.apply(this, arguments); }; })();</script>
 <link rel="stylesheet" href="win/common.css">`;
 function patchPage(file, html) {
   const key = (APPS.find((a) => a.file === file) || {}).key || '';
   html = html.replace('navigator.serviceWorker.register("sw.js").catch(() => {});', '/* forWindows: sw.js は使わない */');
-  let head = HEAD.replace("classList.add('ipw')", `classList.add('ipw','ipw-${key}')`);
+  let head = HEAD.replace("classList.add('ipw')", `classList.add('ipw','ipw-${key}','ipw-${MODE}')`).replace('@MODE@', MODE);
   if (key === 'pen') {
     // 写真ペン太郎は2列の画面(desktop.*)も入れる。見出しに forWindows の版
     html = html.replace(/(<h1 class="hm">写真ペン太郎<small>v[^<]*)(<\/small>)/, `$1 forWindows ${app.getVersion()}$2`);
@@ -376,7 +396,10 @@ function buildMenu() {
     { label: '表示', submenu: [
       { label: '拡大', accelerator: 'CmdOrCtrl+=', click: () => view && view.webContents.setZoomLevel(view.webContents.getZoomLevel() + 0.5) },
       { label: '縮小', accelerator: 'CmdOrCtrl+-', click: () => view && view.webContents.setZoomLevel(view.webContents.getZoomLevel() - 0.5) },
-      { label: '元の大きさ', accelerator: 'CmdOrCtrl+Shift+0', click: () => view && view.webContents.setZoomLevel(0) },
+      { label: '元の大きさ', accelerator: 'CmdOrCtrl+Shift+0', click: applyZoom },
+      { type: 'separator' },
+      { label: '🖥 デスクトップ(マウス・キーボード)', type: 'radio', checked: MODE === 'desk', accelerator: 'CmdOrCtrl+Shift+D', click: () => setMode('desk') },
+      { label: '✋ タブレット(指で使う・大きめ)', type: 'radio', checked: MODE === 'tab', accelerator: 'CmdOrCtrl+Shift+T', click: () => setMode('tab') },
       { type: 'separator' },
       { label: '全画面', accelerator: 'F11', click: () => win && win.setFullScreen(!win.isFullScreen()) },
       { label: '開発者ツール', accelerator: 'CmdOrCtrl+Shift+I', click: () => view && view.webContents.toggleDevTools() },
@@ -417,7 +440,7 @@ async function shots(dir) {
   const keys = (process.env.IPPATSU_SHOT_APPS || APPS.map((a) => a.key).join(',')).split(',');
   for (const k of keys) {
     openApp(k); await wait(+(process.env.IPPATSU_SHOT_WAIT || 6000));
-    try { await view.webContents.executeJavaScript("document.getElementById('ipxOp') && document.getElementById('ipxOp').remove(); 1"); } catch (e) { /* */ }
+    if (!process.env.IPPATSU_SHOT_KEEPOP) { try { await view.webContents.executeJavaScript("document.getElementById('ipxOp') && document.getElementById('ipxOp').remove(); 1"); } catch (e) { /* */ } }
     await wait(500);
     if (process.env.IPPATSU_SHOT_JS) { try { console.log('JS', k, JSON.stringify(await view.webContents.executeJavaScript(process.env.IPPATSU_SHOT_JS))); } catch (e) { console.log('JSERR', k, e.message); } }
     fs.writeFileSync(path.join(dir, k + '.png'), (await view.webContents.capturePage()).toPNG());
