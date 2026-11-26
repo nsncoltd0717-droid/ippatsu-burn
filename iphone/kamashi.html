@@ -464,7 +464,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>一発かまし太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.3.1 11/20</small></h1>
+      <h1>一発かまし太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v1.3.2 11/27</small></h1>
       <button class="help-btn ghost" id="helpBtn" type="button">使い方</button>
     </header>
     <main>
@@ -1075,7 +1075,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             for (let k = 0; k < nn; k++) {
               const a = pts[k], b = pts[(k + 1) % pts.length];
               if (Math.max(a[0], b[0]) < cx - r || Math.min(a[0], b[0]) > cx + r || Math.max(a[1], b[1]) < cy - r || Math.min(a[1], b[1]) > cy + r) continue;
-              if (segs.length < 400) segs.push([a, b, i]);
+              { const dd = distToSeg(cx, cy, a[0], a[1], b[0], b[1]); if (dd <= r && segs.length < 60000) segs.push([a, b, i, dd]); }   // 2026-11-27:指のそばの線だけ。数で打ち切らず、下で近い順に 400 本(前は見つけた順に 400 本で、長い線の交点を見落とした)
               if (snapOn("mid") && !ln.arc) add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, "mid");
               if (snapOn("on")) {
                 const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
@@ -1087,6 +1087,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
             }
           });
           if (snapOn("cross")) {
+            if (segs.length > 400) { segs.sort((p, q) => p[3] - q[3]); segs.length = 400; }
             for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
               if (segs[i][2] === segs[j][2]) continue;
               const q = segX(segs[i][0], segs[i][1], segs[j][0], segs[j][1]);
@@ -1095,7 +1096,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           }
           if (cands.length) {
             // 記号・端・中心は交点より少し優先(同じくらいの近さなら)
-            const pri = { mark: 0, end: 2, center: 2, cross: 5, mid: 6 };
+            const pri = { mark: 0, cross: 1, end: 2, center: 3, mid: 6 };   // 2026-11-27:交点を少し先に
             const pr = (c) => c.d + (c.sym ? -4 : pri[c.kind] || 0); // 記号の図形の中心は少し優先
             cands.sort((p, q) => pr(p) - pr(q));
             return cands[0];

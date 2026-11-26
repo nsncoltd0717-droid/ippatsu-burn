@@ -1,8 +1,8 @@
-// 一発バーン(ホーム画面アプリ) v2.21.0。電波があるときは新しい版を取りに行き、無いとき・遅いときは覚えている版で開く
-const CACHE = "ippatsu-6e4e5d8aa3";
+// 一発バーン(ホーム画面アプリ) v2.22.0。電波があるときは新しい版を取りに行き、無いとき・遅いときは覚えている版で開く
+const CACHE = "ippatsu-5e45d10eb5";
 const PARTS = "ippatsu-parts-1";   // DWG・PDF の部品・オープニングの絵(vendor/)。版を上げても消さない
 const FIRST = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "vendor/ipx/common_9faa4e06ef.js"];   // はじめに覚える(最初の画面)
-const LATER = ["nomiso.html", "sumi.html", "kamashi.html", "kurukuru.html", "utsushi.html", "pen.html", "hisoka.html", "vendor/ipx/dxfraw_60f7bbbfe1.js", "vendor/ipx/xs_9774e1a72b.js", "vendor/ipx/zunou_app_0fd7dd4608.js", "icon-180.png", "icon-512.png", "vendor/opening/hisoka_opening_cfd53982.jpg", "vendor/opening/opening_girl_479cca19.webp", "vendor/opening/opening_logo_efcc8fdb.webp", "vendor/opening/opening_movie_28987426.mp4", "vendor/opening/opening_movie_c1e8b858.webp"];   // 落ち着いてから 1 本ずつ覚える(電波なしの現場でも開けるように)
+const LATER = ["nomiso.html", "sumi.html", "kamashi.html", "kurukuru.html", "utsushi.html", "pen.html", "hisoka.html", "vendor/ipx/dxfraw_60f7bbbfe1.js", "vendor/ipx/xs_9774e1a72b.js", "vendor/ipx/zunou_app_0fd7dd4608.js", "icon-180.png", "icon-512.png", "vendor/opening/hisoka_opening_cfd53982.jpg", "vendor/opening/opening_girl_479cca19.webp", "vendor/opening/opening_logo_efcc8fdb.webp", "vendor/opening/opening_movie_28987426.mp4", "vendor/opening/opening_movie_c1e8b858.webp", "vendor/opening/utsushi_opening_0c78d780.jpg"];   // 落ち着いてから 1 本ずつ覚える(電波なしの現場でも開けるように)
 const NC = undefined;
 const IPX = ["vendor/ipx/common_9faa4e06ef.js", "vendor/ipx/dxfraw_60f7bbbfe1.js", "vendor/ipx/xs_9774e1a72b.js", "vendor/ipx/zunou_app_0fd7dd4608.js"];   // v2.13.0:いまの版の共通のスクリプト(vendor/ipx/)。これ以外の古いものは入れ物から消す
 const IOS = CACHE.indexOf("ippatsu-ios-") === 0;

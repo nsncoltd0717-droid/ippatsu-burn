@@ -499,7 +499,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.14.0</small></h1>
+      <h1><span id="appName">脳みそバーン無敵CAD</span> <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.15.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面をひらく" /></div>
       <button class="help-btn ghost" id="helpBtn" type="button">?</button>
     </header>
@@ -1318,7 +1318,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           const R = 26, m = baseMap(), r = R / m.a;
           const [cx, cy] = toDrawing(sx, sy);
           const cands = [];
-          const add = (x, y, kind, sym, auxX) => { const s = toScreen([x, y]); const d = Math.hypot(s[0] - sx, s[1] - sy); if (d <= R) cands.push({ x, y, kind, d, sym, auxX }); };
+          const add = (x, y, kind, sym, auxX, tiny) => { const s = toScreen([x, y]); const d = Math.hypot(s[0] - sx, s[1] - sy); if (d <= R) cands.push({ x, y, kind, d, sym, auxX, tiny }); };
           for (const p of cPts) if (p.imp) add(p.x, p.y, "pt");
           if (snapOn("mark")) for (const k of zMarks) if ((!k.layer || !hiddenLayers.has(k.layer)) && Math.abs(k.x - cx) <= r && Math.abs(k.y - cy) <= r) add(k.x, k.y, "mark");
           const segs = [], segsA = [];   // segsA: 補助線・足した線(線の多い図面でも必ず交点をさがす。2026-11-19 ゆきちゃん「補助線の交点に吸い付かない」)
@@ -1326,7 +1326,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
           if (vis.length) query(cx - r, cy - r, cx + r, cy + r, (i) => {
             const ln = vis[i];
             if (ln.arc) {
-              if (snapOn("center")) add(ln.arc.center[0], ln.arc.center[1], "center");
+              if (snapOn("center")) add(ln.arc.center[0], ln.arc.center[1], "center", false, 0, ln.arc.radius * m.a < 4);   // v0.15.0:画面で半径 4 画素より小さい円(点のような円)の中心は弱く
               if (!ln.closed && snapOn("end")) { const p = ln.draw; add(p[0][0], p[0][1], "end"); add(p[p.length - 1][0], p[p.length - 1][1], "end"); }
             } else {
               if (snapOn("end") && !ln.aux) ln.points.forEach((p) => add(p[0], p[1], "end"));
@@ -1343,7 +1343,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
               const a = pts[k], b = pts[(k + 1) % pts.length];
               if (Math.max(a[0], b[0]) < cx - r || Math.min(a[0], b[0]) > cx + r || Math.max(a[1], b[1]) < cy - r || Math.min(a[1], b[1]) > cy + r) continue;
               if (ln.aux || ln.added || ln.layer === "補助線") { if (segsA.length < 400) segsA.push([a, b, i]); }
-              else if (segs.length < 3000 && segD(a, b, cx, cy) <= r) segs.push([a, b, i]);   // 指のそばを通る線だけ(線の多い図面で、補助線と交わる線が数から漏れないように)
+              else { const dd = segD(a, b, cx, cy); if (dd <= r && segs.length < 60000) segs.push([a, b, i, dd]); }   // 指のそばを通る線だけ。v0.15.0:数で打ち切らず、あとで指に近い順に選ぶ
               if (snapOn("mid") && !ln.arc && (!ln.aux || ln.seg)) add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, "mid");
               if (snapOn("on")) {
                 const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
@@ -1370,17 +1370,20 @@ canvas.xs-3d { background: #0b0c0e !important; }
             });
           }
           if (snapOn("cross")) {
+            // v0.15.0(2026-11-27 ゆきちゃん「また交点への吸い付き不良」):前は図面の線を見つけた順に 3000 本までためて、交点は前の 400 本の組だけを見ていた。
+            //   長い線(図面の端から端まで通る線)は最後に見つかるので、記号・円・ハッチなど細かい線の多い所では、長い線どうしの交点を見落としていた。
+            //   → 指に近い線から 500 本を選び、その全部の組と補助線との組で交点をさがす(交点は 2 本の線の両方から近いので、近い順に選べば落ちない)
+            if (segs.length > 500) { segs.sort((p, q) => p[3] - q[3]); segs.length = 500; }
             const S2 = segsA.concat(segs), nA = segsA.length;
-            // 補助線 × すべての線 は必ず、図面の線どうしは 400 本まで(重くならないように)
-            for (let i = 0; i < S2.length; i++) for (let j = i + 1; j < (i < nA ? S2.length : Math.min(S2.length, nA + 400)); j++) {
+            for (let i = 0; i < S2.length; i++) for (let j = i + 1; j < S2.length; j++) {
               if (S2[i][2] === S2[j][2]) continue;
               const q = segX(S2[i][0], S2[i][1], S2[j][0], S2[j][1]);
               if (q) { const e = exactX(q, S2[i], S2[j]); add(e[0], e[1], "cross", false, i < nA ? (j < nA ? 2 : 1) : 0); }
             }
           }
           if (cands.length) {
-            const pri = { mark: 0, end: 2, alv: 2, center: 2, tin: 4, cross: 5, mid: 6 };
-            const pr = (c) => c.d + (c.auxX === 2 ? -16 : c.auxX ? -8 : c.sym ? -4 : pri[c.kind] || 0);   // 補助線どうしの交点がいちばん、次に補助線と線の交点
+            const pri = { mark: 0, cross: 1, end: 2, alv: 2, center: 3, tin: 4, mid: 6 };   // v0.15.0:交点を端・中心より少し先に(前は 交点 5・中心 2)
+            const pr = (c) => c.d + (c.auxX === 2 ? -16 : c.auxX ? -8 : c.sym ? -4 : pri[c.kind] || 0) + (c.tiny ? 6 : 0);   // 補助線どうしの交点がいちばん、次に補助線と線の交点
             cands.sort((p, q) => pr(p) - pr(q));
             return cands[0];
           }
