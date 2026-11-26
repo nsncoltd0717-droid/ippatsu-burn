@@ -40,3 +40,78 @@ html.ipw ::-webkit-scrollbar-track { background: transparent; }
 
 /* ---- ホーム：クラウド共有はまだ Windows 版で確かめ中(Electron で共有フォルダを選ぶと本体が落ちることがある)。それまで隠す ---- */
 html.ipw-home h2:has(+ #cloud), html.ipw-home #cloud { display: none !important; }
+
+/* ================= 0.6.0（画面 2026-11-26a）：PC の画面向け ================= */
+
+/* ---- オープニング：携帯の縦長の動画を、横長の画面で切らずに見せる ----
+   携帯では動画を全面(切り取り)。横長の画面では、ぼかした背景の上に動画を縦いっぱいの枠で左寄りに置き、題名を右に大きく出す。
+   オープニングの仕組み(#ipxOp)は各アプリの HTML のまま。見た目だけをここで上書きする(html.ipw を付けて強くする) */
+@media (min-aspect-ratio: 1/1) {
+  html.ipw #ipxOp .s1 .lg { width: min(40vw, 46vh, 440px); height: calc(min(40vw, 46vh, 440px) * 1226 / 1283); }
+  html.ipw #ipxOp .s1 .tag { font-size: 14px; bottom: 10vh; }
+  html.ipw #ipxOp .s2 { --fw: 24.75vh; --fx: 34%;
+    background: radial-gradient(ellipse at 30% 50%, #1d3f78 0%, #0b1830 55%, #050b17 100%); }
+  html.ipw #ipxOp .s2:has(> div.pic) { --fw: 36vh; }
+  html.ipw #ipxOp .s2 .ipw-bg { position: absolute; top: -60px; right: -60px; bottom: -60px; left: -60px; background: center / cover no-repeat;
+    filter: blur(32px) brightness(.42) saturate(1.25); }
+  /* 動画(縦 9:16)の枠 */
+  html.ipw #ipxOp .s2 video.pic { top: 6vh; bottom: auto; right: auto; left: calc(var(--fx) - var(--fw)); height: 88vh; width: calc(var(--fw) * 2);
+    object-fit: cover; border-radius: 18px; box-shadow: 0 24px 70px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .12); }
+  /* 絵(正方形)の枠 */
+  html.ipw #ipxOp .s2 div.pic { top: calc(50vh - var(--fw)); bottom: auto; right: auto; left: calc(var(--fx) - var(--fw));
+    width: calc(var(--fw) * 2); height: calc(var(--fw) * 2); background-size: cover; border-radius: 20px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .12); }
+  html.ipw #ipxOp .s2 .shade { background: linear-gradient(90deg, rgba(5, 11, 23, 0) 45%, rgba(5, 11, 23, .55) 100%); }
+  /* 題名は枠の右に、左寄せで大きく */
+  html.ipw #ipxOp .s2 .ttl { top: 0; bottom: 0; left: calc(var(--fx) + var(--fw) + 5vw); right: 4vw;
+    display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; }
+  html.ipw #ipxOp .ttl b { font-size: clamp(34px, 4.2vw, 84px); letter-spacing: .04em; white-space: nowrap; }
+  html.ipw #ipxOp .ttl i { font-size: clamp(18px, 1.9vw, 30px); margin-top: 14px; }
+  html.ipw #ipxOp .ttl small { font-size: 13px; margin-top: 18px; letter-spacing: .4em; }
+  html.ipw #ipxOp .bar { left: calc(var(--fx) + var(--fw) + 5vw); right: auto; width: min(360px, 30vw); bottom: 12vh; }
+  html.ipw #ipxOp .skip { font-size: 12px; top: 16px; right: 18px; padding: 7px 12px; }
+}
+/* 縦長の窓(狭くしたとき)は携帯と同じ見せ方 */
+
+/* ---- ホーム：横に広いときは「現場(左)・アプリ(右、2列)」に ---- */
+@media (min-width: 1100px) {
+  html.ipw-home body { max-width: 1320px !important; padding-left: 28px !important; padding-right: 28px !important; }
+  html.ipw-home .ipw-home2 { display: grid; grid-template-columns: minmax(360px, 440px) minmax(0, 1fr); gap: 0 28px; align-items: start; }
+  html.ipw-home .ipw-apps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  html.ipw-home .ipw-apps .app { margin: 0 !important; }
+  html.ipw-home .ipw-home2 > .ipw-right > h2:first-child, html.ipw-home .ipw-home2 > .ipw-left > h2:first-child { margin-top: 10px; }
+}
+@media (min-width: 1500px) { html.ipw-home .ipw-apps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+html.ipw-desk.ipw-home .app { transition: transform .12s ease, border-color .12s ease, background-color .12s ease; }
+html.ipw-desk.ipw-home .app:hover { transform: translateY(-2px); border-color: var(--c, #4dabf7) !important; }
+
+/* ---- ひそかに調べ太郎：横に広いときは、図面(地図)を右に大きく、操作を左に ---- */
+@media (min-width: 1100px) {
+  html.ipw-hisoka main { max-width: 1700px !important; display: grid; grid-template-columns: minmax(440px, 600px) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+  html.ipw-hisoka main > * { grid-column: 1; min-width: 0; }
+  html.ipw-hisoka main > section.card:has(#mapBox) { grid-column: 2; grid-row: 1 / span 40; position: sticky; top: calc(var(--ipw-top, 104px) + 8px); margin-top: 8px; }
+  html.ipw-hisoka main > section.card:has(#mapBox) .mapbox { height: calc(100vh - var(--ipw-top, 104px) - 150px) !important; max-height: none !important; }
+}
+
+/* ---- こっそり写し太郎：広い画面ではタイルを多く並べる。デスクトップでは下のタブを上へ ---- */
+@media (min-width: 1100px) {
+  html.ipw-utsushi .wrap { max-width: 1180px !important; }
+  html.ipw-utsushi #vHome .grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  html.ipw-utsushi .thumbs { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important; gap: 6px !important; }
+}
+html.ipw-desk.ipw-utsushi body { padding-bottom: 0 !important; }
+html.ipw-desk.ipw-utsushi nav.tabs { position: sticky !important; top: var(--ipw-top, 51px); bottom: auto !important; z-index: 19 !important;
+  border-top: 0 !important; border-bottom: 1px solid var(--line) !important; justify-content: center; gap: 4px; padding: 0 12px !important; }
+html.ipw-desk.ipw-utsushi nav.tabs button { flex: 0 0 auto !important; flex-direction: row !important; gap: 6px !important; font-size: 13px !important;
+  padding: 9px 18px !important; border-bottom: 2px solid transparent !important; }
+html.ipw-desk.ipw-utsushi nav.tabs button i { font-size: 16px !important; }
+html.ipw-desk.ipw-utsushi nav.tabs button[aria-current=page] { border-bottom-color: var(--accent) !important; }
+html.ipw-desk.ipw-utsushi nav.tabs button:hover { background: rgba(255, 255, 255, .05); }
+html.ipw-desk.ipw-utsushi .tile:hover { border-color: var(--accent); }
+
+/* ---- タブレット(指で使う)：全体は本体が少し大きくする。境目をつかみやすく、マウス用の手がかりは出さない ---- */
+html.ipw-tab .ipw-split { width: 22px; margin-left: -11px; }
+html.ipw-tab .ipw-split::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 56px; margin: -28px 0 0 -3px; border-radius: 3px; background: rgba(173, 181, 189, .5); }
+html.ipw-tab ::-webkit-scrollbar { width: 14px; height: 14px; }
+/* オープニングの間はページの縦のスクロールバーを出さない */
+html.ipw:has(#ipxOp) { overflow: hidden; }

@@ -23,6 +23,8 @@
   .foot { border-top: 1px solid #262a33; padding: 4px 0 6px; }
   .foot button .ic { background: #343a40; font-size: 17px; width: 30px; height: 30px; }
   .foot button.busy { opacity: .5; pointer-events: none; }
+  .foot .mode .ic { font-size: 16px; background: #1f3a5f; }
+  body.tab .foot .mode .ic { background: #5c3d1e; }
   .ver { text-align: center; font-size: 10px; color: #868e96; padding: 2px 2px 0; line-height: 1.35; cursor: default; }
   .ver b { color: #7fd1a0; font-weight: 600; }
 </style>
@@ -31,6 +33,7 @@
   <div class="logo">一発<b>バーン</b>Windows</div>
   <nav id="apps"></nav>
   <div class="foot">
+    <button id="mode" class="mode" type="button" title=""><span class="ic">🖥</span><span class="nm">PC</span></button>
     <button id="upd" type="button" title="公開ページから全アプリの新しい版を取ってきて入れ替えます（写真・現場・設定は残ります）"><span class="ic">⟳</span><span class="nm">更新</span></button>
     <div class="ver" id="ver" title="">…</div>
   </div>
@@ -74,6 +77,21 @@
     });
   }
   showVer();
+
+  // 0.6.0：デスクトップ(マウス・キーボード)とタブレット(指で使う)の切り替え。押すと画面を読み込み直す
+  var md = document.getElementById('mode');
+  function showMode(m) {
+    var tab = m === 'tab';
+    document.body.classList.toggle('tab', tab);
+    md.firstChild.textContent = tab ? '✋' : '🖥';
+    md.lastChild.textContent = tab ? 'タブレット' : 'PC';
+    md.title = (tab ? 'いまはタブレット用(指で使う・大きめ)。' : 'いまはデスクトップ用(マウス・キーボード)。') +
+      '\n押すと' + (tab ? 'デスクトップ' : 'タブレット') + '用に切り替えます(Ctrl+Shift+' + (tab ? 'D' : 'T') + ')';
+  }
+  if (A && A.mode) {
+    A.mode().then(showMode);
+    md.onclick = function () { A.mode(document.body.classList.contains('tab') ? 'desk' : 'tab').then(showMode); };
+  } else md.style.display = 'none';
 
   var up = document.getElementById('upd');
   up.onclick = function () {

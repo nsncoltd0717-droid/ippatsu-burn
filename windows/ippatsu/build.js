@@ -2,7 +2,7 @@
 //   node build.js --prepare   … app/ に全アプリと部品を写すだけ(npm start 用)
 //   node build.js             … Windows 用(64bit)に組み立てて dist/ にフォルダ・zip・インストーラー(setup.exe)を作る
 //   node build.js --no-setup  … インストーラーは作らない(Linux で試すとき。インストーラーは Windows で組み立てる)
-//   node build.js --no-sign   … Windows でも署名しない(署名は AZURE_CLIENT_SECRET があるときだけ)
+//   node build.js --sign      … Windows で署名もする(Azure Artifact Signing。AZURE_CLIENT_SECRET が要る)
 // 元にするのはリポジトリ直下の各アプリの HTML(一発バーンのアプリ版と同じもの)。HTML はそのまま写し、
 // Windows 版の手当て(sw.js・書き出し名・パソコン向けの画面・写真ペン太郎の2列)は main.js が開くときに入れる。
 const fs = require('fs');
@@ -22,7 +22,8 @@ const SIGN = {
   certificateProfileName: 'ippatsu-public',
   publisherName: process.env.IPPATSU_SIGN_PUBLISHER || '株式会社グランテス',
 };
-const CAN_SIGN = process.platform === 'win32' && !!process.env.AZURE_CLIENT_SECRET && !process.argv.includes('--no-sign');
+// 署名するのは、Windows で --sign を付けたときだけ(証明書プロファイルができるまでは付けない)
+const CAN_SIGN = process.platform === 'win32' && process.argv.includes('--sign') && !!process.env.AZURE_CLIENT_SECRET;
 
 // フォルダの中の exe・dll をまとめて署名する(スマート アプリ コントロールは dll も見る)
 function signFolder(dir) {
@@ -95,7 +96,7 @@ async function build() {
   fs.writeFileSync(exe, Buffer.from(ex.generate()));
   // 署名は exe を書き換え終わってから(後で書き換えると署名が壊れる)
   if (CAN_SIGN) signFolder(outDir);
-  else console.warn('署名なしで組みます(Windows で AZURE_CLIENT_SECRET があるときだけ署名します)');
+  else console.warn('署名なしで組みます(署名するときは Windows で node build.js --sign)');
 
   fs.writeFileSync(path.join(outDir, 'はじめにお読みください.txt'),
 `一発バーン forWindows v${pkg.version}
@@ -109,6 +110,7 @@ async function build() {
   脳みそバーン・逃墨太郎・かまし太郎・くるくる・写し太郎・写真ペン太郎・ひそかに調べ太郎が入っていて、現場と写真は全アプリで共通です。
   書き出しは「名前を付けて保存」の窓が出るので、保存先を選びます。
   左の帯の「⟳ 更新」で、公開ページから全アプリの新しい版を取ってきます。帯の下に版が出ます。
+  左の帯の「🖥 PC / ✋ タブレット」で、マウス・キーボード用と指で使う用(全体が少し大きい)を切り替えます。
 
 ■ データ
   写真・現場・設定はこのパソコンの %APPDATA%\\${NAME} に残ります(Alt でメニュー →「ヘルプ → データの保存場所を開く」)。
