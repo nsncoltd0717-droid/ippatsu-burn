@@ -1,7 +1,7 @@
 {
   "name": "ippatsu-burn-windows",
   "productName": "一発バーン",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "一発バーン forWindows（脳みそバーン・逃墨太郎・かまし太郎・くるくる・写し太郎・写真ペン太郎をまとめたもの）",
   "main": "main.js",
   "private": true,

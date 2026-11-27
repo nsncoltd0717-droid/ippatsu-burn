@@ -48,7 +48,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png',
   '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.bcmap': 'application/octet-stream',
-  '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8', '.mp4': 'video/mp4',
+  '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
 };
 
 // ---------- 写真ペン太郎 forWindows のデータを引き継ぐ(初めて開いたときだけ) ----------
@@ -261,7 +261,8 @@ function patchPage(file, html) {
 // 「アプリの更新」で取った物があれば、そちらを使う(本体の版が変わったら、同梱の方に戻す)
 const webDir = () => path.join(app.getPath('userData'), 'web');
 function webMeta() { try { return JSON.parse(fs.readFileSync(path.join(webDir(), 'meta.json'), 'utf8')); } catch (e) { return null; } }
-const ASSET_RE = /vendor\/(?:ipx|opening)\/[A-Za-z0-9_.-]+/g;
+// 0.6.1：vendor/opening/voice/〜.mp3 のように、下のフォルダの中の物も取る(前は「vendor/opening/voice」で切れて更新が止まった)
+const ASSET_RE = /vendor\/(?:ipx|opening)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.[A-Za-z0-9]+/g;
 async function readWeb(rel) {
   const m = webMeta();
   if (m && m.shell === app.getVersion()) { try { return await fs.promises.readFile(path.join(webDir(), rel)); } catch (e) { /* */ } }
