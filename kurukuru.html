@@ -857,7 +857,7 @@
     <script>window.IPPATSU_APP = "kurukuru";</script>
     <script src="vendor/ipx/common_9faa4e06ef.js"></script>
     <script src="vendor/ipx/xs_9774e1a72b.js"></script>
-    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.36.2", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
+    <script>window.IPPATSU_OPENING = { name: "くるくる回し太郎", ver: "v0.37.0", girl: "vendor/opening/opening_girl_479cca19.webp", nologo: true, key: "ipx.op.kurukuru" };
 // 一発バーンのオープニング(2026-11-15 ゆきちゃん)。グランテスのロゴ → 女の子の絵 → 最初の画面。
 // 2026-11-24 ゆきちゃん:女の子の絵を動画(グランテスのヨーキーが杭を打つ。opening_movie.mp4)に入れ替え。C.movie(base64)があれば動画、無ければ今までの絵。動画は最後まで流して閉じる。
 // 11-24 音つきに:まず音ありで流し、端末に止められたら(iPhone など)音なしで流して「🔊 音を出す」を出す。押すと音が出る(スキップにはならない)。
@@ -995,6 +995,7 @@
 })();
 
     </script>
+    <script>window.IPPATSU_VOICE = {"tsugi": "vendor/opening/voice/gran_tsugi_833a40d2.mp3", "tsukamaeta": "vendor/opening/voice/gran_tsukamaeta_6ab36cb0.mp3", "koredeii": "vendor/opening/voice/gran_koredeii_95c3eb21.mp3", "chikazuite": "vendor/opening/voice/gran_chikazuite_eb3a2fbb.mp3", "mouchotto": "vendor/opening/voice/gran_mouchotto_506eecda.mp3", "koko": "vendor/opening/voice/gran_koko_5d62e87e.mp3"};</script>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -1105,7 +1106,7 @@ canvas.xs-3d { background: #0b0c0e !important; }
   <body>
     <header>
       <a class="menuback" href="./" aria-label="アプリを選ぶ画面へ" title="アプリを選ぶ画面へ">⌂</a>
-      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.36.2</small></h1>
+      <h1>くるくる回し太郎 <small style="font-size:11px;font-weight:400;color:var(--sub)">v0.37.0</small></h1>
       <div class="filebtn hopen"><button type="button">📂 ひらく</button><input id="file" type="file" accept="*/*" aria-label="図面か点ファイルをひらく" /></div>
       <button class="ghost hbtn" id="ctlBtn" type="button" aria-label="杭ナビ操作盤">🎛</button>
       <button class="ghost hbtn" id="menuBtn" type="button" aria-label="メニュー">メニュー</button>
@@ -1549,7 +1550,10 @@ canvas.xs-3d { background: #0b0c0e !important; }
             <div><label class="big-label sm" for="cfgSndSearch">サーチ完了の音</label><div class="snd-row"><select id="cfgSndSearch"><option value="piron">ピロン</option><option value="pirorin" selected>ピロリン</option><option value="pipi">ピピッ</option><option value="pon">ポーン</option><option value="pii">ピー</option><option value="none">なし</option></select><button type="button" class="ghost" id="sndSearchTest" aria-label="サーチ完了の音を鳴らしてみる">▶</button></div></div>
             <div><label class="big-label sm" for="cfgSndNear">杭打ちの近づき音</label><select id="cfgSndNear"><option value="on" selected>鳴らす(近いほど高く速く)</option><option value="off">鳴らさない</option></select></div>
             <div><label class="big-label sm" for="cfgGuideView">杭打ちの指示の向き</label><select id="cfgGuideView"><option value="op" selected>杭ナビに向かって立つ人から見て</option><option value="inst">杭ナビから見て</option></select></div>
-            <div><label class="big-label sm" for="cfgSndVol">音の大きさ</label><select id="cfgSndVol"><option value="0.3">小</option><option value="0.6" selected>中</option><option value="1">大</option></select></div>
+            <div><label class="big-label sm" for="cfgSndVol">電子音の大きさ</label><select id="cfgSndVol"><option value="0.3">小</option><option value="0.6" selected>中</option><option value="1">大</option></select></div>
+            <div><label class="big-label sm" for="cfgSndMode">鳴らす音(グラン君の声)</label><select id="cfgSndMode"><option value="both" selected>電子音とグラン君の声(両方)</option><option value="beep">電子音だけ</option><option value="voice">グラン君の声だけ</option></select></div>
+            <div><label class="big-label sm" for="cfgVoiceVol">グラン君の声の大きさ</label><select id="cfgVoiceVol"><option value="0.5">小</option><option value="1" selected>中</option><option value="1.5">大</option></select></div>
+            <div><button class="ghost" id="sndVoiceTest" type="button">🔊 グラン君の声を試す</button></div>
           </div>
           <p class="step-note">設定はこのスマホに覚えておきます。音以外は操作盤の表示に使うだけで、杭ナビには送りません。</p>
         </div>
@@ -3726,7 +3730,8 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
             if (L.trk === 2) this.trackAt = L.t;
             if (L.trk === 2 && was != null && was !== 2 && this.lostShown) { this.lostShown = false; setStatus("✓ プリズムを捕まえ直しました。そのまま杭打ちを続けられます。"); }
             if (was === 2 && L.trk !== 2) this.lostShown = true;
-            if (was === 3 && L.trk === 2) { beep("search"); ctlLogAdd("サーチ完了(プリズムを捕まえた)"); }
+            if (was === 3 && L.trk === 2) { sceneBeep("search"); ctlLogAdd("サーチ完了(プリズムを捕まえた)"); }
+            if (L.trk === 2 && was != null && was !== 2) voice("tsukamaeta", was === 3 ? 0.4 : 0.05);   // v0.37.0 プリズムを捕まえた(追尾がつかんだ)瞬間
             if (was === 2 && L.trk !== 2) ctlLogAdd("追尾が切れました");
             this.autoSearch(was, L);
             if (L.sd != null && L.v != null && L.h != null) { (this.hist = this.hist || []).push(L); if (this.hist.length > 40) this.hist.shift(); }
@@ -3862,6 +3867,54 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           }
         }
         window.kurukuruBeep = beep;
+        // v0.37.0 ゆきちゃん「電子音とグラン君の声を選択できるように」:⚙ の「鳴らす音」= both 両方(初期)・beep 電子音だけ・voice グラン君の声だけ
+        const sndMode = () => (($("cfgSndMode") || {}).value || "both");
+        const sceneBeep = (kind) => { if (sndMode() !== "voice") beep(kind); };   // 声のある場面の電子音(声だけのときは鳴らさない)
+
+        // ================================================================ グラン君の声(2026-11-27 v0.37.0 ゆきちゃん「今までの電子音と追加でグラン君の声」)
+        // 電子音はそのままで、そのあとに声を続ける。声のファイルは make_apps.py が vendor/voice/ に置き、window.IPPATSU_VOICE = { tsugi: URL, … } で渡す。
+        //   tsugi 次行くのだ(器械設置で既知点を計測)・tsukamaeta つかまえたのだ(プリズムを捕まえた)・koredeii これでいいのだ(器械点で決定)・
+        //   chikazuite 近づいてきたのだ(杭打ち 3 m 以内)・mouchotto もうちょっとなのだ(30 cm 以内)・koko ここなのだ(誤差の範囲)
+        // Android の WebView は画面にさわる前に音を出せないので、最初のタップで AudioContext を起こして、声を読み込んで(デコードして)おく。同じ声は 3 秒あける。
+        const VOICE = window.IPPATSU_VOICE || {};
+        const vBuf = {}, vLast = {};
+        let vLoading = false;
+        const voiceOn = () => sndMode() !== "beep";
+        function voiceLoad() {
+          if (vLoading || !Object.keys(VOICE).length) return;
+          const ac = audioCtx(); if (!ac) return;
+          vLoading = true;
+          for (const k in VOICE) fetch(VOICE[k]).then((r) => (r.ok ? r.arrayBuffer() : null))
+            .then((b) => (b ? new Promise((ok, ng) => ac.decodeAudioData(b, ok, ng)) : null)).then((buf) => { if (buf) vBuf[k] = buf; }).catch(() => { /* 声が無くても電子音は鳴る */ });
+        }
+        document.addEventListener("pointerdown", voiceLoad, { capture: true, passive: true });
+        function voice(key, delay, force) {
+          if ((!voiceOn() && !force) || !VOICE[key]) return false;
+          const ac = audioCtx(); if (!ac) return false;
+          voiceLoad();
+          const buf = vBuf[key], now = Date.now();
+          if (!buf || (!force && now - (vLast[key] || 0) < 3000)) return false;
+          if (sndMode() === "voice") delay = 0.02;   // 電子音が無いので待たない
+          vLast[key] = now;
+          const vol = Math.max(0, Math.min(1.5, Number(($("cfgVoiceVol") || {}).value || 1)));
+          const s = ac.createBufferSource(), g = ac.createGain(); g.gain.value = vol;
+          s.buffer = buf; s.connect(g); g.connect(ac.destination); s.start(ac.currentTime + (delay == null ? 0.35 : delay));   // 電子音のあとに
+          if (window.__voiceLog) window.__voiceLog.push(key);
+          return true;
+        }
+        // 杭打ちの近づき:段階(0 遠い・1 3 m 以内・2 30 cm 以内・3 誤差の範囲)が、その点でいちばん近づいた段階を超えたときだけ声。
+        // 杭を立て直して出たり入ったりしても繰り返さない。下の段階に 6 秒以上いたら(離れて出直したら)もう一度言う。点を変えたら最初から
+        let vNearLvl = 0, vNearPeak = 0, vNearTgt = null, vNearBelow = 0;
+        function voiceNear(g) {
+          if (!g) { vNearLvl = 0; return; }
+          if (vNearTgt !== target) { vNearTgt = target; vNearPeak = 0; vNearBelow = 0; }
+          const lv = g.ok ? 3 : g.r <= 300 ? 2 : g.r <= 3000 ? 1 : 0, now = Date.now();
+          if (lv < vNearPeak) { if (!vNearBelow) vNearBelow = now; else if (now - vNearBelow > 6000) { vNearPeak = lv; vNearBelow = 0; } }
+          else vNearBelow = 0;
+          if (lv > vNearPeak) { voice(["", "chikazuite", "mouchotto", "koko"][lv], lv === 3 ? 0.45 : 0.15); vNearPeak = lv; }
+          vNearLvl = lv;
+        }
+        window.kurukuruVoice = { play: voice, near: voiceNear, loaded: () => Object.keys(vBuf), state: () => ({ vNearLvl, vNearPeak }) };   // 試験用
 
         // ================================================================ 杭打ちの誘導(プリズムの今の位置 → 出す点までの 前後・左右・上下)と近づき音
         // プリズムの位置 = 器械点 + 水平距離 ×(方向角 = 杭ナビの水平角 + 向きのずれ hOff)。器械設置で器械点と hOff が決まっていると出る。
@@ -4102,8 +4155,10 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         setInterval(() => {
           const on = ($("cfgSndNear") || {}).value !== "off";
           const active = on && guideNow && (arOn || (!$("ctlOvl").hidden && ctlTab === "stake") || (typeof mode !== "undefined" && mode === "stake"));
-          if (!active) { nearOk = false; return; }
+          if (!active) { nearOk = false; voiceNear(null); return; }
           const now = Date.now(), g = guideNow;
+          voiceNear(g);   // v0.37.0 グラン君の声(段階が上がったとき)
+          if (sndMode() === "voice") { nearOk = !!g.ok; return; }   // 声だけ:連続のピッピッ・ピロリンも止める(段階が変わったときの声だけ)
           if (g.ok) { if (!nearOk || now - nearLast > 1500) { nearOk = true; nearLast = now; playTones(SOUNDS.pirorin); } return; }
           nearOk = false;
           const band = NEAR.find((b) => g.r <= b[0]); if (!band) return;
@@ -4155,7 +4210,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
           if (ctMethod !== "known") kPlanPut(p.name);
           if (roleOf(p) !== "known") p.role = "known";
           if (ctMethod !== "known") { if (kSeq.length === 1) k1 = p.name; else if (kSeq.length === 2 && p.name !== k1) k2 = p.name; }
-          beep("meas"); $("kResult").hidden = true; kPending = null;
+          sceneBeep("meas"); voice("tsugi"); $("kResult").hidden = true; kPending = null;   // v0.37.0 次行くのだ
           ctlLogAdd(`既知点${kSeq.length} ${p.name} を計測  水平角 ${dms(o.h)}・水平距離 ${o.hd.toFixed(4)} m・比高 ${o.vd.toFixed(4)} m(${o.n} 回の平均)`);
           kNext = nextKnown();
           const need = ctMethod === "known" ? 1 : 2;
@@ -4260,12 +4315,16 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         }
         const sgCell = (lbl, v, lim) => `<div><small>${lbl}</small><b class="${v != null && v > lim ? "bad" : ""}">${v == null ? "---" : v.toFixed(1)}</b><small>mm</small></div>`;
         let kPending = null, kBad = false;   // 計算した器械点(「✓ この器械点で決定」を押すまで決めない)
+        window.kurukuruVoice.t = {   // 試験用(v0.37.0 グラン君の声の場面を作る)
+          kui: KuiNavi, measNext, next: (n) => { kNext = n; }, guide: (g) => { guideNow = g; }, mode: (m) => { mode = m; }, tgt: (n) => { target = n; },
+          pend: () => { kBad = false; kPending = () => {}; $("kResult").innerHTML = '<div class="kr-btns"><button type="button" data-kr="ok" id="__krok">ok</button></div>'; $("kResult").hidden = false; },
+        };
         $("kResult").addEventListener("click", (e) => {
           const b = e.target.closest("[data-kr]"); if (!b) return;
           if (b.dataset.kr === "ok") {
             if (!kPending) return;
             if (kBad && !confirm("残差が目安を超えています。このまま、この器械点で進みますか?")) return;
-            const go = kPending; kPending = null; go();
+            const go = kPending; kPending = null; go(); voice("koredeii", 0.05);   // v0.37.0 これでいいのだ(器械の設置が完了)
             const bt = $("kResult").querySelector(".kr-btns"); if (bt) bt.outerHTML = `<p class="kr-done">✓ この器械点で決めました。杭打ちに進めます。</p>`;
             const nt = $("kResult").querySelector(".kr-note"); if (nt) nt.remove();
             if (typeof renderKWiz === "function") renderKWiz();
@@ -4752,7 +4811,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
         $("siteImpFile").addEventListener("change", () => { const f = $("siteImpFile").files[0]; if (f) siteImport(f); });
 
         // ---- 設定
-        const CFG = ["cfgAutoSearch", "cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol", "cfgSndNear", "cfgGuideView"];
+        const CFG = ["cfgAutoSearch", "cfgPrism", "cfgMirror", "cfgUnit", "cfgTol", "cfgModel", "cfgLink", "cfgRelay", "cfgBar", "cfgSearch", "cfgSigma", "cfgPre", "cfgSndMeas", "cfgSndSearch", "cfgSndVol", "cfgSndNear", "cfgGuideView", "cfgSndMode", "cfgVoiceVol"];
         try { const c = JSON.parse(load("kr.cfg") || "{}"); for (const k of CFG) if (c[k] != null) $(k).value = c[k]; } catch (e) { /* */ }
         // 操作盤の「プリズム」「ミラー高」はその場で変えられる(設定と同じ値)
         $("csPrism").innerHTML = $("cfgPrism").innerHTML;
@@ -4798,6 +4857,7 @@ setStatus("🔗 くるくる中継が見つかりません。Termux で中継を
 
         $("sndMeasTest").addEventListener("click", () => beep("meas", true));
         $("sndSearchTest").addEventListener("click", () => beep("search", true));
+        $("sndVoiceTest").addEventListener("click", () => { audioCtx(); voiceLoad(); setTimeout(() => { if (!voice("tsugi", 0.02, true)) setStatus("グラン君の声を読み込み中です。もう一度押してください。"); }, 300); });
 
         // ---- メニューのタイル
         const SOON = {
